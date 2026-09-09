@@ -1,0 +1,60 @@
+---
+# ---------------------------------------------------------------------------
+# FILESTORE  (execute sur le primaire uniquement)
+# Le streaming PG ne replique PAS les fichiers joints : on pousse
+# {{ odoo_filestore }} vers les standby via rsync/ssh + timer systemd.
+# ---------------------------------------------------------------------------
+- name: Calculer la liste des IP des standby
+  ansible.builtin.set_fact:
+    standby_ips: "{{ groups['standby'] | map('extract', hostvars, 'ansible_host') | list }}"
+
+- name: Generer une paire de cles SSH pour root sur le primaire
+  ansible.builtin.command: ssh-keygen -t ed25519 -N "" -f /root/.ssh/id_ed25519
+  args:
+    creates: /root/.ssh/id_ed25519
+
+- name: Lire la cle publique du primaire
+  ansible.builtin.slurp:
+    src: /root/.ssh/id_ed25519.pub
+  register: _primary_pubkey
+
+- name: Autoriser la cle du primaire sur chaque standby
+  ansible.posix.authorized_key:
+    user: root
+    key: "{{ _primary_pubkey.content | b64decode }}"
+    state: present
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['standby'] }}"
+
+- name: Installer le script de synchro du filestore
+  ansible.builtin.template:
+    src: odoo-filestore-sync.sh.j2
+    dest: /usr/local/bin/odoo-filestore-sync.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Installer l'unite systemd de synchro
+  ansible.builtin.template:
+    src: odoo-filestore-sync.service.j2
+    dest: /etc/systemd/system/odoo-filestore-sync.service
+    mode: "0644"
+
+- name: Installer le timer systemd de synchro
+  ansible.builtin.template:
+    src: odoo-filestore-sync.timer.j2
+    dest: /etc/systemd/system/odoo-filestore-sync.timer
+    mode: "0644"
+
+- name: Activer le timer de synchro du filestore
+  ansible.builtin.systemd:
+    name: odoo-filestore-sync.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Premiere synchro immediate du filestore
+  ansible.builtin.systemd:
+    name: odoo-filestore-sync.service
+    state: started
+  failed_when: false

@@ -1,0 +1,67 @@
+---
+# ---------------------------------------------------------------------------
+# PRIMAIRE
+# ---------------------------------------------------------------------------
+- name: Deposer les parametres de replication (conf.d)
+  ansible.builtin.template:
+    src: replication.conf.j2
+    dest: "{{ pg_conf_dir }}/conf.d/replication.conf"
+    owner: postgres
+    group: postgres
+    mode: "0644"
+  notify: restart postgresql
+
+- name: Autoriser la connexion de replication dans pg_hba.conf
+  community.postgresql.postgresql_pg_hba:
+    dest: "{{ pg_conf_dir }}/pg_hba.conf"
+    contype: host
+    databases: replication
+    users: "{{ pg_replication_user }}"
+    source: "{{ item }}"
+    method: scram-sha-256
+  loop: "{{ pg_allowed_cidrs }}"
+  notify: reload postgresql
+
+- name: Autoriser les connexions applicatives odoo depuis les autres noeuds
+  community.postgresql.postgresql_pg_hba:
+    dest: "{{ pg_conf_dir }}/pg_hba.conf"
+    contype: host
+    databases: all
+    users: odoo
+    source: "{{ item }}"
+    method: scram-sha-256
+  loop: "{{ pg_allowed_cidrs }}"
+  notify: reload postgresql
+
+- name: Appliquer immediatement les changements PostgreSQL
+  ansible.builtin.meta: flush_handlers
+
+- name: Creer le role de replication
+  community.postgresql.postgresql_user:
+    name: "{{ pg_replication_user }}"
+    password: "{{ pg_replication_password }}"
+    role_attr_flags: "REPLICATION,LOGIN"
+    state: present
+  become: true
+  become_user: postgres
+
+# role_attr_flags est OBLIGATOIRE ici : sans lui, postgresql_user remet les
+# attributs du role a leurs valeurs par defaut et lui retire CREATEDB, ce qui
+# empeche Odoo de creer la moindre base ("permission denied to create database").
+- name: Donner un mot de passe au role odoo (utile apres promotion / TCP)
+  community.postgresql.postgresql_user:
+    name: odoo
+    password: "{{ odoo_db_password }}"
+    role_attr_flags: "LOGIN,CREATEDB"
+    state: present
+  become: true
+  become_user: postgres
+  no_log: true
+
+- name: Verifier que le primaire n'est PAS en recovery
+  community.postgresql.postgresql_query:
+    query: "SELECT pg_is_in_recovery() AS in_recovery"
+  become: true
+  become_user: postgres
+  register: _recov
+  failed_when: _recov.query_result[0].in_recovery | bool

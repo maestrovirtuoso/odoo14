@@ -1,0 +1,20 @@
+---
+# ===========================================================================
+# Nettoyage des conteneurs Odoo entre deux lancements.
+#
+# Reparation APT seule (non destructif) - a lancer quand un playbook a
+# echoue en cours d'installation et laisse dpkg/apt dans un etat instable :
+#   ansible-playbook playbooks/nettoyage_odoo.yaml --ask-vault-pass
+#
+# Reset complet (DESTRUCTIF : supprime bases PostgreSQL et filestore Odoo) :
+#   ansible-playbook playbooks/nettoyage_odoo.yaml --ask-vault-pass -e full_reset=true
+#
+# Pour repartir de zero au niveau des conteneurs eux-memes (destruction et
+# recreation LXC), c'est playbooks/nettoyage.yaml + ansi2-snapchot.yaml.
+# ===========================================================================
+
+- name: Nettoyer l'etat laisse par les lancements precedents
+  hosts: odoo_containers
+  gather_facts: true
+  roles:
+    - odoo_cleanup

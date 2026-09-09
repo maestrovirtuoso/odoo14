@@ -1,0 +1,6 @@
+---
+# Conteneur(s) LXC deployes sur CHAQUE hote du groupe gluster_servers
+# (les 3 VM listees dans inventory.yaml).
+# Template "download" : -d debian -r bullseye -a amd64  =>  Debian 11
+containers:
+  - { name: "devodoo14" }

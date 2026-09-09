@@ -1,0 +1,88 @@
+---
+# ---------------------------------------------------------------------------
+# STANDBY
+# ---------------------------------------------------------------------------
+- name: Deposer les parametres de replication (conf.d)
+  ansible.builtin.template:
+    src: replication.conf.j2
+    dest: "{{ pg_conf_dir }}/conf.d/replication.conf"
+    owner: postgres
+    group: postgres
+    mode: "0644"
+
+- name: Fichier .pgpass pour l'utilisateur postgres (basebackup + streaming)
+  ansible.builtin.copy:
+    dest: /var/lib/postgresql/.pgpass
+    owner: postgres
+    group: postgres
+    mode: "0600"
+    content: "{{ odoo_primary_container_ip }}:5432:*:{{ pg_replication_user }}:{{ pg_replication_password }}\n"
+  no_log: true
+
+- name: Determiner si le noeud est deja un standby
+  ansible.builtin.stat:
+    path: "{{ pg_data_dir }}/standby.signal"
+  register: _standby_signal
+
+- name: Amorcer le standby depuis le primaire (pg_basebackup)
+  when: not _standby_signal.stat.exists
+  block:
+    - name: Arreter PostgreSQL
+      ansible.builtin.service:
+        name: postgresql
+        state: stopped
+
+    - name: Supprimer l'ancien repertoire de donnees (pg_basebackup exige un dossier vide)
+      ansible.builtin.file:
+        path: "{{ pg_data_dir }}"
+        state: absent
+
+    - name: Recreer le repertoire de donnees
+      ansible.builtin.file:
+        path: "{{ pg_data_dir }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: "0700"
+
+    - name: Copie de base depuis le primaire
+      ansible.builtin.command: >-
+        pg_basebackup
+        -h {{ odoo_primary_container_ip }} -p 5432
+        -U {{ pg_replication_user }}
+        -D {{ pg_data_dir }}
+        -Fp -Xs -P -R
+      become: true
+      become_user: postgres
+      args:
+        creates: "{{ pg_data_dir }}/backup_manifest"
+
+    - name: Retablir les permissions du repertoire de donnees
+      ansible.builtin.file:
+        path: "{{ pg_data_dir }}"
+        owner: postgres
+        group: postgres
+        mode: "0700"
+        recurse: true
+
+    - name: Redemarrer PostgreSQL en standby
+      ansible.builtin.service:
+        name: postgresql
+        state: started
+
+- name: Recharger la conf si le noeud etait deja standby
+  ansible.builtin.service:
+    name: postgresql
+    state: restarted
+  when: _standby_signal.stat.exists
+
+- name: Verifier que le standby est bien en recovery
+  community.postgresql.postgresql_query:
+    query: "SELECT pg_is_in_recovery() AS in_recovery"
+  become: true
+  become_user: postgres
+  register: _recov
+  retries: 10
+  delay: 3
+  until: _recov.query_result is defined and _recov.query_result | length > 0
+  failed_when: not (_recov.query_result[0].in_recovery | bool)

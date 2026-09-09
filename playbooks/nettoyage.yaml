@@ -1,0 +1,8 @@
+---
+- name: Desinstaller LXC et nettoyer ce que le playbook a installe
+  hosts: gluster_servers
+  gather_facts: true
+  vars_files:
+    - ../common/group_vars/local_dev.yml
+  roles:
+    - cleanup

@@ -1,0 +1,54 @@
+---
+# ---------------------------------------------------------------------------
+# Garantit que le bridge lxcbr0 existe et porte la bonne adresse.
+#
+# Sur un hote ou NetworkManager gere deja des bridges (cas de Node3 avec br0),
+# NM s'approprie lxcbr0, ne trouve aucun profil et le supprime : lxc-net dit
+# "success" mais le bridge disparait, et lxc-start echoue ensuite avec
+# "Failed to attach vethXXX to bridge lxcbr0".
+# On verifie donc explicitement, avec relance directe de lxc-net si besoin.
+# ---------------------------------------------------------------------------
+
+- name: Verifier la presence de lxcbr0
+  ansible.builtin.command: "ip -br link show {{ lxc_bridge }}"
+  register: _br_check
+  changed_when: false
+  failed_when: false
+
+- name: Relancer lxc-net si le bridge est absent
+  when: _br_check.rc != 0
+  block:
+    - name: Nettoyer le marqueur network_up (lxc-net refuse de demarrer sinon)
+      ansible.builtin.file:
+        path: /run/lxc/network_up
+        state: absent
+
+    - name: Demarrer lxc-net directement
+      ansible.builtin.command: /usr/libexec/lxc/lxc-net start
+      register: _lxcnet_start
+      changed_when: true
+      failed_when: false
+
+    - name: Re-verifier la presence de lxcbr0
+      ansible.builtin.command: "ip -br link show {{ lxc_bridge }}"
+      register: _br_recheck
+      changed_when: false
+      failed_when: false
+
+    - name: Echouer avec un message exploitable si lxcbr0 reste absent
+      ansible.builtin.fail:
+        msg: >-
+          {{ lxc_bridge }} introuvable sur {{ inventory_hostname }} apres
+          relance de lxc-net. Sortie : {{ _lxcnet_start.stdout | default('') }}
+          {{ _lxcnet_start.stderr | default('') }}
+          Verifier /etc/sysconfig/lxc-net, la presence de dnsmasq, et que
+          NetworkManager ne reprend pas la main sur le bridge.
+      when: _br_recheck.rc != 0
+
+- name: S'assurer que lxcbr0 porte l'adresse attendue
+  ansible.builtin.command: "ip addr replace {{ lxcbr0_cidr }} dev {{ lxc_bridge }}"
+  changed_when: true
+
+- name: S'assurer que lxcbr0 est up
+  ansible.builtin.command: "ip link set dev {{ lxc_bridge }} up"
+  changed_when: true

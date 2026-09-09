@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+[options]
+admin_passwd = {{ odoo_admin_password }}
+db_host = False
+db_port = False
+db_user = {{ odoo_db_user }}
+db_password = {{ odoo_db_password }}
+dbfilter = .*
+list_db = {{ odoo_list_db | ternary('True', 'False') }}
+addons_path = {{ odoo_addons_path }}
+data_dir = /var/lib/odoo
+logfile = {{ odoo_log_path }}
+log_level = info
+proxy_mode = True
+workers = 2
+max_cron_threads = 1

@@ -1,0 +1,19 @@
+---
+pg_version: "13"
+pg_conf_dir: "/etc/postgresql/{{ pg_version }}/main"
+pg_data_dir: "/var/lib/postgresql/{{ pg_version }}/main"
+
+pg_replication_user: replicator
+pg_replication_password: replicator
+pg_wal_keep_size: "512MB"
+pg_max_wal_senders: 10
+
+pg_allowed_cidrs:
+  - 10.0.1.0/24
+  - 10.0.2.0/24
+  - 10.0.3.0/24
+
+odoo_primary_container_ip: 10.0.1.10
+odoo_system_user: odoo
+odoo_filestore: /var/lib/odoo/.local/share/Odoo/filestore
+filestore_sync_interval: "2min"

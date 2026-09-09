@@ -1,0 +1,8 @@
+---
+- name: Installer un conteneur LXC Debian 11 (bullseye) sur les VM Gluster
+  hosts: gluster_servers
+  gather_facts: true
+  vars_files:
+    - ../common/group_vars/local_dev.yml
+  roles:
+    - install

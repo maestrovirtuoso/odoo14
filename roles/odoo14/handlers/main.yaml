@@ -1,0 +1,11 @@
+---
+- name: restart odoo
+  ansible.builtin.service:
+    name: odoo
+    state: restarted
+  when: odoo_role == 'primary'
+
+- name: restart postgresql
+  ansible.builtin.service:
+    name: postgresql
+    state: restarted

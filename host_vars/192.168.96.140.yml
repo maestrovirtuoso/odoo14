@@ -1,0 +1,16 @@
+---
+# Node2 - heberge un conteneur standby (odoo2)
+lxcbr0_addr: 10.0.2.1
+lxcbr0_cidr: 10.0.2.1/24
+lxcbr0_network: 10.0.2.0/24
+lxcbr0_netmask: 255.255.255.0
+lxcbr0_dhcp_range: 10.0.2.2,10.0.2.254
+container_ip: 10.0.2.10
+container_gateway: 10.0.2.1
+
+peer_container_routes:
+  - { network: 10.0.1.0/24, via: 192.168.96.139 }
+  - { network: 10.0.3.0/24, via: 192.168.96.141 }
+
+# Passe a true seulement apres une promotion de ce noeud en primaire.
+publish_odoo_web: false

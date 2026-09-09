@@ -1,0 +1,176 @@
+---
+# ===========================================================================
+# Role odoo14  -  execute DANS les conteneurs (groupe odoo_containers, Debian 11)
+# Installe Odoo 14 depuis le depot APT nightly officiel + PostgreSQL.
+# ===========================================================================
+
+- name: Afficher la cible
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }} ({{ ansible_host }}) - role Odoo : {{ odoo_role }}"
+
+- name: Assainir les sources APT (Debian 11 en fin de vie)
+  ansible.builtin.import_tasks: apt_sources.yaml
+
+- name: Installer les dependances de base
+  ansible.builtin.apt:
+    name:
+      # gpgv est liste explicitement avec gnupg : sans cela apt refuse de
+      # mettre a jour l'un sans l'autre ("held broken packages").
+      - gnupg
+      - gpgv
+      - wget
+      - ca-certificates
+      - python3-pip
+      - fonts-liberation
+      - rsync
+      - wkhtmltopdf
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# ---------------------------------------------------------------------------
+# PostgreSQL - serveur
+# Le paquet Debian d'Odoo ne depend que de postgresql-CLIENT : sans cette
+# tache il n'y a aucun serveur, et "service postgresql" n'existe pas.
+# Il doit tourner AVANT qu'Odoo ne demarre, sinon Odoo boucle sur l'echec
+# de connexion a la base.
+# ---------------------------------------------------------------------------
+- name: Installer le serveur PostgreSQL
+  ansible.builtin.apt:
+    name:
+      - postgresql
+      - "postgresql-{{ pg_version }}"
+      - postgresql-client
+      - python3-psycopg2
+    state: present
+
+- name: Demarrer PostgreSQL
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: true
+
+# ---------------------------------------------------------------------------
+# Depot Odoo nightly
+# ---------------------------------------------------------------------------
+- name: Recuperer la cle du depot Odoo
+  ansible.builtin.get_url:
+    url: "{{ odoo_nightly_key_url }}"
+    dest: /usr/share/keyrings/odoo-archive-keyring.asc
+    mode: "0644"
+    timeout: 30
+  register: _odoo_key
+  until: _odoo_key is succeeded
+  retries: 5
+  delay: 10
+
+- name: Ajouter le depot Odoo nightly {{ odoo_version }}
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/odoo-archive-keyring.asc] {{ odoo_nightly_repo }}"
+    filename: odoo
+    state: present
+    update_cache: true
+
+- name: Installer Odoo {{ odoo_version }}
+  ansible.builtin.apt:
+    name: odoo
+    state: present
+  notify: restart odoo
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+- name: Creer le repertoire de log Odoo
+  ansible.builtin.file:
+    path: "{{ odoo_log_path | dirname }}"
+    state: directory
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0755"
+
+- name: Deposer /etc/odoo/odoo.conf
+  ansible.builtin.template:
+    src: odoo.conf.j2
+    dest: "{{ odoo_config_path }}"
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0640"
+  notify: restart odoo
+
+- name: S'assurer que l'arborescence du filestore existe
+  ansible.builtin.file:
+    path: "{{ odoo_filestore }}"
+    state: directory
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0750"
+
+# ---------------------------------------------------------------------------
+# Role SQL et base initiale - primaire uniquement.
+# Les standbys sont en lecture seule ; ils recevront role et base par la
+# replication elle-meme (les roles sont globaux au cluster).
+# ---------------------------------------------------------------------------
+- name: Creer le role PostgreSQL odoo avec CREATEDB
+  community.postgresql.postgresql_user:
+    name: "{{ odoo_db_user }}"
+    password: "{{ odoo_db_password }}"
+    role_attr_flags: "LOGIN,CREATEDB"
+    state: present
+  become: true
+  become_user: postgres
+  when: odoo_role == 'primary'
+
+- name: Verifier si la base initiale existe deja
+  community.postgresql.postgresql_query:
+    query: "SELECT 1 FROM pg_database WHERE datname = %(db)s"
+    named_args:
+      db: "{{ odoo_initial_db }}"
+  become: true
+  become_user: postgres
+  register: _db_present
+  changed_when: false
+  when:
+    - odoo_role == 'primary'
+    - odoo_initial_db | length > 0
+
+- name: Initialiser la base Odoo
+  # list_db = False interdit le gestionnaire de bases web : la creation passe
+  # forcement par la ligne de commande.
+  ansible.builtin.command:
+    argv:
+      - odoo
+      - -c
+      - "{{ odoo_config_path }}"
+      - --logfile=
+      - -d
+      - "{{ odoo_initial_db }}"
+      - -i
+      - base
+      - --without-demo=all
+      - --stop-after-init
+  become: true
+  become_user: "{{ odoo_system_user }}"
+  register: _db_init
+  changed_when: true
+  when:
+    - odoo_role == 'primary'
+    - odoo_initial_db | length > 0
+    - _db_present.query_result | default([]) | length == 0
+
+- name: Demarrer les handlers en attente (avant de figer l'etat des services)
+  ansible.builtin.meta: flush_handlers
+
+# ---------------------------------------------------------------------------
+# Etat des services selon le role
+# ---------------------------------------------------------------------------
+- name: PostgreSQL actif et persistant sur tous les noeuds
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: Odoo actif uniquement sur le primaire
+  ansible.builtin.service:
+    name: odoo
+    state: "{{ 'started' if odoo_role == 'primary' else 'stopped' }}"
+    enabled: "{{ odoo_role == 'primary' }}"

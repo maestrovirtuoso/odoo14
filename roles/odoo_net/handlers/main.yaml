@@ -1,0 +1,4 @@
+---
+# Les operations sensibles (lxc-net, conteneur, routes) sont appliquees en ligne
+# dans tasks/main.yaml pour garantir l'ordre. Aucun handler differe ici.
+[]

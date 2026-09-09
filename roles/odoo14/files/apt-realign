@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Realigne les paquets installes sur les versions offertes par les depots.
+
+Contexte : Debian 11 est en fin de vie. Le depot bullseye-security n'est plus
+exploitable (Release expire, pool purge, pas d'archive), mais des lancements
+anterieurs ont installe des paquets dans leurs versions "security". Les depots
+restants n'offrent que les versions d'origine, et apt se bloque des qu'une
+dependance stricte est en jeu :
+
+    perl : Depends: perl-base (= 5.32.1-4+deb11u3) but 5.32.1-4+deb11u5 ...
+
+PIEGE : on ne peut PAS se fier a pkg.candidate. Pour un paquet installe dans
+une version absente de tout depot, python-apt renvoie comme candidate la
+version installee elle-meme -- la comparaison donne alors une egalite et le
+paquet passe inapercu. C'est exactement le cas de perl-base en u5.
+Il faut comparer a la meilleure version TELECHARGEABLE (v.downloadable),
+c'est-a-dire reellement presente dans un depot configure.
+
+Les retrogradations sont appliquees en UNE SEULE transaction apt : les paquets
+lies par une dependance stricte (perl / perl-base) doivent bouger ensemble.
+"""
+import functools
+import subprocess
+import sys
+
+try:
+    import apt
+    import apt_pkg
+except ImportError:
+    sys.exit("python3-apt est requis")
+
+
+def newest(versions):
+    """Version la plus recente d'une liste, au sens de la comparaison Debian."""
+    return max(
+        versions,
+        key=functools.cmp_to_key(
+            lambda a, b: apt_pkg.version_compare(a.version, b.version)
+        ),
+    )
+
+
+def main():
+    cache = apt.Cache()
+    targets = []
+    orphans = []
+
+    for pkg in cache:
+        if not pkg.is_installed:
+            continue
+        installed = pkg.installed.version
+        # Seules les versions presentes dans un depot sont exploitables.
+        available = [v for v in pkg.versions if v.downloadable]
+        if not available:
+            # Plus dans aucun depot : impossible de retrograder. On le signale,
+            # sans le supprimer (trop risque pour un paquet potentiellement utile).
+            orphans.append("%s=%s" % (pkg.name, installed))
+            continue
+        best = newest(available)
+        if apt_pkg.version_compare(installed, best.version) > 0:
+            targets.append("%s=%s" % (pkg.name, best.version))
+
+    if orphans:
+        print("hors depot (non traites): %s" % " ".join(sorted(orphans)))
+
+    if not targets:
+        print("aucune retrogradation necessaire")
+        return 0
+
+    targets.sort()
+    print("retrogradation de %d paquet(s): %s" % (len(targets), " ".join(targets)))
+    return subprocess.call(
+        ["apt-get", "install", "-y", "--allow-downgrades"] + targets
+    )
+
+
+if __name__ == "__main__":
+    sys.exit(main())

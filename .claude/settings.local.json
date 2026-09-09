@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/urielakam/.local/bin/**)",
+      "Bash(python3 -m pip list --user)",
+      "Bash(bash -lc 'echo $PATH; which -a ansible-playbook; ansible-playbook --version 2>&1 | head -3')"
+    ]
+  }
+}

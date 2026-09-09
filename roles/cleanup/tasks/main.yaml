@@ -1,0 +1,79 @@
+---
+# Annule ce que le role "install" a fait sur les VM.
+# Option : passer  -e remove_epel=true  pour desinstaller aussi epel-release.
+
+- name: Detruire les conteneurs LXC
+  ansible.builtin.command: "lxc-destroy --force --name {{ item.name }}"
+  loop: "{{ containers }}"
+  register: _destroy
+  changed_when: _destroy.rc == 0
+  failed_when: false
+
+- name: Arreter et desactiver les services LXC
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - lxc
+    - lxc-net
+  failed_when: false
+
+- name: Supprimer les paquets LXC (Rocky / RHEL)
+  ansible.builtin.package:
+    name:
+      - lxc
+      - lxc-templates
+      - python3-lxc
+      - bridge-utils
+    state: absent
+  when: ansible_os_family in ["RedHat", "Rocky", "AlmaLinux", "CentOS"]
+
+- name: Supprimer les paquets LXC (Debian / Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - lxc
+      - lxc-templates
+      - python3-lxc
+      - bridge-utils
+    state: absent
+    purge: true
+  when: ansible_os_family == "Debian"
+
+- name: Retirer les dependances orphelines (Rocky / RHEL)
+  ansible.builtin.command: dnf -y autoremove
+  register: _autoremove
+  changed_when: "'Nothing to do' not in _autoremove.stdout"
+  when: ansible_os_family in ["RedHat", "Rocky", "AlmaLinux", "CentOS"]
+
+- name: Supprimer les repertoires et fichiers crees pour LXC
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/lxc
+    - /var/cache/lxc
+    - /var/log/lxc
+    - /etc/lxc
+    - /etc/sysconfig/lxc-net
+
+- name: Supprimer le depot EPEL (seulement si -e remove_epel=true)
+  ansible.builtin.package:
+    name: epel-release
+    state: absent
+  when:
+    - remove_epel is defined and remove_epel
+    - ansible_os_family in ["RedHat", "Rocky", "AlmaLinux", "CentOS"]
+
+- name: Remettre SELINUX=enforcing dans la config
+  ansible.builtin.replace:
+    path: /etc/selinux/config
+    regexp: '^SELINUX=permissive'
+    replace: 'SELINUX=enforcing'
+  when: ansible_os_family in ["RedHat", "Rocky", "AlmaLinux", "CentOS"]
+
+- name: Reactiver SELinux immediatement
+  ansible.builtin.command: setenforce 1
+  changed_when: true
+  failed_when: false
+  when: ansible_os_family in ["RedHat", "Rocky", "AlmaLinux", "CentOS"]

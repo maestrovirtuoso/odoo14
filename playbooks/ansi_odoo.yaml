@@ -1,0 +1,41 @@
+---
+# ===========================================================================
+# Deploiement Odoo 14 + replication PostgreSQL streaming sur les 3 conteneurs
+# LXC "devodoo14" (un par hote du groupe gluster_servers).
+#
+# Prerequis :
+#   - les conteneurs sont deja crees (playbook ansi2-snapchot.yaml / role install)
+#   - une paire de cles SSH existe sur le poste de controle (ssh-keygen)
+#   - authentification par CLE vers les 3 hotes gluster (les plays 2 et 3
+#     atteignent les conteneurs via ProxyCommand -> ssh cle indispensable) :
+#       for h in 139 140 141; do ssh-copy-id root@192.168.96.$h; done
+#   - collections : ansible-galaxy collection install -r ../requirements.yml
+#   - secrets chiffres : ansible-vault encrypt group_vars/odoo_containers/vault.yml
+#
+# Lancement :
+#   ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass
+#   (ajouter -k au premier passage si l'hote demande encore un mot de passe)
+# ===========================================================================
+
+- name: "1/3 - Reseau des hotes : sous-reseaux LXC, routage inter-noeuds, publication Odoo"
+  hosts: gluster_servers
+  gather_facts: true
+  vars_files:
+    - ../common/group_vars/local_dev.yml
+  roles:
+    - odoo_net
+
+- name: "2/3 - Installation d'Odoo 14 (depot nightly) dans les conteneurs"
+  hosts: odoo_containers
+  gather_facts: true
+  roles:
+    - odoo14
+
+- name: "3/3 - Replication PostgreSQL streaming + synchro du filestore"
+  hosts: odoo_containers
+  gather_facts: true
+  # Le primaire doit etre configure avant les standby (pg_basebackup).
+  order: sorted
+  serial: 1
+  roles:
+    - odoo_replication

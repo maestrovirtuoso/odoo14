@@ -1,0 +1,24 @@
+---
+# ===========================================================================
+# Role odoo_replication  -  execute DANS les conteneurs (odoo_containers)
+# Streaming PostgreSQL : 1 primaire + N standby, + synchro du filestore Odoo.
+# ===========================================================================
+
+- name: Installer le connecteur PostgreSQL pour Ansible
+  ansible.builtin.apt:
+    name: python3-psycopg2
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Configuration du primaire
+  ansible.builtin.import_tasks: primary.yaml
+  when: odoo_role == 'primary'
+
+- name: Configuration des standby
+  ansible.builtin.import_tasks: standby.yaml
+  when: odoo_role == 'standby'
+
+- name: Synchronisation du filestore Odoo (pilotee par le primaire)
+  ansible.builtin.import_tasks: filestore.yaml
+  when: odoo_role == 'primary'

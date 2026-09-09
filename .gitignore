@@ -1,0 +1,13 @@
+# Secrets : vault.yml n'est versionne QUE s'il est chiffre avec ansible-vault.
+# Tant qu'il est en clair, il reste hors du depot.
+group_vars/odoo_containers/vault.yml
+
+# Artefacts Ansible
+*.retry
+collections/
+ansible.log
+
+# Divers
+*.swp
+*~
+.DS_Store

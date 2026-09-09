@@ -1,0 +1,131 @@
+---
+# ---------------------------------------------------------------------------
+# Sources APT pour Debian 11, en fin de vie depuis aout 2026.
+#
+# Etat constate sur ce parc :
+#  - deb.debian.org/debian bullseye + bullseye-updates : servis, coherents (u2)
+#  - deb.debian.org/debian-security bullseye-security  : Release expire ET
+#    pool partiellement purge (404 sur python-apt-common)
+#  - archive.debian.org/debian bullseye                : servi, coherent
+#  - archive.debian.org/debian-security                : INEXISTANT (404,
+#    pas de fichier Release)
+# => Aucun depot securite exploitable. On se limite a main + updates, ce qui
+#    donne un jeu coherent. Les correctifs de securite ne sont plus
+#    disponibles pour cette distribution : c'est inherent a son EOL.
+#
+# Deux sequelles des lancements precedents sont traitees ici :
+#  - paquets installes en version superieure a celle des depots restants
+#    -> realignement avec --allow-downgrades
+#  - paquets laisses en etat incoherent par un dpkg interrompu
+#    -> reinstallation, ou suppression forcee s'ils sont orphelins
+# ---------------------------------------------------------------------------
+
+- name: Tolerer les fichiers Release expires (Debian 11 EOL)
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/99-ignore-valid-until
+    mode: "0644"
+    content: |
+      Acquire::Check-Valid-Until "false";
+
+- name: Ecrire des sources APT coherentes
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list
+    mode: "0644"
+    content: |
+      deb {{ debian_mirror }} bullseye main contrib non-free
+      deb {{ debian_mirror }} bullseye-updates main contrib non-free
+  register: _sources
+
+- name: Rafraichir le cache apt
+  ansible.builtin.command: apt-get update
+  register: _apt_update
+  changed_when: true
+  failed_when: false
+
+- name: Basculer sur archive.debian.org si le miroir principal ne repond plus
+  when: _apt_update.rc != 0
+  block:
+    - name: Afficher la raison de la bascule
+      ansible.builtin.debug:
+        msg: "{{ (_apt_update.stdout_lines | default([])) + (_apt_update.stderr_lines | default([])) }}"
+
+    - name: Reecrire sources.list sur archive.debian.org
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list
+        mode: "0644"
+        content: |
+          deb http://archive.debian.org/debian bullseye main contrib non-free
+
+    - name: Rafraichir le cache apt depuis l'archive
+      ansible.builtin.command: apt-get update
+      changed_when: true
+
+# ---------------------------------------------------------------------------
+# Reparation de l'etat dpkg herite des lancements precedents
+# ---------------------------------------------------------------------------
+- name: Reparer les paquets laisses en etat incoherent
+  ansible.builtin.shell: |
+    set -u
+    # Un paquet sain a le statut "install ok installed" ; tout autre etat
+    # (half-configured, reinstreq...) bloque toute operation apt ulterieure.
+    broken=$(dpkg-query -W -f='${Package} ${Status}\n' 2>/dev/null \
+             | awk '$4 != "installed" {print $1}')
+    if [ -z "$broken" ]; then
+      echo "aucun paquet casse"
+      exit 0
+    fi
+    echo "paquets casses:$(echo $broken | tr '\n' ' ')"
+    # D'abord la reinstallation propre.
+    if apt-get install -y --reinstall $broken; then
+      echo "reinstallation reussie"
+    else
+      # Sinon suppression forcee : ces paquets sont des orphelins de l'image
+      # (dependances ModemManager & co, inutiles en conteneur).
+      echo "reinstallation impossible, suppression forcee"
+      dpkg --remove --force-remove-reinstreq $broken || true
+    fi
+    dpkg --configure -a || true
+    apt-get -y --fix-broken install || true
+  register: _apt_repair
+  changed_when: "'aucun paquet casse' not in _apt_repair.stdout"
+
+# ---------------------------------------------------------------------------
+# Realignement des versions sur les depots restants
+#
+# Codee en dur sur quelques paquets, cette etape ratait tous les autres :
+# apres gnupg/gpgv c'est perl/perl-base qui bloquait. Le script traite
+# desormais TOUT paquet installe en version superieure a la candidate, et
+# les retrograde en UNE SEULE transaction apt (indispensable : les paquets
+# lies par une dependance stricte doivent bouger ensemble).
+# ---------------------------------------------------------------------------
+- name: Deposer l'outil de realignement APT
+  ansible.builtin.copy:
+    src: apt-realign
+    dest: /usr/local/sbin/apt-realign
+    mode: "0755"
+
+- name: Realigner les paquets sur les versions offertes par les depots
+  ansible.builtin.command: /usr/local/sbin/apt-realign
+  register: _apt_realign
+  changed_when: "'retrogradation de' in _apt_realign.stdout"
+
+- name: Afficher le realignement effectue
+  ansible.builtin.debug:
+    var: _apt_realign.stdout_lines
+
+- name: Finaliser les dependances apres realignement
+  ansible.builtin.shell: |
+    dpkg --configure -a || true
+    apt-get -y --fix-broken install || true
+  register: _apt_settle
+  changed_when: false
+
+# Simule l'installation de TOUT ce que le role va reellement demander :
+# le blocage se revele ici, avant d'avoir modifie quoi que ce soit.
+- name: Validation finale de la coherence APT
+  ansible.builtin.shell: >-
+    apt-get -s install -y gnupg gpgv wget rsync wkhtmltopdf
+    postgresql postgresql-{{ pg_version }} python3-psycopg2
+  register: _apt_final
+  changed_when: false
+  failed_when: _apt_final.rc != 0

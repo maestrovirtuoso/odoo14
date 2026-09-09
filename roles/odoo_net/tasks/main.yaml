@@ -1,0 +1,478 @@
+---
+# ===========================================================================
+# Role odoo_net  -  execute sur les HOTES (gluster_servers, Rocky 8)
+# But : donner a chaque conteneur devodoo14 un sous-reseau lxcbr0 distinct,
+#       router entre les 3 sous-reseaux via le LAN, publier l'UI Odoo,
+#       et amorcer un acces SSH dans le conteneur pour la suite du playbook.
+#
+# Toutes les etapes sensibles sont appliquees EN LIGNE (pas via handlers
+# differes) pour respecter l'ordre : lxc-net -> conteneur -> firewalld ->
+# re-assert lxc-net -> bootstrap SSH.
+# ===========================================================================
+
+- name: Verifier que les variables d'hote sont definies
+  ansible.builtin.assert:
+    that:
+      - lxcbr0_addr is defined
+      - lxcbr0_network is defined
+      - container_ip is defined
+    fail_msg: >-
+      host_vars/{{ inventory_hostname }}.yml manquant ou incomplet
+      (lxcbr0_addr / lxcbr0_network / container_ip).
+
+# ---------------------------------------------------------------------------
+# 1. Sous-reseau lxcbr0 propre a l'hote
+# ---------------------------------------------------------------------------
+- name: Configurer le sous-reseau de lxcbr0 dans /etc/sysconfig/lxc-net
+  ansible.builtin.lineinfile:
+    path: /etc/sysconfig/lxc-net
+    regexp: "^{{ item.key }}="
+    line: '{{ item.key }}="{{ item.value }}"'
+    create: true
+    mode: "0644"
+  loop:
+    - { key: "USE_LXC_BRIDGE", value: "true" }
+    - { key: "LXC_BRIDGE", value: "{{ lxc_bridge }}" }
+    - { key: "LXC_ADDR", value: "{{ lxcbr0_addr }}" }
+    - { key: "LXC_NETMASK", value: "{{ lxcbr0_netmask }}" }
+    - { key: "LXC_NETWORK", value: "{{ lxcbr0_network }}" }
+    - { key: "LXC_DHCP_RANGE", value: "{{ lxcbr0_dhcp_range }}" }
+    - { key: "LXC_DHCP_MAX", value: "253" }
+  loop_control:
+    label: "{{ item.key }}"
+  register: _lxcnet_cfg
+
+- name: Forcer l'IP statique du conteneur (systemd-networkd dans le rootfs)
+  ansible.builtin.copy:
+    dest: "/var/lib/lxc/{{ lxc_container_name }}/rootfs/etc/systemd/network/eth0.network"
+    mode: "0644"
+    content: |
+      [Match]
+      Name=eth0
+
+      [Network]
+      Address={{ container_ip }}/24
+      Gateway={{ container_gateway }}
+      DNS={{ container_gateway }}
+  register: _eth0_net
+
+# NetworkManager s'approprie lxcbr0 et les veth s'il n'a pas d'instruction
+# contraire, et les detruit faute de profil associe. Symptome : lxc-net dit
+# "success" mais le bridge n'existe pas, et lxc-start echoue avec
+# "Failed to attach vethXXX to bridge lxcbr0" (constate sur Node3, qui gere
+# deja br0 via NM).
+- name: Soustraire lxcbr0 et les veth a NetworkManager
+  ansible.builtin.copy:
+    dest: /etc/NetworkManager/conf.d/99-lxc-unmanaged.conf
+    mode: "0644"
+    content: |
+      [keyfile]
+      unmanaged-devices=interface-name:{{ lxc_bridge }};interface-name:veth*
+  register: _nm_unmanaged
+
+- name: Recharger NetworkManager
+  ansible.builtin.command: nmcli general reload
+  changed_when: true
+  when: _nm_unmanaged is changed
+
+- name: Redemarrer lxc-net si le sous-reseau a change
+  ansible.builtin.service:
+    name: lxc-net
+    state: restarted
+  when: _lxcnet_cfg is changed
+
+- name: Garantir la presence du bridge lxcbr0
+  ansible.builtin.include_tasks: ensure_lxcbr0.yaml
+
+- name: Arreter le conteneur avant reconfiguration reseau
+  ansible.builtin.command: "lxc-stop -n {{ lxc_container_name }}"
+  register: _lxc_stop
+  changed_when: _lxc_stop.rc == 0
+  failed_when: false
+  when: _lxcnet_cfg is changed or _eth0_net is changed
+
+- name: (Re)demarrer le conteneur et confirmer l'etat RUNNING
+  block:
+    - name: (Re)demarrer le conteneur
+      ansible.builtin.command: "lxc-start -n {{ lxc_container_name }} -d"
+      register: _lxc_start
+      changed_when: _lxc_start.rc == 0
+      failed_when: false
+
+    - name: Attendre que le conteneur ait un PID actif
+      ansible.builtin.command: "lxc-info -n {{ lxc_container_name }} -sH"
+      register: _lxc_state
+      until: _lxc_state.stdout | trim == "RUNNING"
+      retries: 100
+      delay: 2
+      changed_when: false
+  rescue:
+    - name: Recuperer le log du conteneur
+      ansible.builtin.command: "tail -n 80 /var/log/lxc/{{ lxc_container_name }}.log"
+      register: _lxc_log
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher la config et le log du conteneur
+      ansible.builtin.debug:
+        msg: "{{ _lxc_log.stdout_lines | default(['(log absent)']) }}"
+
+    - name: Relayer l'echec de demarrage
+      ansible.builtin.fail:
+        msg: >-
+          Le conteneur {{ lxc_container_name }} ne demarre pas sur
+          {{ inventory_hostname }}. Voir le log ci-dessus. Verifier
+          /var/lib/lxc/{{ lxc_container_name }}/config (lxc.net.0.*),
+          l'espace disque, et 'systemctl status lxc-net'.
+
+# ---------------------------------------------------------------------------
+# 2. Routage inter-hotes entre les sous-reseaux des conteneurs
+# ---------------------------------------------------------------------------
+- name: Activer le routage IPv4 (persistant)
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Installer le hook NetworkManager pour les routes conteneurs
+  ansible.builtin.copy:
+    dest: /etc/NetworkManager/dispatcher.d/90-odoo-container-routes
+    mode: "0755"
+    content: |
+      #!/bin/bash
+      [ "$2" = "up" ] || exit 0
+      {% for r in peer_container_routes %}
+      ip route replace {{ r.network }} via {{ r.via }}
+      {% endfor %}
+
+- name: Appliquer les routes immediatement
+  ansible.builtin.command: "ip route replace {{ item.network }} via {{ item.via }}"
+  loop: "{{ peer_container_routes }}"
+  loop_control:
+    label: "{{ item.network }} via {{ item.via }}"
+  changed_when: true
+
+# ---------------------------------------------------------------------------
+# 3. firewalld : forwarding inter-noeuds + publication de l'UI Odoo
+#    (le masquerade sortant des conteneurs est deja gere par lxc-net)
+# ---------------------------------------------------------------------------
+- name: S'assurer que firewalld tourne
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+  failed_when: false
+
+- name: Placer lxcbr0 dans la zone trusted
+  ansible.posix.firewalld:
+    zone: trusted
+    interface: "{{ lxc_bridge }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  failed_when: false
+
+- name: Autoriser le forwarding entre les sous-reseaux conteneurs (regles directes)
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - --permanent
+      - --direct
+      - --add-rule
+      - ipv4
+      - filter
+      - FORWARD
+      - "0"
+      - "{{ item }}"
+      - 10.0.0.0/16
+      - -j
+      - ACCEPT
+  loop: ["-s", "-d"]
+  register: _fwd_rule
+  changed_when: "'ALREADY_ENABLED' not in _fwd_rule.stderr"
+  failed_when: _fwd_rule.rc != 0 and 'ALREADY_ENABLED' not in _fwd_rule.stderr
+
+# lxc-net pose son MASQUERADE avec "iptables -I". Sur Rocky 8, firewalld
+# (backend nftables) balaye ces regles a chaque --reload : le conteneur perd
+# alors tout acces sortant, et apt echoue dans le conteneur.
+# On redeclare donc le NAT en regle DIRECTE PERMANENTE : firewalld la
+# reapplique lui-meme a chaque reload, ce qui la rend durable.
+- name: NAT sortant du sous-reseau conteneur (regle directe permanente)
+  ansible.builtin.command:
+    argv:
+      - firewall-cmd
+      - --permanent
+      - --direct
+      - --add-rule
+      - ipv4
+      - nat
+      - POSTROUTING
+      - "0"
+      - -s
+      - "{{ lxcbr0_network }}"
+      - "!"
+      - -d
+      - "{{ lxcbr0_network }}"
+      - -j
+      - MASQUERADE
+  register: _nat_rule
+  changed_when: "'ALREADY_ENABLED' not in _nat_rule.stderr"
+  failed_when: _nat_rule.rc != 0 and 'ALREADY_ENABLED' not in _nat_rule.stderr
+
+- name: Activer le masquerade zone public (retour DNAT + trafic route)
+  ansible.posix.firewalld:
+    zone: public
+    masquerade: true
+    permanent: true
+    immediate: true
+    state: enabled
+
+- name: Publier l'UI web Odoo du conteneur sur l'IP LAN de l'hote (DNAT)
+  ansible.posix.firewalld:
+    zone: public
+    rich_rule: >-
+      rule family="ipv4"
+      forward-port port="{{ odoo_web_port }}" protocol="tcp"
+      to-port="{{ odoo_web_port }}" to-addr="{{ container_ip }}"
+    permanent: true
+    immediate: true
+    state: "{{ 'enabled' if (publish_odoo_web | default(false)) else 'disabled' }}"
+
+- name: Recharger firewalld
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: true
+
+# firewalld --reload purge les regles iptables posees par lxc-net :
+# on relance lxc-net APRES pour qu'il les reinsere (NAT sortant + FORWARD).
+# Le conteneur est arrete d'abord pour que son veth soit recree proprement
+# sur le bridge remis a neuf.
+- name: Arreter le conteneur avant de relancer lxc-net
+  ansible.builtin.command: "lxc-stop -n {{ lxc_container_name }}"
+  register: _lxc_stop2
+  changed_when: _lxc_stop2.rc == 0
+  failed_when: false
+
+- name: Re-asserter les regles lxc-net apres le reload firewalld
+  ansible.builtin.service:
+    name: lxc-net
+    state: restarted
+
+- name: Re-garantir la presence du bridge lxcbr0
+  ansible.builtin.include_tasks: ensure_lxcbr0.yaml
+
+- name: Redemarrer le conteneur apres le restart lxc-net
+  ansible.builtin.command: "lxc-start -n {{ lxc_container_name }} -d"
+  register: _lxc_restart2
+  changed_when: _lxc_restart2.rc == 0
+  failed_when: false
+
+- name: Re-verifier l'etat RUNNING du conteneur
+  ansible.builtin.command: "lxc-info -n {{ lxc_container_name }} -sH"
+  register: _lxc_state2
+  until: _lxc_state2.stdout | trim == "RUNNING"
+  retries: 15
+  delay: 2
+  changed_when: false
+
+- name: Attendre que systemd-networkd du conteneur configure eth0
+  ansible.builtin.command:
+    argv:
+      - lxc-attach
+      - -n
+      - "{{ lxc_container_name }}"
+      - --
+      - /bin/bash
+      - -c
+      - |
+        for i in $(seq 1 30); do
+          if ip -4 addr show eth0 2>/dev/null | grep -q '{{ container_ip }}'; then
+            echo IP_OK; exit 0
+          fi
+          sleep 1
+        done
+        echo IP_KO
+        ip -4 addr show eth0 2>&1 || true
+  register: _ctr_ip
+  changed_when: false
+  # lxc-attach perd le code retour : on valide sur le marqueur.
+  failed_when: "'IP_OK' not in _ctr_ip.stdout"
+
+# ---------------------------------------------------------------------------
+# 4. Amorcage de l'acces SSH dans le conteneur (via lxc-attach)
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# 3bis. Acces sortant du conteneur (prerequis a apt) - on echoue ICI, sur la
+#       vraie cause, plutot que plus loin sur un apt qui rate.
+# ---------------------------------------------------------------------------
+- name: Verifier que le NAT sortant est actif dans la table nat
+  ansible.builtin.shell: >-
+    iptables -t nat -S POSTROUTING | grep -q -- "-s {{ lxcbr0_network }}"
+  register: _nat_present
+  changed_when: false
+  failed_when: false
+
+- name: Reappliquer lxc-net si le NAT sortant manque
+  ansible.builtin.service:
+    name: lxc-net
+    state: restarted
+  when: _nat_present.rc != 0
+
+# ATTENTION : lxc-attach (LXC 3.0.4) NE PROPAGE PAS le code retour de la
+# commande - il renvoie toujours 0. Tout controle execute dans le conteneur
+# doit donc etre valide par un MARQUEUR dans stdout, jamais par .rc.
+- name: Verifier que le conteneur atteint Internet
+  ansible.builtin.command: >-
+    lxc-attach -n {{ lxc_container_name }} --
+    bash -c "for i in 1 2 3 4 5 6 7 8 9 10; do getent hosts deb.debian.org >/dev/null 2>&1 && { echo NET_OK; exit 0; }; sleep 2; done; echo NET_KO; ip r; cat /etc/resolv.conf"
+  register: _ctr_net
+  changed_when: false
+  failed_when: false
+
+- name: Diagnostic si le conteneur n'a pas d'acces sortant
+  when: "'NET_OK' not in _ctr_net.stdout"
+  block:
+    - name: Collecter l'etat du NAT et du forwarding
+      ansible.builtin.shell: |
+        echo "--- nat POSTROUTING ---"; iptables -t nat -S POSTROUTING
+        echo "--- filter FORWARD ---"; iptables -S FORWARD | head -20
+        echo "--- resolv.conf conteneur ---"
+        lxc-attach -n {{ lxc_container_name }} -- cat /etc/resolv.conf
+      register: _nat_dbg
+      changed_when: false
+      failed_when: false
+
+    - name: Echouer sur l'absence d'acces sortant
+      ansible.builtin.fail:
+        msg: >-
+          Le conteneur {{ lxc_container_name }} sur {{ inventory_hostname }}
+          n'a pas d'acces reseau sortant : apt ne pourra pas installer
+          openssh-server ni Odoo.
+          Sortie du conteneur : {{ _ctr_net.stdout_lines | default([]) | join(' | ') }}
+          Etat des regles : {{ _nat_dbg.stdout_lines | default([]) | join(' | ') }}
+
+- name: Verifier qu'une cle publique de controleur est disponible
+  ansible.builtin.assert:
+    that: controller_ssh_pubkey | length > 0
+    fail_msg: >-
+      Aucune cle SSH sur le poste de controle. Fais 'ssh-keygen' puis relance,
+      ou passe -e controller_ssh_pubkey="ssh-ed25519 AAAA...".
+
+- name: Installer openssh-server + cle du controleur dans le conteneur
+  ansible.builtin.command:
+    argv:
+      - lxc-attach
+      - -n
+      - "{{ lxc_container_name }}"
+      - --
+      - /bin/bash
+      - -c
+      - |
+        # Pas de "set -e" : on veut derouler jusqu'au bout et TOUT tracer sur
+        # stdout, seule voie de retour fiable (lxc-attach perd le code retour).
+        exec 2>&1
+        export DEBIAN_FRONTEND=noninteractive
+
+        # Debian 11 est en fin de vie (aout 2026) :
+        #  - le fichier Release de bullseye-security est expire
+        #    -> "E: ... is expired", apt-get update renvoie non-zero
+        #  - le pool de bullseye-security sur deb.debian.org est purge
+        #    -> "404 Not Found" sur python-apt-common, l'installation echoue
+        # On desactive le controle de date, et on bascule la source securite
+        # vers archive.debian.org (avec repli : suppression si indisponible).
+        printf 'Acquire::Check-Valid-Until "false";\n' \
+          > /etc/apt/apt.conf.d/99-ignore-valid-until
+
+        # Tout doit venir d'UNE SEULE origine : melanger deb.debian.org (main
+        # fige en u2) et archive.debian.org (securite en u3) casse la
+        # resolution ("gnupg : Depends: gpgv (< ...u2.1~) but ...u3").
+        {
+          printf 'deb http://archive.debian.org/debian bullseye main contrib non-free\n'
+          printf 'deb http://archive.debian.org/debian bullseye-updates main contrib non-free\n'
+          printf 'deb http://archive.debian.org/debian-security bullseye-security main contrib non-free\n'
+        } > /etc/apt/sources.list
+
+        if ! { apt-get update && apt-get -s install -y gnupg gpgv >/dev/null; }; then
+          echo "--- archive.debian.org inutilisable : repli deb.debian.org sans securite ---"
+          {
+            printf 'deb http://deb.debian.org/debian bullseye main contrib non-free\n'
+            printf 'deb http://deb.debian.org/debian bullseye-updates main contrib non-free\n'
+          } > /etc/apt/sources.list
+          apt-get update || true
+        fi
+
+        # Paquets indispensables pour la suite :
+        #  - openssh-server : Ansible atteint le conteneur en SSH (plays 2 et 3)
+        #  - python3        : sans lui, tout module Ansible echoue en "not found"
+        #  - python3-apt    : requis par le module apt d'Ansible
+        # dpkg -s est la seule preuve fiable qu'un paquet est installe :
+        # "command -v" peut reussir sur un residu et masquer un apt rate.
+        REQUIRED="openssh-server python3 python3-apt"
+        missing=""
+        for p in $REQUIRED; do
+          dpkg -s "$p" >/dev/null 2>&1 || missing="$missing $p"
+        done
+
+        if [ -n "$missing" ]; then
+          installed=0
+          for i in 1 2 3; do
+            echo "--- tentative apt $i (manquants:$missing) ---"
+            if apt-get update && apt-get install -y $missing; then
+              installed=1; break
+            fi
+            sleep 5
+          done
+          if [ "$installed" != "1" ]; then
+            echo "ECHEC: installation de$missing impossible apres 3 tentatives."
+            echo "--- DNS ---"; getent hosts deb.debian.org || echo "resolution KO"
+            echo "--- routes ---"; ip r
+            echo "--- resolv.conf ---"; cat /etc/resolv.conf
+            exit 10
+          fi
+        fi
+
+        for p in $REQUIRED; do
+          dpkg -s "$p" >/dev/null 2>&1 || { echo "ECHEC: $p absent apres installation"; exit 10; }
+        done
+
+        install -d -m 700 /root/.ssh
+        touch /root/.ssh/authorized_keys
+        chmod 600 /root/.ssh/authorized_keys
+        grep -qF "{{ controller_ssh_pubkey }}" /root/.ssh/authorized_keys \
+          || echo "{{ controller_ssh_pubkey }}" >> /root/.ssh/authorized_keys
+        sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+
+        # Les cles d'hote manquent parfois en conteneur : sshd refuse de demarrer.
+        ssh-keygen -A
+
+        systemctl enable ssh
+        systemctl restart ssh
+        if ! systemctl is-active --quiet ssh; then
+          echo "ECHEC: ssh.service inactif"
+          systemctl status ssh --no-pager -l || true
+          journalctl -u ssh --no-pager -n 30 || true
+          exit 11
+        fi
+        if ! ss -ltn | grep -qE '(0\.0\.0\.0|\[::\]):22[[:space:]]'; then
+          echo "ECHEC: rien n'ecoute sur :22"
+          ss -ltn
+          exit 12
+        fi
+        # Ansible utilise cet interpreteur (cf. ansible_python_interpreter
+        # dans inventory.yaml) : on verifie qu'il repond vraiment.
+        /usr/bin/python3 -c 'import sys; print("python", sys.version.split()[0])' \
+          || { echo "ECHEC: /usr/bin/python3 inutilisable"; exit 13; }
+
+        echo "BOOTSTRAP_SSH_OK"
+  register: _ssh_bootstrap
+  changed_when: true
+  # lxc-attach renvoie toujours 0 (LXC 3.0.4) : on valide sur le marqueur.
+  failed_when: "'BOOTSTRAP_SSH_OK' not in _ssh_bootstrap.stdout"
+
+- name: Attendre que le port SSH du conteneur soit ouvert (vu depuis l'hote)
+  ansible.builtin.wait_for:
+    host: "{{ container_ip }}"
+    port: 22
+    timeout: 120
+    delay: 2

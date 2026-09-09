@@ -1,0 +1,124 @@
+---
+- name: Afficher l'OS detecte
+  debug:
+    msg: "{{ ansible_distribution }} {{ ansible_distribution_version }} (famille {{ ansible_os_family }})"
+
+# ---------------------------------------------------------------------------
+# Debian / Ubuntu
+# ---------------------------------------------------------------------------
+- name: Installer les dependances LXC (Debian / Ubuntu)
+  apt:
+    name:
+      - lxc
+      - lxc-templates
+      - python3-lxc
+      - bridge-utils
+      - wget
+      - gnupg
+      - dirmngr
+      - rsync
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+
+# ---------------------------------------------------------------------------
+# Rocky / RHEL / CentOS / Alma
+# ---------------------------------------------------------------------------
+- name: Activer le depot EPEL (Rocky / RHEL)
+  package:
+    name: epel-release
+    state: present
+  when: ansible_os_family in ["RedHat", "Rocky", ]
+
+- name: Installer les dependances LXC (Rocky / RHEL)
+  package:
+    name:
+      - lxc
+      - lxc-templates
+      - python3-lxc
+      - bridge-utils
+      - dnsmasq
+      - iptables
+      - wget
+      - gnupg2
+      - rsync
+      - ca-certificates
+    state: present
+  when: ansible_os_family in ["RedHat", "Rocky",]
+
+- name: Passer SELinux en permissif (requis pour LXC sur Rocky)
+  ansible.builtin.command: setenforce 0
+  register: _setenforce
+  changed_when: _setenforce.rc == 0
+  failed_when: false
+  when: ansible_os_family in ["RedHat", "Rocky",]
+
+- name: Rendre SELinux permissif persistant
+  ansible.builtin.replace:
+    path: /etc/selinux/config
+    regexp: '^SELINUX=enforcing'
+    replace: 'SELINUX=permissive'
+  when: ansible_os_family in ["RedHat", "Rocky", ]
+
+# ---------------------------------------------------------------------------
+# Commun
+# ---------------------------------------------------------------------------
+- name: S'assurer que le repertoire de configuration LXC existe
+  file:
+    path: /etc/lxc
+    state: directory
+    mode: '0755'
+
+- name: Activer le bridge LXC (Rocky / RHEL)
+  ansible.builtin.copy:
+    dest: /etc/sysconfig/lxc-net
+    content: "USE_LXC_BRIDGE=\"true\"\n"
+    mode: '0644'
+  when: ansible_os_family in ["RedHat", "Rocky", ]
+
+- name: Demarrer et activer le reseau LXC (bridge lxcbr0)
+  service:
+    name: lxc-net
+    state: started
+    enabled: true
+  failed_when: false
+
+- name: Demarrer et activer le service LXC
+  service:
+    name: lxc
+    state: started
+    enabled: true
+  failed_when: false
+
+- name: Creer et demarrer les conteneurs Debian 11 (bullseye)
+  block:
+    - name: Creer et demarrer les conteneurs
+      community.general.lxc_container:
+        name: "{{ item.name }}"
+        container_log: true
+        template: download
+        state: started
+        template_options: -d debian -r bullseye -a amd64 --no-validate
+      loop: "{{ containers }}"
+  rescue:
+    - name: Afficher le log lxc-create en cas d'echec
+      ansible.builtin.command: "tail -n 60 /var/log/lxc/lxc-{{ item.name }}.log"
+      loop: "{{ containers }}"
+      register: _lxclog
+      changed_when: false
+      failed_when: false
+
+    - name: Sortie du log
+      ansible.builtin.debug:
+        var: _lxclog.results | map(attribute='stdout') | list
+
+    - name: Relayer l'echec
+      ansible.builtin.fail:
+        msg: "lxc-create a echoue - voir le log ci-dessus"
+
+- name: Activer le demarrage automatique des conteneurs
+  lineinfile:
+    dest: "/var/lib/lxc/{{ item.name }}/config"
+    line: "lxc.start.auto = 1"
+    state: present
+  loop: "{{ containers }}"
