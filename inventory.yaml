@@ -4,26 +4,18 @@
 192.168.96.140 ansible_user=root
 
 # ---------------------------------------------------------------------------
-# Conteneurs LXC "devodoo14" - un par hote Gluster.
+# Conteneurs LXC "devodoo14" - un par hote Gluster, instances autonomes.
 # Ansible les atteint en rebondissant (ProxyCommand) sur leur hote respectif :
 # le conteneur n'a pas d'IP routable depuis le poste de controle, mais il est
 # joignable depuis son hote via lxcbr0.
 # proxy_host = IP LAN de l'hote qui heberge le conteneur.
-# odoo_role  = primary (1 seul) | standby.
 # ---------------------------------------------------------------------------
 [odoo_containers]
-odoo1 ansible_host=10.0.1.10 odoo_role=primary proxy_host=192.168.96.139
-odoo2 ansible_host=10.0.2.10 odoo_role=standby proxy_host=192.168.96.140
-odoo3 ansible_host=10.0.3.10 odoo_role=standby proxy_host=192.168.96.141
+odoo1 ansible_host=10.0.1.10 proxy_host=192.168.96.139
+odoo2 ansible_host=10.0.2.10 proxy_host=192.168.96.140
+odoo3 ansible_host=10.0.3.10 proxy_host=192.168.96.141
 
 [odoo_containers:vars]
 ansible_user=root
 ansible_python_interpreter=/usr/bin/python3
 ansible_ssh_common_args=-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand="ssh -W %h:%p -q -o StrictHostKeyChecking=no root@{{ proxy_host }}"
-
-[primary]
-odoo1
-
-[standby]
-odoo2
-odoo3

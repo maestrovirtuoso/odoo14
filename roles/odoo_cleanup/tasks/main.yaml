@@ -127,9 +127,11 @@
         - /var/log/odoo
         - /etc/apt/sources.list.d/odoo.list
         - /usr/share/keyrings/odoo-archive-keyring.asc
+        # Reliquats de l'ancienne architecture repliquee
         - /usr/local/bin/odoo-filestore-sync.sh
         - /etc/systemd/system/odoo-filestore-sync.service
         - /etc/systemd/system/odoo-filestore-sync.timer
+        - "{{ pg_conf_dir | default('/etc/postgresql/13/main') }}/conf.d/replication.conf"
 
     - name: Recharger systemd apres suppression des unites
       ansible.builtin.systemd:

@@ -1,8 +1,0 @@
-# {{ ansible_managed }}
-[Unit]
-Description=Synchronise le filestore Odoo vers les standby
-After=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/odoo-filestore-sync.sh

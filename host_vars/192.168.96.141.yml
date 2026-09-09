@@ -12,5 +12,4 @@ peer_container_routes:
   - { network: 10.0.1.0/24, via: 192.168.96.139 }
   - { network: 10.0.2.0/24, via: 192.168.96.140 }
 
-# Passe a true seulement apres une promotion de ce noeud en primaire.
-publish_odoo_web: false
+publish_odoo_web: true

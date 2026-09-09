@@ -18,12 +18,9 @@ odoo_log_path: /var/log/odoo/odoo.log
 odoo_addons_path: /usr/lib/python3/dist-packages/odoo/addons
 odoo_filestore: /var/lib/odoo/.local/share/Odoo/filestore
 
-# odoo_role est defini par hote dans l'inventaire (primary | standby).
-odoo_role: standby
-
 # Version PostgreSQL livree par Debian 11 bullseye.
 pg_version: "13"
 
-# Base Odoo creee au premier deploiement sur le primaire.
+# Base Odoo locale creee au premier deploiement sur chaque noeud.
 # Mettre "" pour ne creer aucune base.
 odoo_initial_db: prod

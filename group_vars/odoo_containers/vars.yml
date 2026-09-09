@@ -22,27 +22,5 @@ pg_version: "13"
 pg_conf_dir: "/etc/postgresql/{{ pg_version }}/main"
 pg_data_dir: "/var/lib/postgresql/{{ pg_version }}/main"
 
-# Replication streaming
-pg_replication_user: replicator
-pg_replication_password: "{{ vault_pg_replication_password }}"
-pg_wal_keep_size: "512MB"
-pg_max_wal_senders: 10
-
-# Reseaux autorises a se connecter a PostgreSQL (conteneurs + IP LAN des hotes,
-# car le trafic inter-conteneurs est masquerade derriere l'IP de l'hote source).
-pg_allowed_cidrs:
-  - 10.0.1.0/24
-  - 10.0.2.0/24
-  - 10.0.3.0/24
-  - 192.168.96.139/32
-  - 192.168.96.140/32
-  - 192.168.96.141/32
-
-# IP du conteneur primaire (cible du pg_basebackup et de la synchro filestore).
-odoo_primary_container_ip: 10.0.1.10
-
-# Intervalle de synchro du filestore Odoo vers les standby.
-filestore_sync_interval: "2min"
-
-# Base Odoo initiale creee sur le primaire ("" pour n'en creer aucune).
+# Base Odoo locale creee sur CHAQUE noeud ("" pour n'en creer aucune).
 odoo_initial_db: prod

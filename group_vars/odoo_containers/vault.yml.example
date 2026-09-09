@@ -5,4 +5,3 @@
 # Remplacer ces valeurs par des mots de passe forts.
 vault_odoo_admin_password: "change-me-admin"
 vault_odoo_db_password: "change-me-odoo-db"
-vault_pg_replication_password: "change-me-replication"

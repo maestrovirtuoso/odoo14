@@ -6,7 +6,7 @@
 
 - name: Afficher la cible
   ansible.builtin.debug:
-    msg: "{{ inventory_hostname }} ({{ ansible_host }}) - role Odoo : {{ odoo_role }}"
+    msg: "{{ inventory_hostname }} ({{ ansible_host }}) - instance Odoo autonome"
 
 - name: Assainir les sources APT (Debian 11 en fin de vie)
   ansible.builtin.import_tasks: apt_sources.yaml
@@ -106,21 +106,72 @@
     mode: "0750"
 
 # ---------------------------------------------------------------------------
-# Role SQL et base initiale - primaire uniquement.
-# Les standbys sont en lecture seule ; ils recevront role et base par la
-# replication elle-meme (les roles sont globaux au cluster).
+# Autonomie du noeud
+#
+# Un noeud precedemment configure en standby de replication tourne en mode
+# recovery : sa base est en LECTURE SEULE et Odoo ne peut pas y ecrire. On le
+# promeut pour le rendre independant, et on retire les reliquats de
+# replication (standby.signal est consomme par la promotion, il reste le
+# fichier de conf et primary_conninfo).
+# ---------------------------------------------------------------------------
+- name: Determiner si PostgreSQL est en mode recovery
+  community.postgresql.postgresql_query:
+    query: "SELECT pg_is_in_recovery() AS in_recovery"
+  become: true
+  become_user: postgres
+  register: _pg_recovery
+  changed_when: false
+
+- name: Rendre le noeud autonome (sortie du mode standby)
+  when: _pg_recovery.query_result[0].in_recovery | bool
+  block:
+    - name: Promouvoir l'instance PostgreSQL
+      ansible.builtin.command: "pg_ctlcluster {{ pg_version }} main promote"
+      become: true
+      become_user: postgres
+      changed_when: true
+
+    - name: Attendre la sortie du mode recovery
+      community.postgresql.postgresql_query:
+        query: "SELECT pg_is_in_recovery() AS in_recovery"
+      become: true
+      become_user: postgres
+      register: _pg_after
+      until: not (_pg_after.query_result[0].in_recovery | bool)
+      retries: 15
+      delay: 2
+      changed_when: false
+
+- name: Retirer les reliquats de configuration de replication
+  ansible.builtin.file:
+    path: "{{ pg_conf_dir }}/conf.d/replication.conf"
+    state: absent
+  notify: restart postgresql
+
+- name: Retirer primary_conninfo de postgresql.auto.conf
+  ansible.builtin.lineinfile:
+    path: "{{ pg_data_dir }}/postgresql.auto.conf"
+    regexp: '^primary_conninfo'
+    state: absent
+  failed_when: false
+  notify: restart postgresql
+
+# ---------------------------------------------------------------------------
+# Role SQL et base locale - chaque noeud a la sienne, aucun partage
 # ---------------------------------------------------------------------------
 - name: Creer le role PostgreSQL odoo avec CREATEDB
   community.postgresql.postgresql_user:
     name: "{{ odoo_db_user }}"
     password: "{{ odoo_db_password }}"
+    # role_attr_flags est OBLIGATOIRE : sans lui le module remet les attributs
+    # a leurs valeurs par defaut et retire CREATEDB, ce qui donne
+    # "permission denied to create database" au premier demarrage d'Odoo.
     role_attr_flags: "LOGIN,CREATEDB"
     state: present
   become: true
   become_user: postgres
-  when: odoo_role == 'primary'
 
-- name: Verifier si la base initiale existe deja
+- name: Verifier si la base locale existe deja
   community.postgresql.postgresql_query:
     query: "SELECT 1 FROM pg_database WHERE datname = %(db)s"
     named_args:
@@ -129,9 +180,7 @@
   become_user: postgres
   register: _db_present
   changed_when: false
-  when:
-    - odoo_role == 'primary'
-    - odoo_initial_db | length > 0
+  when: odoo_initial_db | length > 0
 
 - name: Initialiser la base Odoo
   # list_db = False interdit le gestionnaire de bases web : la creation passe
@@ -153,7 +202,6 @@
   register: _db_init
   changed_when: true
   when:
-    - odoo_role == 'primary'
     - odoo_initial_db | length > 0
     - _db_present.query_result | default([]) | length == 0
 
@@ -169,8 +217,8 @@
     state: started
     enabled: true
 
-- name: Odoo actif uniquement sur le primaire
+- name: Odoo actif sur chaque noeud
   ansible.builtin.service:
     name: odoo
-    state: "{{ 'started' if odoo_role == 'primary' else 'stopped' }}"
-    enabled: "{{ odoo_role == 'primary' }}"
+    state: started
+    enabled: true
