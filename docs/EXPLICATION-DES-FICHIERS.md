@@ -244,5 +244,5 @@ est construit ainsi.
 Procédure de sauvegarde d'un volume GlusterFS par snapshot. Sans rapport avec
 Odoo, conservée car elle documente une autre opération réelle sur ce cluster.
 
-### `docs/fichiers.md`
+### `docs/EXPLICATION-DES-FICHIERS.md`
 Ce document.

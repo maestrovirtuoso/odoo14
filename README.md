@@ -60,7 +60,7 @@ host_vars/192.168.96.*.yml    Sous-réseau et IP conteneur par nœud
 docs/                         Documentation
 ```
 
-📖 **[docs/fichiers.md](docs/fichiers.md) — rôle détaillé de chaque fichier**,
+📖 **[docs/EXPLICATION-DES-FICHIERS.md](docs/EXPLICATION-DES-FICHIERS.md) — rôle détaillé de chaque fichier**,
 et pourquoi il est écrit ainsi.
 
 ## Prérequis
