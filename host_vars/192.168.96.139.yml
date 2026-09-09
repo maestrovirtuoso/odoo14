@@ -1,5 +1,5 @@
 ---
-# Node1 - heberge le conteneur primaire (odoo1)
+# Node1 - heberge le conteneur odoo1 (instance autonome)
 lxcbr0_addr: 10.0.1.1
 lxcbr0_cidr: 10.0.1.1/24
 lxcbr0_network: 10.0.1.0/24
@@ -13,5 +13,5 @@ peer_container_routes:
   - { network: 10.0.2.0/24, via: 192.168.96.140 }
   - { network: 10.0.3.0/24, via: 192.168.96.141 }
 
-# Publier l'UI web du conteneur de ce noeud sur l'IP LAN de l'hote (port 8069).
+# Publier l'UI web de ce conteneur sur l'IP LAN de l'hote (port 8069).
 publish_odoo_web: true

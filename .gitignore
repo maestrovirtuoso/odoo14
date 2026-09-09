@@ -11,3 +11,6 @@ ansible.log
 *.swp
 *~
 .DS_Store
+
+# Configuration locale du poste, pas du projet
+.claude/

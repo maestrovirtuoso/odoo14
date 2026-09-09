@@ -171,39 +171,82 @@
   become: true
   become_user: postgres
 
-- name: Verifier si la base locale existe deja
-  community.postgresql.postgresql_query:
-    query: "SELECT 1 FROM pg_database WHERE datname = %(db)s"
-    named_args:
-      db: "{{ odoo_initial_db }}"
+# Tester la simple EXISTENCE de la base ne suffit pas : une base creee mais
+# dont l'initialisation a echoue reste presente et vide, et Odoo repond 500
+# sans jamais pouvoir se reparer. On teste donc sa VALIDITE.
+- name: Determiner l'etat de la base Odoo
+  ansible.builtin.shell: |
+    set -u
+    cd /tmp
+    if ! psql -tAc "select 1 from pg_database where datname='{{ odoo_initial_db }}'" | grep -q 1; then
+      echo ABSENTE
+    elif [ "$(psql -d '{{ odoo_initial_db }}' -tAc \
+              "select count(*) from information_schema.tables where table_schema='public'")" -eq 0 ]; then
+      echo VIDE
+    else
+      echo VALIDE
+    fi
   become: true
   become_user: postgres
-  register: _db_present
+  register: _db_state
   changed_when: false
   when: odoo_initial_db | length > 0
 
-- name: Initialiser la base Odoo
-  # list_db = False interdit le gestionnaire de bases web : la creation passe
-  # forcement par la ligne de commande.
-  ansible.builtin.command:
-    argv:
-      - odoo
-      - -c
-      - "{{ odoo_config_path }}"
-      - --logfile=
-      - -d
-      - "{{ odoo_initial_db }}"
-      - -i
-      - base
-      - --without-demo=all
-      - --stop-after-init
-  become: true
-  become_user: "{{ odoo_system_user }}"
-  register: _db_init
-  changed_when: true
+- name: Afficher l'etat de la base
+  ansible.builtin.debug:
+    msg: "base {{ odoo_initial_db }} : {{ _db_state.stdout | default('non geree') | trim }}"
+
+- name: Reconstruire une base vide ou absente
   when:
     - odoo_initial_db | length > 0
-    - _db_present.query_result | default([]) | length == 0
+    - _db_state.stdout | trim in ['ABSENTE', 'VIDE']
+  block:
+    - name: Arreter Odoo pendant l'initialisation
+      ansible.builtin.service:
+        name: odoo
+        state: stopped
+
+    # Sans danger : la base est vide, elle ne contient aucune donnee.
+    - name: Supprimer la coquille vide
+      community.postgresql.postgresql_db:
+        name: "{{ odoo_initial_db }}"
+        state: absent
+      become: true
+      become_user: postgres
+      when: _db_state.stdout | trim == 'VIDE'
+
+    - name: Initialiser la base Odoo
+      # list_db = False interdit le gestionnaire de bases web : la creation
+      # passe forcement par la ligne de commande.
+      ansible.builtin.command:
+        argv:
+          - odoo
+          - -c
+          - "{{ odoo_config_path }}"
+          - --logfile=
+          - -d
+          - "{{ odoo_initial_db }}"
+          - -i
+          - base
+          - --without-demo=all
+          - --stop-after-init
+      become: true
+      become_user: "{{ odoo_system_user }}"
+      changed_when: true
+
+    - name: Confirmer que la base est desormais exploitable
+      ansible.builtin.shell: >-
+        cd /tmp && psql -d '{{ odoo_initial_db }}' -tAc
+        "select count(*) from ir_module_module where state='installed'"
+      become: true
+      become_user: postgres
+      register: _db_check
+      changed_when: false
+      failed_when: (_db_check.stdout | trim | int) < 1
+
+    - name: Nombre de modules installes
+      ansible.builtin.debug:
+        msg: "{{ _db_check.stdout | trim }} module(s) installe(s) dans {{ odoo_initial_db }}"
 
 - name: Demarrer les handlers en attente (avant de figer l'etat des services)
   ansible.builtin.meta: flush_handlers

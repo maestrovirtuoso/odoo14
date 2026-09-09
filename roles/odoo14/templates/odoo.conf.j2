@@ -1,12 +1,19 @@
 # {{ ansible_managed }}
 [options]
 admin_passwd = {{ odoo_admin_password }}
+
+# Connexion par socket Unix local (authentification peer).
 db_host = False
 db_port = False
 db_user = {{ odoo_db_user }}
 db_password = {{ odoo_db_password }}
-dbfilter = .*
-list_db = {{ odoo_list_db | ternary('True', 'False') }}
+
+# Instance mono-base. db_name est INDISPENSABLE avec list_db = False :
+# sans lui Odoo ne peut ni lister ni deduire la base a servir, et repond 500.
+db_name = {{ odoo_initial_db }}
+dbfilter = ^{{ odoo_initial_db }}$
+list_db = False
+
 addons_path = {{ odoo_addons_path }}
 data_dir = /var/lib/odoo
 logfile = {{ odoo_log_path }}

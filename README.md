@@ -57,7 +57,11 @@ roles/
   cleanup/               Hôtes : désinstallation LXC
 group_vars/odoo_containers/   Versions, chemins, secrets
 host_vars/192.168.96.*.yml    Sous-réseau et IP conteneur par nœud
+docs/                         Documentation
 ```
+
+📖 **[docs/fichiers.md](docs/fichiers.md) — rôle détaillé de chaque fichier**,
+et pourquoi il est écrit ainsi.
 
 ## Prérequis
 
@@ -109,7 +113,10 @@ for h in 139 140 141; do curl -sI -o /dev/null -w "$h -> %{http_code}\n" \
   http://192.168.96.$h:8069/web/login; done
 ```
 
-Connexion : `admin` / valeur de `vault_odoo_admin_password`.
+Connexion à l'interface : **`admin` / `admin`** — le compte créé par
+`-i base` porte le mot de passe par défaut d'Odoo, à changer dès la première
+connexion. Le `admin_passwd` du vault est le mot de passe **maître** (gestion
+des bases), pas celui de l'utilisateur.
 
 ## Nettoyage
 

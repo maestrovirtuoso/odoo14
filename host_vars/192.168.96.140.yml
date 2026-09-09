@@ -1,5 +1,5 @@
 ---
-# Node2 - heberge un conteneur standby (odoo2)
+# Node2 - heberge le conteneur odoo2 (instance autonome)
 lxcbr0_addr: 10.0.2.1
 lxcbr0_cidr: 10.0.2.1/24
 lxcbr0_network: 10.0.2.0/24
