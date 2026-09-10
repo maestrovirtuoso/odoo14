@@ -105,56 +105,8 @@
     group: "{{ odoo_system_user }}"
     mode: "0750"
 
-# ---------------------------------------------------------------------------
-# Autonomie du noeud
-#
-# Un noeud precedemment configure en standby de replication tourne en mode
-# recovery : sa base est en LECTURE SEULE et Odoo ne peut pas y ecrire. On le
-# promeut pour le rendre independant, et on retire les reliquats de
-# replication (standby.signal est consomme par la promotion, il reste le
-# fichier de conf et primary_conninfo).
-# ---------------------------------------------------------------------------
-- name: Determiner si PostgreSQL est en mode recovery
-  community.postgresql.postgresql_query:
-    query: "SELECT pg_is_in_recovery() AS in_recovery"
-  become: true
-  become_user: postgres
-  register: _pg_recovery
-  changed_when: false
-
-- name: Rendre le noeud autonome (sortie du mode standby)
-  when: _pg_recovery.query_result[0].in_recovery | bool
-  block:
-    - name: Promouvoir l'instance PostgreSQL
-      ansible.builtin.command: "pg_ctlcluster {{ pg_version }} main promote"
-      become: true
-      become_user: postgres
-      changed_when: true
-
-    - name: Attendre la sortie du mode recovery
-      community.postgresql.postgresql_query:
-        query: "SELECT pg_is_in_recovery() AS in_recovery"
-      become: true
-      become_user: postgres
-      register: _pg_after
-      until: not (_pg_after.query_result[0].in_recovery | bool)
-      retries: 15
-      delay: 2
-      changed_when: false
-
-- name: Retirer les reliquats de configuration de replication
-  ansible.builtin.file:
-    path: "{{ pg_conf_dir }}/conf.d/replication.conf"
-    state: absent
-  notify: restart postgresql
-
-- name: Retirer primary_conninfo de postgresql.auto.conf
-  ansible.builtin.lineinfile:
-    path: "{{ pg_data_dir }}/postgresql.auto.conf"
-    regexp: '^primary_conninfo'
-    state: absent
-  failed_when: false
-  notify: restart postgresql
+- name: Effacer les reliquats de l'ancienne architecture repliquee
+  ansible.builtin.import_tasks: purge_replication.yaml
 
 # ---------------------------------------------------------------------------
 # Role SQL et base locale - chaque noeud a la sienne, aucun partage

@@ -40,11 +40,7 @@
     purge: true
   when: ansible_os_family == "Debian"
 
-- name: Retirer les dependances orphelines (Rocky / RHEL)
-  ansible.builtin.command: dnf -y autoremove
-  register: _autoremove
-  changed_when: "'Nothing to do' not in _autoremove.stdout"
-  when: ansible_os_family in ["RedHat", "Rocky", "AlmaLinux", "CentOS"]
+
 
 - name: Supprimer les repertoires et fichiers crees pour LXC
   ansible.builtin.file:

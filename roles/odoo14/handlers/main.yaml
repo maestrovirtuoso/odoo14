@@ -8,3 +8,9 @@
   ansible.builtin.service:
     name: postgresql
     state: restarted
+
+# pg_hba.conf ne demande qu'un rechargement, pas une coupure des connexions.
+- name: reload postgresql
+  ansible.builtin.service:
+    name: postgresql
+    state: reloaded

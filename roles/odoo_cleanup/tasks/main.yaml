@@ -127,21 +127,19 @@
         - /var/log/odoo
         - /etc/apt/sources.list.d/odoo.list
         - /usr/share/keyrings/odoo-archive-keyring.asc
-        # Reliquats de l'ancienne architecture repliquee
+        # Unites de l'ancienne synchro de filestore : elles vivent hors des
+        # repertoires supprimes ci-dessus, il faut donc les nommer.
+        # Le reste des reliquats de replication est traite en continu par
+        # roles/odoo14/tasks/purge_replication.yaml.
         - /usr/local/bin/odoo-filestore-sync.sh
         - /etc/systemd/system/odoo-filestore-sync.service
         - /etc/systemd/system/odoo-filestore-sync.timer
-        - "{{ pg_conf_dir | default('/etc/postgresql/13/main') }}/conf.d/replication.conf"
 
     - name: Recharger systemd apres suppression des unites
       ansible.builtin.systemd:
         daemon_reload: true
 
-    - name: Retirer les paquets devenus orphelins
-      ansible.builtin.command: apt-get -y autoremove --purge
-      register: _autoremove
-      changed_when: "'0 upgraded, 0 newly installed, 0 to remove' not in _autoremove.stdout"
-      failed_when: false
+    
 
 # ---------------------------------------------------------------------------
 # 3. Etat final

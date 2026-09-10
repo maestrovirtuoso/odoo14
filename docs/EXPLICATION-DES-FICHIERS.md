@@ -181,6 +181,27 @@ configuration, puis :
   existence de la base ne suffit pas : une base créée dont l'initialisation a
   échoué reste présente et vide, et Odoo répond 500 indéfiniment.
 
+### `roles/odoo14/tasks/purge_replication.yaml`
+Démantèle l'ancienne architecture répliquée. Le projet a d'abord déployé une
+réplication PostgreSQL streaming ; ce fichier efface tout ce qu'elle avait laissé
+sur les conteneurs :
+
+- **promeut** une instance restée en mode recovery — sa base serait en lecture
+  seule et Odoo ne pourrait pas y écrire ;
+- supprime le timer, le service et le script de synchronisation du filestore ;
+- supprime `replication.conf`, `standby.signal`, `primary_conninfo` et surtout
+  **`/var/lib/postgresql/.pgpass`**, qui contenait le mot de passe de réplication
+  en clair alors que plus rien ne l'utilisait ;
+- retire les lignes `host replication` de `pg_hba.conf` et supprime le rôle SQL
+  `replicator` ;
+- supprime la paire de clés SSH que le primaire générait pour pousser le
+  filestore, et la révoque des `authorized_keys` des autres nœuds — son
+  commentaire `root@devodoo14` la distingue de celle du poste de contrôle, qui
+  doit être conservée.
+
+Idempotent : une fois le parc propre il ne signale plus aucun changement, et il
+rattrape un conteneur restauré depuis une sauvegarde antérieure.
+
 ### `roles/odoo14/tasks/apt_sources.yaml`
 Assainit APT sur une Debian 11 en fin de vie : tolère les fichiers `Release`
 expirés, limite les sources à `main` + `updates` (aucun dépôt sécurité n'est plus
