@@ -170,8 +170,9 @@ Installe les dépendances, **PostgreSQL serveur** (le paquet Debian d'Odoo ne
 dépend que de `postgresql-client`), le dépôt nightly et Odoo, dépose la
 configuration, puis :
 
-- appelle `purge_replication.yaml`, qui efface les traces de l'ancienne
-  architecture répliquée ;
+- **promeut** l'instance si elle est restée en mode recovery d'une ancienne
+  configuration répliquée, et retire les reliquats (`replication.conf`,
+  `primary_conninfo`) ;
 - crée le rôle SQL `odoo` avec `CREATEDB` — `role_attr_flags` est obligatoire,
   sans lui le module réinitialise les attributs et Odoo ne peut plus créer de
   base ;
@@ -226,10 +227,7 @@ Valeurs par défaut du rôle, surchargées par `group_vars`. Contient aussi
 `debian_mirror`, qui permet de basculer sur `archive.debian.org`.
 
 ### `roles/odoo14/handlers/main.yaml`
-Trois handlers : `restart odoo`, `restart postgresql`, et `reload postgresql`.
-La distinction compte — modifier `pg_hba.conf` ne demande qu'un rechargement,
-là où changer un paramètre de `postgresql.conf` impose un redémarrage complet.
-Recharger évite de couper les connexions en cours.
+Redémarrage d'Odoo et de PostgreSQL après modification de leur configuration.
 
 ---
 
