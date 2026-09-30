@@ -1,0 +1,148 @@
+---
+# ===========================================================================
+# Verifications, rejouables a tout moment sans rien couper :
+#
+#   ansible-playbook playbooks/ansi_repartiteur.yaml -k --tags verif
+#
+# Chaque controle mesure ce qu'un utilisateur eprouverait, pas ce que la
+# configuration affirme. "systemctl is-active haproxy" ne dit RIEN sur un
+# backend qui repond 502 : le service tourne, il sert des erreurs. Meme lecon
+# que "lxc-attach renvoie 0" -- un indicateur qui ne mesure pas ce qu'on croit.
+# ===========================================================================
+
+# --- Un seul porteur de la VIP ---------------------------------------------
+- name: Attendre que l'election VRRP se soit faite
+  # SANS CETTE ATTENTE, le releve ci-dessous mesure un etat transitoire.
+  #
+  # Le 30/09/2026, la play precedente venait de redemarrer keepalived ; les
+  # trois noeuds etaient encore en BACKUP quand cette verification a regarde,
+  # et elle a conclu "aucun porteur" alors que node1 prenait la VIP trois
+  # secondes plus tard. L'election demande quelques advert_int : il n'y a rien
+  # a mesurer avant.
+  #
+  # failed_when: false -- si la VIP ne monte jamais, c'est l'assertion plus bas
+  # qui le dit, avec son diagnostic. Echouer ici donnerait "ping rc=1", ce qui
+  # n'explique rien.
+  ansible.builtin.command: "ping -c 1 -W 1 {{ lb_vip }}"
+  register: _lb_attente
+  until: _lb_attente.rc == 0
+  retries: 10
+  delay: 2
+  changed_when: false
+  failed_when: false
+  run_once: true
+
+- name: Cet hote porte-t-il la VIP ?
+  ansible.builtin.command: "ip -o addr show to {{ lb_vip }}"
+  register: _lb_porteur
+  changed_when: false
+  failed_when: false
+
+- name: Retenir le verdict pour cet hote
+  ansible.builtin.set_fact:
+    _lb_porte_vip: "{{ lb_vip in _lb_porteur.stdout }}"
+
+- name: Recenser les porteurs sur l'ensemble des hotes
+  # Boucle Jinja et non "map('extract', ...) | zip(...)" : le filtre zip
+  # n'existe qu'a partir d'ansible-core 2.11, et ce depot tourne en 2.10.8 --
+  # il echouerait sur "No filter named 'zip'".
+  ansible.builtin.set_fact:
+    _lb_porteurs_txt: >-
+      {% for h in ansible_play_hosts if hostvars[h]._lb_porte_vip | bool %}{{ h }} {% endfor %}
+  run_once: true
+
+- name: En faire une liste
+  ansible.builtin.set_fact:
+    _lb_liste_porteurs: "{{ _lb_porteurs_txt.split() }}"
+  run_once: true
+
+- name: Exactement un hote porte la VIP
+  # Aucun : keepalived est arrete, ou les annonces VRRP sont filtrees.
+  # Plusieurs : les noeuds ne se voient pas, chacun se croit seul maitre, et
+  # la meme adresse existe en plusieurs exemplaires sur le LAN -- le service
+  # devient intermittent plutot que franchement mort, donc difficile a imputer.
+  ansible.builtin.assert:
+    that:
+      - _lb_liste_porteurs | length == 1
+    fail_msg: >-
+      {{ lb_vip }} est portee par {{ _lb_liste_porteurs | length }} hote(s)
+      : {{ _lb_liste_porteurs | join(', ') | default('aucun', true) }}.
+      Attendu : exactement un. Aucun = keepalived arrete ou VRRP filtre
+      (protocole IP 112) ; plusieurs = les noeuds ne se voient pas.
+    # join et non "| first" : Ansible evalue TOUS les arguments d'une tache
+    # avant de la jouer, success_msg comprise. Sur une liste vide, "| first"
+    # leve donc "No first item, sequence was empty" et la tache plante au lieu
+    # de rapporter -- le message de diagnostic soigneusement redige n'est
+    # jamais affiche. C'est ce qui s'est produit le 30/09/2026.
+    success_msg: >-
+      {{ lb_vip }} est portee par {{ _lb_liste_porteurs | join(', ') }}, et par lui seul.
+    quiet: true
+  run_once: true
+
+# --- L'etat reel des backends, lu dans HAProxy lui-meme --------------------
+- name: Relever l'etat des backends
+  # La socket d'administration donne l'avis de HAProxy, seul juge : c'est lui
+  # qui execute "option httpchk GET {{ lb_check_uri }}". Un port ouvert ne
+  # prouve pas qu'Odoo sert une page.
+  #
+  # Champs de la CSV HAProxy : 1 = backend, 2 = serveur, 18 = statut.
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      echo "show stat" | socat stdio /var/lib/haproxy/stats \
+        | awk -F, 'NF > 20 && $2 != "FRONTEND" && $2 != "BACKEND" {print $1"/"$2" "$18}'
+  register: _lb_stat
+  changed_when: false
+
+- name: Afficher l'etat des backends
+  ansible.builtin.debug:
+    msg: "{{ _lb_stat.stdout_lines }}"
+
+- name: Au moins un serveur UP dans chacun des deux backends
+  ansible.builtin.assert:
+    that:
+      - _lb_stat.stdout is search('odoo_http/\S+ UP')
+      - _lb_stat.stdout is search('odoo_longpolling/\S+ UP')
+    fail_msg: >-
+      Un backend n'a aucun serveur UP. Si Odoo repond en direct sur
+      {{ odoo_http_port }} alors que tout est DOWN ici, suspecter SELinux :
+      le booleen haproxy_connect_any. Le journal HAProxy ne le dira pas, la
+      trace est dans l'audit SELinux.
+    quiet: true
+
+# --- Le service, vu depuis la VIP ------------------------------------------
+- name: Interroger la page de connexion par la VIP
+  # La chaine complete est traversee : VIP, HAProxy, backend, Odoo,
+  # PostgreSQL. C'est le seul controle qui mesure ce que voit l'utilisateur.
+  ansible.builtin.uri:
+    url: "http://{{ lb_vip }}:{{ lb_port }}{{ lb_check_uri }}"
+    status_code: [200]
+  register: _lb_reponse
+  run_once: true
+
+- name: Le cookie de session collante est-il pose ?
+  # Sans lui, chaque requete d'un meme utilisateur partirait sur un autre
+  # noeud. Les sessions etant partagees, il ne serait pas deconnecte -- mais
+  # il paierait un aller-retour Gluster a chaque appel, sans aucun gain.
+  ansible.builtin.assert:
+    that:
+      - _cookie is search('SRV')
+    fail_msg: >-
+      La reponse ne contient pas le cookie SRV. Verifier la directive
+      "cookie SRV insert indirect nocache" du backend et le mot-cle "cookie"
+      de chaque serveur, dans /etc/haproxy/haproxy.cfg.
+    success_msg: "Session collante active, cookie pose : {{ _cookie }}"
+    quiet: true
+  vars:
+    # set_cookie selon les versions du module uri, cookies en repli.
+    _cookie: "{{ _lb_reponse.set_cookie | default(_lb_reponse.cookies | default({}) | list | join(',')) }}"
+  run_once: true
+
+- name: Recapitulatif
+  ansible.builtin.debug:
+    msg:
+      - "Entree du service : http://{{ lb_vip }}:{{ lb_port }}"
+      - "Statistiques      : http://{{ lb_vip }}:{{ lb_port }}{{ lb_stats_uri }} (utilisateur {{ lb_stats_user }})"
+      - "Porteur de la VIP : {{ _lb_liste_porteurs | join(', ') }}"
+      - "Backends          : {{ groups['odoo_containers'] | join(', ') }}"
+  run_once: true

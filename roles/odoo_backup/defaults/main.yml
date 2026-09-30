@@ -1,0 +1,61 @@
+---
+# ===========================================================================
+# Valeurs par defaut du role odoo_backup.
+#
+# Ce role s'execute sur l'HOTE porteur des sauvegardes (groupe backup_host),
+# et non dans un conteneur : c'est le seul endroit qui voit a la fois le
+# filestore de son conteneur (via /bricks/odoo14) et le serveur PostgreSQL.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# sauvegarde_dir, sauvegarde_rapatrier et sauvegarde_dir_local ne sont PAS
+# definis ici : ils vivent dans group_vars/backup_host/vars.yml.
+#
+# Raison : le playbook ansi_sauvegarde.yaml
+# les lisent depuis des plays "tasks:", ou les defaults de ce role ne sont pas
+# en portee -- l'erreur est "'sauvegarde_dir' is undefined", apres une
+# sauvegarde pourtant reussie. Les redeclarer ici creerait une seconde source
+# que group_vars ecraserait silencieusement.
+#
+# Ce qui suit ne sert qu'a l'interieur du role, et reste donc ici.
+# ---------------------------------------------------------------------------
+
+# Retention, en jours. ~30 Mo par sauvegarde et 8 Go libres sur / : garder un
+# mois ne coute rien, et c'est l'historique long qui rattrape une corruption
+# decouverte tardivement.
+sauvegarde_retention_jours: 30
+
+# Surcharge en MINUTES, pour DEMONSTRATION uniquement.
+#
+# Quand elle est renseignee, elle l'emporte sur sauvegarde_retention_jours.
+# Sert a voir la rotation a l'oeuvre sans attendre un mois :
+#   ansible-playbook playbooks/ansi_sauvegarde.yaml -e sauvegarde_retention_minutes=15
+#
+# NE PAS laisser une valeur courte en production : avec 15 minutes, une
+# sauvegarde quotidienne efface la precedente a chaque passage et il ne reste
+# jamais qu'une seule copie -- ce qui annule tout l'interet d'un historique.
+# Laisser vide pour retomber sur la retention en jours.
+sauvegarde_retention_minutes: ""
+
+# Plancher de securite : refuse une retention si courte que la sauvegarde qui
+# vient d'etre ecrite risquerait d'etre emportee par sa propre rotation.
+sauvegarde_retention_minimum: 5
+
+# Heure du declenchement quotidien (format systemd OnCalendar).
+# 02:15 : apres la rotation des journaux, avant l'activite du matin.
+sauvegarde_horaire: "*-*-* 02:15:00"
+
+# Repartit les demarrages sur une fenetre aleatoire, pour qu'une flotte
+# entiere ne frappe pas PostgreSQL a la meme seconde.
+sauvegarde_delai_aleatoire: "10m"
+
+# sauvegarde_filestore_src n'est PAS defini ici : il vit dans
+# group_vars/backup_host/vars.yml, parce que le play "verif" de
+# ansi_syncro.yaml le lit depuis le role odoo_migration, ou les defaults de CE
+# role ne sont pas en portee -- il aurait echoue sur "undefined".
+
+
+# Verifier chaque sauvegarde juste apres l'avoir ecrite (pg_restore --list et
+# lecture de l'archive). Bon marche, et c'est la seule facon de decouvrir un
+# dump illisible AVANT d'en avoir besoin.
+sauvegarde_verifier: true

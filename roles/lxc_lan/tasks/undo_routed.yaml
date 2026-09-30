@@ -1,0 +1,34 @@
+---
+# ---------------------------------------------------------------------------
+# Demontage de l'ancien modele reseau routé
+#
+# Avant la bascule en carte physique, les conteneurs vivaient derriere lxcbr0
+# sur des sous-reseaux 10.0.x.0/24, joints par du routage inter-hotes et
+# exposes par une redirection de port firewalld. Ces reglages ne sont pas
+# seulement inutiles desormais : la redirection pointe vers des IP qui
+# n'existent plus, et les routes vers des reseaux disparus.
+# ---------------------------------------------------------------------------
+- name: Retirer la redirection de port vers les anciennes IP de conteneur
+  ansible.posix.firewalld:
+    zone: public
+    rich_rule: >-
+      rule family="ipv4"
+      forward-port port="{{ lxc_legacy_web_port }}" protocol="tcp"
+      to-port="{{ lxc_legacy_web_port }}" to-addr="{{ item }}"
+    permanent: true
+    immediate: true
+    state: disabled
+  loop: "{{ lxc_legacy_container_ips }}"
+  failed_when: false
+
+- name: Retirer le hook NetworkManager qui reposait les routes inter-noeuds
+  ansible.builtin.file:
+    path: /etc/NetworkManager/dispatcher.d/90-odoo-container-routes
+    state: absent
+
+- name: Retirer les routes vers les anciens sous-reseaux de conteneurs
+  ansible.builtin.command: "ip route del {{ item }}"
+  loop: "{{ lxc_legacy_networks }}"
+  register: _route_del
+  changed_when: _route_del.rc == 0
+  failed_when: false

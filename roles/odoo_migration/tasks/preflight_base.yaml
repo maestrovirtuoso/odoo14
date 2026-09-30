@@ -1,0 +1,27 @@
+---
+# ===========================================================================
+# odoo_migration : preflight cote BASE (volume de pieces jointes a deplacer).
+# ===========================================================================
+
+- name: Mesurer la table ir_attachment
+  community.postgresql.postgresql_query:
+    login_host: "{{ odoo_db_host }}"
+    login_port: "{{ odoo_db_port }}"
+    login_user: "{{ odoo_db_user }}"
+    login_password: "{{ odoo_db_password }}"
+    db: "{{ odoo_shared_db }}"
+    query: >-
+      SELECT pg_size_pretty(pg_total_relation_size('ir_attachment')) AS taille,
+             count(*) FILTER (WHERE db_datas IS NOT NULL) AS en_base,
+             count(*) AS total
+      FROM ir_attachment
+  register: _pre_attach
+  changed_when: false
+
+- name: Volume a migrer
+  ansible.builtin.debug:
+    msg: >-
+      ir_attachment : {{ _pre_attach.query_result[0].taille }} au total,
+      {{ _pre_attach.query_result[0].en_base }} piece(s) jointe(s) en base
+      sur {{ _pre_attach.query_result[0].total }}.
+      VERIFIER que le stockage a la place de les accueillir avant de continuer.

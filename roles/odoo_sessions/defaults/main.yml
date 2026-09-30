@@ -1,0 +1,32 @@
+---
+# ===========================================================================
+# Valeurs par defaut du role odoo_sessions.
+#
+# Ce role s'execute DANS les conteneurs Odoo. Il place le repertoire des
+# sessions sur le volume GlusterFS partage, pour qu'un utilisateur reste
+# connecte quand son instance tombe et que le repartiteur le renvoie ailleurs.
+# ===========================================================================
+
+# Repertoire des sessions dans le volume, POUR LE SEUL CAS OU UN BIND EST
+# NECESSAIRE -- c'est-a-dire quand le volume n'est pas monte sur le data_dir
+# entier. Dans le lab, depuis le 30/09/2026, il l'est : les sessions sont deja
+# dans le volume et cette variable n'est pas utilisee (voir tasks/main.yaml,
+# qui mesure le cas au lieu de le supposer).
+#
+# Place a la RACINE du volume et non sous filestore/<base>/ : Odoo y range ses
+# pieces jointes par empreinte SHA-1, et son ramasse-miettes parcourt
+# filestore/<base>/checklist. Un repertoire etranger a cet endroit serait au
+# mieux ignore, au pire balaye. A la racine, il n'est sur le chemin de rien.
+odoo_sessions_partage: "{{ odoo_filestore }}/_sessions"
+
+# Point de montage attendu par Odoo : data_dir/sessions, en dur dans le code
+# d'Odoo 14. Ce n'est pas configurable, d'ou l'absence de variable cote
+# odoo.conf.
+odoo_sessions_local: "{{ odoo_data_dir }}/sessions"
+
+# Sauvegarder les sessions locales avant de les masquer.
+#
+# Le bind ne SUPPRIME pas l'ancien contenu, il le masque. Mais une session
+# masquee est une session perdue pour l'utilisateur, qui devra se reconnecter
+# une fois. L'archive permet de revenir en arriere si la bascule se passe mal.
+odoo_sessions_sauvegarder: true

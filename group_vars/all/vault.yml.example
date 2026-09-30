@@ -1,7 +1,18 @@
 ---
 # !!! SECRETS - a chiffrer avant tout commit :
-#     ansible-vault encrypt group_vars/odoo_containers/vault.yml
+#     ansible-vault encrypt group_vars/all/vault.yml
 # et fournir --ask-vault-pass (ou --vault-password-file) aux commandes ansible.
 # Remplacer ces valeurs par des mots de passe forts.
+# Portee "all" et non "odoo_containers" : le conteneur PostgreSQL et les
+# conteneurs Odoo doivent partager le meme vault_odoo_db_password, sinon
+# l'authentification echoue en donnant l'illusion d'un bug de pg_hba.
 vault_odoo_admin_password: "change-me-admin"
 vault_odoo_db_password: "change-me-odoo-db"
+
+# Page de statistiques de HAProxy (http://<VIP>/haproxy-stats).
+#
+# Elle expose l'etat des backends et permet de mettre un serveur hors rotation
+# : un acces en ecriture sur le repartiteur. La valeur par defaut du depot est
+# volontairement faible, pour que le lab fonctionne sans vault -- a remplacer
+# des que la VIP est joignable d'ailleurs que du LAN du lab.
+vault_lb_stats_password: "change-me-haproxy-stats"

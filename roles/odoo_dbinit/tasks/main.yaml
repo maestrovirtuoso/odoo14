@@ -1,0 +1,205 @@
+---
+# ===========================================================================
+# Role odoo_dbinit  -  execute sur le SEUL noeud primaire (groupe odoo_primary)
+#
+# Initialise la base PARTAGEE et pose le stockage des pieces jointes.
+#
+# Pourquoi un role a part : trois "odoo -i base" concurrents sur la meme base
+# corrompent le registre. Trois garde-fous independants l'en empechent :
+#   1. le groupe odoo_primary, qui ne contient qu'un hote ;
+#   2. cette play, distincte de celle qui installe les trois noeuds, et qui
+#      s'execute alors qu'Odoo est encore arrete partout ;
+#   3. la sonde ci-dessous, qui rend l'initialisation conditionnelle.
+#
+# Le diagnostic d'etat de la base avait ete retire du role odoo14 a la
+# demande, l'initialisation etant tentee a chaque passage. C'etait sans
+# consequence sur des bases locales independantes ; sur une base partagee,
+# rejouer "-i base" est destructeur. La sonde revient donc.
+# ===========================================================================
+- name: La base partagee est-elle deja initialisee ?
+  # to_regclass renvoie NULL si la table n'existe pas, sans lever d'erreur :
+  # une simple requete sur ir_module_module echouerait sur une base vierge.
+  community.postgresql.postgresql_query:
+    login_host: "{{ odoo_db_host }}"
+    login_port: "{{ odoo_db_port }}"
+    login_user: "{{ odoo_db_user }}"
+    login_password: "{{ odoo_db_password }}"
+    db: "{{ odoo_shared_db }}"
+    query: "SELECT to_regclass('public.ir_module_module') AS registre"
+  register: _pg_probe
+  changed_when: false
+
+- name: Etat de la base partagee
+  ansible.builtin.debug:
+    msg: >-
+      {{ odoo_shared_db }}@{{ odoo_db_host }} :
+      {{ 'deja initialisee, rien a faire' if _pg_probe.query_result[0].registre
+         else 'vierge, initialisation depuis ' ~ inventory_hostname }}
+
+- name: Initialiser la base partagee
+  # list_db = False interdit le gestionnaire de bases web : la creation du
+  # registre passe forcement par la ligne de commande.
+  # throttle: 1 est une precaution supplementaire si quelqu'un elargit un
+  # jour le groupe odoo_primary par erreur.
+  # Interpreteur du venv en chemin ABSOLU, et non le "odoo" du PATH : Odoo 14
+  # ne tourne pas sur le Python 3.11 du conteneur (safe_eval y rejette
+  # l'opcode RESUME). Se fier au PATH ferait dependre l'init de l'ordre de
+  # resolution et pourrait relancer l'echec silencieusement.
+  ansible.builtin.command:
+    argv:
+      - "{{ odoo_python }}"
+      - /usr/bin/odoo
+      - -c
+      - "{{ odoo_config_path }}"
+      - --logfile=
+      - -d
+      - "{{ odoo_shared_db }}"
+      - -i
+      - base
+      - --without-demo=all
+      - --stop-after-init
+  become: true
+  become_user: "{{ odoo_system_user }}"
+  when: not _pg_probe.query_result[0].registre
+  throttle: 1
+  changed_when: true
+
+# ---------------------------------------------------------------------------
+# Stockage des pieces jointes
+#
+# Les pieces jointes vont sur DISQUE, dans {{ data_dir }}/filestore/<base>, qui
+# est le point de montage du volume GlusterFS replica 3 pose par le role
+# odoo_filestore. Les trois instances voient donc les memes fichiers.
+#
+# Ce repertoire etait auparavant local a chaque noeud, ce qui imposait le
+# stockage en base : une piece jointe ecrite sur un noeud aurait ete
+# introuvable depuis les deux autres. Ce n'est plus le cas, et le stockage en
+# base avait un cout reel : la base grossissait de chaque document et de chaque
+# bundle d'assets, les pg_dump s'alourdissaient d'autant, sans ramasse-miettes.
+#
+# Le support reste pilotable par odoo_attachment_location, pour permettre le
+# retour arriere.
+# ---------------------------------------------------------------------------
+- name: Poser le support de stockage des pieces jointes
+  # ir_config_parameter.key porte un index unique en Odoo 14 : ON CONFLICT
+  # rend la tache idempotente sans lecture prealable.
+  community.postgresql.postgresql_query:
+    login_host: "{{ odoo_db_host }}"
+    login_port: "{{ odoo_db_port }}"
+    login_user: "{{ odoo_db_user }}"
+    login_password: "{{ odoo_db_password }}"
+    db: "{{ odoo_shared_db }}"
+    query: >-
+      INSERT INTO ir_config_parameter
+        (key, value, create_uid, create_date, write_uid, write_date)
+      VALUES ('ir_attachment.location', '{{ odoo_attachment_location }}', 1, now(), 1, now())
+      ON CONFLICT (key) DO UPDATE
+        SET value = EXCLUDED.value, write_date = now()
+      WHERE ir_config_parameter.value IS DISTINCT FROM EXCLUDED.value
+  register: _pg_attach
+  changed_when: _pg_attach.rowcount | default(0) > 0
+
+# Ce parametre ne vaut que pour les pieces jointes A VENIR. Celles deja
+# stockees restent sur l'ancien support tant qu'elles ne sont pas migrees,
+# d'ou cette tache explicitement opt-in.
+#
+# force_storage() relit chaque piece jointe et la reecrit sur le support
+# courant : il migre donc dans les deux sens, base -> disque comme
+# disque -> base, selon odoo_attachment_location.
+#
+# ATTENTION dans le sens base -> disque : la colonne db_datas est mise a NULL,
+# mais PostgreSQL ne REND AUCUN espace pour autant. Sans un VACUUM FULL sur
+# ir_attachment ensuite, la base reste aussi grosse qu'avant et la migration
+# semble n'avoir servi a rien.
+# Pourquoi ne PAS appeler force_storage() : il fait son propre search(), et
+# ir.attachment._search injecte ('res_field', '=', False) dans tout domaine qui
+# ne mentionne ni "id" ni "res_field". Les pieces jointes qui portent la VALEUR
+# d'un champ binaire (logo de societe, avatars, images de produit...) lui sont
+# donc invisibles, et il les laisse en place en rendant True, sans rien dire.
+# Observe le 2026-09-24 : 36 pieces jointes en base, 14 migrees, 22 ignorees.
+#
+# Le domaine "'|', ('res_field','=',False), ('res_field','!=',False)" mentionne
+# res_field, ce qui desactive l'injection et ramene reellement TOUT.
+#
+# Le champ qui designe les pieces jointes a migrer depend du sens, exactement
+# comme dans force_storage() : db_datas vers le disque, store_fname vers la
+# base. _storage() lit ir_attachment.location, pose par la tache precedente.
+- name: Migrer les pieces jointes vers le support courant
+  ansible.builtin.shell:
+    cmd: |
+      {{ odoo_python }} /usr/bin/odoo shell -c {{ odoo_config_path }} -d {{ odoo_shared_db }} --no-http --logfile= <<'PYEOF'
+      Att = env['ir.attachment'].sudo()
+      tous = ['|', ('res_field', '=', False), ('res_field', '!=', False)]
+      champ = {'db': 'store_fname', 'file': 'db_datas'}[Att._storage()]
+      a_migrer = Att.search(tous + [(champ, '!=', False)])
+      print('AMIGRER=%d' % len(a_migrer))
+      echecs = []
+      for att in a_migrer:
+          # Savepoint par piece jointe : sans lui, une seule exception laisse le
+          # curseur en etat abandonne et fait perdre tout le travail deja fait.
+          try:
+              with env.cr.savepoint():
+                  att.write({'datas': att.datas})
+          except Exception as e:
+              echecs.append((att.id, str(e).replace('\n', ' ')[:120]))
+      env.cr.commit()
+      for i, m in echecs[:10]:
+          print('ECHEC id=%s %s' % (i, m))
+      print('ECHECS=%d' % len(echecs))
+      print('RESTANT=%d' % Att.search_count(tous + [(champ, '!=', False)]))
+
+      # Controle de la DESTINATION, et non de la source.
+      #
+      # RESTANT=0 dit seulement que db_datas est vide : il interroge la base,
+      # pas le disque. Une piece jointe dont le fichier n'a jamais ete ecrit
+      # -- ou dont le fichier preexistant est masque par un point de montage
+      # pose depuis -- passe ce controle sans etre lisible pour autant.
+      # C'est ainsi que 14 fichiers sont restes introuvables le 2026-09-24
+      # alors que la migration se declarait reussie.
+      import os
+      absents = [a for a in Att.search(tous + [('store_fname', '!=', False)])
+                 if not os.path.isfile(Att._full_path(a.store_fname))]
+      for a in absents[:10]:
+          print('SANS_FICHIER id=%s %s' % (a.id, a.store_fname))
+      print('SANS_FICHIER=%d' % len(absents))
+      PYEOF
+  become: true
+  become_user: "{{ odoo_system_user }}"
+  when: odoo_force_storage | bool
+  register: _odoo_migration
+  changed_when: true
+  # Pas de verdict ici : on veut AFFICHER la sortie avant de decider. Un
+  # failed_when pose sur cette tache empecherait le debug qui suit de tourner,
+  # et masquerait la seule trace qui explique l'echec.
+  failed_when: false
+
+- name: Resultat de la migration
+  ansible.builtin.debug:
+    msg: "{{ _odoo_migration.stdout_lines | default(['(aucune sortie)']) }}"
+  when: odoo_force_storage | bool
+
+- name: Toutes les pieces jointes ont bien migre
+  # "odoo shell" rend 0 meme quand la migration laisse des pieces jointes en
+  # arriere : la validation porte sur les MARQUEURS, pas sur le code retour.
+  # Meme principe que pour lxc-attach, qui rend toujours 0.
+  ansible.builtin.assert:
+    that:
+      - _odoo_migration.rc == 0
+      - "'ECHECS=0' in _odoo_migration.stdout"
+      - "'RESTANT=0' in _odoo_migration.stdout"
+      # Le controle qui manquait : RESTANT=0 interroge la base, SANS_FICHIER=0
+      # interroge le disque. Une migration peut vider db_datas et laisser des
+      # store_fname sans fichier -- c'est arrive le 2026-09-24.
+      - "'SANS_FICHIER=0' in _odoo_migration.stdout"
+    fail_msg: >-
+      Migration incomplete (rc={{ _odoo_migration.rc }}).
+      - lignes ECHEC : pieces jointes refusees a l'ecriture, avec la raison.
+      - lignes SANS_FICHIER : la base cite un fichier introuvable sur le
+        disque. Cause la plus frequente : un ancien filestore LOCAL masque par
+        le montage GlusterFS. Jouer la fusion avant de rejouer la migration :
+        ansible-playbook playbooks/ansi_syncro.yaml --tags fusion
+      Ne pas supprimer les sauvegardes.
+    success_msg: >-
+      Toutes les pieces jointes sont sur le support
+      {{ odoo_attachment_location }}, et chaque fichier reference existe.
+  when: odoo_force_storage | bool

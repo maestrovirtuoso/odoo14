@@ -1,0 +1,29 @@
+---
+# Carte physique dediee, donnee au conteneur. Surchargeable par hote.
+nic: ens224
+
+# Nom du conteneur LXC : defini par hote dans host_vars/<ip>.yml.
+lxc_container_name: devodoo14
+
+# Retirer activement l'ancien modele routé (lxcbr0 + DNAT + routes). Laisse
+# en place, il redirige le port 8069 de l'hote vers une IP 10.0.x.10 qui
+# n'existe plus : une panne du type "ca marchait hier" difficile a lire.
+lxc_undo_routed: true
+
+# Sous-reseaux et IP de l'ancien modele, a demonter.
+lxc_legacy_networks:
+  - 10.0.1.0/24
+  - 10.0.2.0/24
+  - 10.0.3.0/24
+  - 10.0.4.0/24
+lxc_legacy_container_ips:
+  - 10.0.1.10
+  - 10.0.2.10
+  - 10.0.3.10
+  - 10.0.4.10
+lxc_legacy_web_port: 8069
+
+# Cle publique du poste de controle a injecter dans le conteneur.
+# Surchargeable : -e controller_ssh_pubkey="ssh-ed25519 AAAA..."
+# ou par la variable d'environnement PROSYS_CONTROLLER_SSH_PUBKEY (cf. .env).
+controller_ssh_pubkey: "{{ lookup('env', 'PROSYS_CONTROLLER_SSH_PUBKEY') | default(lookup('file', lookup('env', 'HOME') + '/.ssh/id_rsa.pub', errors='warn'), true) | default('', true) }}"

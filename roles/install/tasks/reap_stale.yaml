@@ -1,0 +1,24 @@
+---
+# ---------------------------------------------------------------------------
+# Suppression des conteneurs devenus obsoletes sur un hote
+#
+# Cas d'usage : l'hote .141 hebergeait devodoo14 avant de passer au conteneur
+# PostgreSQL dedie. Sans cette etape il garderait les deux, l'ancien occupant
+# de la place et pouvant redemarrer tout seul (lxc.start.auto = 1) en se
+# disputant la carte physique avec le nouveau.
+#
+# DESTRUCTIF : ne rien lister ici sans avoir sauvegarde. Voir la procedure de
+# sauvegarde dans le README avant de renseigner stale_containers.
+# ---------------------------------------------------------------------------
+- name: Annoncer les conteneurs a supprimer
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }} : suppression de {{ stale_containers | join(', ') }}"
+
+- name: Detruire les conteneurs obsoletes
+  ansible.builtin.command: "lxc-destroy --force --name {{ item }}"
+  loop: "{{ stale_containers }}"
+  register: _reap
+  # lxc-destroy sort en erreur si le conteneur n'existe pas : c'est le cas
+  # nominal aux passages suivants, la tache doit donc rester idempotente.
+  changed_when: _reap.rc == 0
+  failed_when: false

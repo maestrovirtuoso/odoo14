@@ -1,0 +1,11 @@
+---
+# Variables du conteneur PostgreSQL dedie (groupe db_containers).
+# Aucun paquet Odoo n'est installe ici : ce conteneur ne sert que la base.
+pg_conf_dir: "/etc/postgresql/{{ pg_version }}/main"
+pg_data_dir: "/var/lib/postgresql/{{ pg_version }}/main"
+
+# Ecoute sur l'IP LAN du conteneur et sur la boucle locale, jamais sur "*".
+# En mode carte physique (lxc.net.0.type = phys) le pare-feu de l'hote n'est
+# PAS dans le chemin des paquets : listen_addresses et pg_hba.conf sont le
+# seul controle d'acces. Voir roles/pg_server/templates/pg_hba.conf.j2.
+pg_listen_addresses: "{{ odoo_db_host }},localhost"

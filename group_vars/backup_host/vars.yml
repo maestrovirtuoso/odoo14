@@ -1,0 +1,72 @@
+---
+# ===========================================================================
+# Variables de l'hote de sauvegarde.
+#
+# POURQUOI ICI ET NON DANS roles/odoo_backup/defaults :
+#
+# Les defaults d'un role ne sont en portee QUE pendant l'execution de ce role.
+# playbooks/ansi_sauvegarde.yaml et playbooks/ansi_syncro.yaml les
+# lisent depuis des plays "tasks:" distinctes, ou ils n'existent pas : la
+# tache echoue sur "'sauvegarde_dir' is undefined" -- constate le 2026-09-24,
+# apres une sauvegarde pourtant reussie.
+#
+# C'est le meme piege que celui deja documente pour odoo_python dans
+# group_vars/odoo_containers/vars.yml : le role odoo_dbinit tourne dans une
+# play distincte de celle du role odoo14.
+#
+# Ces trois valeurs sont donc definies ICI et NULLE PART AILLEURS. Les
+# redupliquer dans les defaults du role ferait deux sources qui finiraient par
+# diverger, sans que rien ne le signale -- group_vars l'emporte silencieusement
+# sur un default de role.
+#
+# Les reglages qui ne servent QU'A L'INTERIEUR du role (retention, horaire du
+# timer, source du filestore, verification) restent, eux, dans
+# roles/odoo_backup/defaults/main.yml.
+# ===========================================================================
+
+# Ou atterrissent les sauvegardes, sur l'hote.
+#
+# Sous /srv et non /var : la partition /var des hotes fait 1 Go. /srv vit sur
+# rl-root (15 Go), ou roles/install deporte deja /var/lib/lxc.
+#
+# Surtout PAS sous /srv/odoo-filestore ni sous /bricks : une sauvegarde rangee
+# sur le volume qu'elle sauvegarde ne protege de rien, et sur un volume
+# repliquee elle serait recopiee trois fois pour rien. Le role refuse ces deux
+# emplacements.
+sauvegarde_dir: /srv/sauvegardes
+
+# Rapatrier la sauvegarde sur le poste de controle a la fin du playbook.
+#
+# Faux par defaut : le declenchement quotidien tourne sans le poste de
+# controle, il ne peut donc pas en dependre. A passer a vrai pour obtenir une
+# copie HORS du cluster -- les quatre hotes vivant vraisemblablement sur le
+# meme hyperviseur, c'est la seule chose qui protege de sa perte :
+#   ansible-playbook playbooks/ansi_sauvegarde.yaml -e sauvegarde_rapatrier=true
+sauvegarde_rapatrier: false
+
+# Ou les deposer sur le poste de controle. Relatif au repertoire d'ou le
+# playbook est lance.
+sauvegarde_dir_local: "./sauvegardes"
+
+# Le filestore a archiver : le point de montage du volume GlusterFS partage,
+# commun aux trois instances. Une seule archive le capture donc integralement.
+#
+# /mnt/odoo, et non /mnt/odoo14 : c'est le chemin que declare deja le
+# /etc/fstab des hotes .129 et .140 (ligne "node<n>:/odoo14 /mnt/odoo
+# glusterfs ..."). La valeur /mnt/odoo14 designait un repertoire qui n'existe
+# sur aucun hote -- le tar echouait sur "No such file or directory", APRES le
+# pg_dump, et la derniere archive de filestore datait du 25/09/2026 alors que
+# les dumps de base etaient quotidiens.
+#
+# Sur .128, l'hote de sauvegarde, cette ligne de fstab est COMMENTEE : il faut
+# la decommenter puis "mount -a". Le montage n'est pas gere par Ansible, a la
+# demande ; le script verifie seulement, et refuse de continuer sinon.
+#
+# JAMAIS /bricks : une brick contient l'index interne .glusterfs, et la lire
+# court-circuite la couche qui garantit une vue coherente. /bricks/odoo14/prod
+# n'est d'ailleurs meme pas une brick -- c'est un repertoire local perime.
+#
+# Defini ici et non dans roles/odoo_backup/defaults : le play "verif" de
+# ansi_syncro.yaml le lit depuis le role odoo_migration, ou les defaults
+# d'odoo_backup ne sont pas en portee.
+sauvegarde_filestore_src: /mnt/odoo

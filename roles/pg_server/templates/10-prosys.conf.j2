@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+# Depose dans {{ pg_conf_dir }}/conf.d/, lu grace au "include_dir = 'conf.d'"
+# de postgresql.conf : la configuration livree par Debian n'est pas modifiee.
+#
+# Ces quatre parametres ne sont relus qu'au DEMARRAGE du serveur. Le role
+# notifie donc "restart postgresql", pas "reload".
+
+listen_addresses = '{{ pg_listen_addresses }}'
+port = {{ pg_port }}
+max_connections = {{ pg_max_connections }}
+shared_buffers = {{ pg_shared_buffers }}
+
+# Doit etre effectif AVANT la creation du role odoo : un mot de passe pose
+# sous md5 serait rejete par un pg_hba en scram-sha-256.
+password_encryption = '{{ pg_password_encryption }}'

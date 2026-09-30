@@ -1,0 +1,184 @@
+---
+# ===========================================================================
+# Role odoo_sessions  -  execute DANS les conteneurs Odoo
+#
+# Rend les sessions Odoo COMMUNES aux trois instances.
+#
+# POURQUOI. Odoo 14 stocke ses sessions dans des FICHIERS, un par session.
+# Tant qu'elles sont locales, un repartiteur de charge qui renvoie un
+# utilisateur sur un autre noeud le deconnecte : sa session n'existe pas la.
+# Partagees, n'importe quelle instance sert n'importe quelle session, et la
+# bascule devient invisible pour l'utilisateur.
+#
+# DEUX CAS, selon OU le volume partage est monte. Le role MESURE, il ne
+# suppose pas :
+#
+#   a) volume monte sur le data_dir entier ({{ odoo_data_dir }}) -- cas du
+#      lab depuis le 30/09/2026. Alors {{ odoo_data_dir }}/sessions est DEJA
+#      sur le volume, par construction. Il n'y a RIEN a monter : le role s'en
+#      assure et retire un eventuel bind devenu inutile.
+#
+#   b) volume monte sur {{ odoo_data_dir }}/filestore seulement. Alors les
+#      sessions sont hors du volume, et il faut les y renvoyer par un bind.
+#
+# Poser le bind dans le cas (a) n'aurait pas echoue -- il aurait monte une
+# partie du volume sur une autre partie du meme volume. Ca marche, et ca ne
+# sert a rien : une ligne de fstab de plus a comprendre et a maintenir, et un
+# ordre de montage a respecter pour rien.
+#
+# LE COUT DU PARTAGE, a connaitre. GlusterFS est mauvais sur les tres nombreux
+# petits fichiers a forte rotation -- ce que sont exactement les sessions.
+# Chaque requete authentifiee lit et reecrit un fichier de session, qui part
+# desormais sur le reseau vers trois repliques au lieu de rester sur un disque
+# local. C'est le prix de la bascule transparente.
+#
+# L'alternative etait les sessions COLLANTES seules, ou le repartiteur garde
+# chaque utilisateur sur le meme noeud : aucun cout reseau, mais l'utilisateur
+# est deconnecte quand son noeud tombe. Le choix du 30/09/2026 a ete la
+# bascule transparente, le cookie SRV de HAProxy restant par-dessus pour que
+# le cas courant ne paie pas l'aller-retour.
+# ===========================================================================
+
+- name: Le volume partage est bien monte
+  # Sans lui, tout ce qui suit s'appliquerait au disque LOCAL du conteneur :
+  # les trois noeuds auraient chacun leurs sessions et le partage n'existerait
+  # que sur le papier. Meme erreur silencieuse que celle du 25/09/2026.
+  ansible.builtin.command: "findmnt -n -o TARGET,SOURCE,FSTYPE {{ odoo_filestore }}"
+  register: _sess_volume
+  changed_when: false
+  failed_when: "'fuse.glusterfs' not in _sess_volume.stdout"
+
+- name: Les sessions sont-elles deja dans le volume ?
+  # Comparaison de CHEMINS, et non supposition : si le repertoire des sessions
+  # est sous le point de montage, il est deja partage et aucun bind n'a de
+  # sens.
+  ansible.builtin.set_fact:
+    odoo_sessions_bind_requis: >-
+      {{ not (odoo_sessions_local ~ '/').startswith(odoo_filestore ~ '/') }}
+
+- name: Ce qui a ete constate
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} : volume sur {{ odoo_filestore }},
+      sessions dans {{ odoo_sessions_local }} --
+      {{ 'bind necessaire' if odoo_sessions_bind_requis | bool
+         else 'deja dans le volume, aucun montage a poser' }}
+
+# ===========================================================================
+# CAS (a) - les sessions sont deja dans le volume
+# ===========================================================================
+- name: Le repertoire des sessions, dans le volume
+  # 0700 : une session est un jeton d'authentification. Personne d'autre
+  # qu'Odoo n'a a la lire.
+  #
+  # run_once : le repertoire est sur le volume, commun aux trois noeuds.
+  ansible.builtin.file:
+    path: "{{ odoo_sessions_local }}"
+    state: directory
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0700"
+  run_once: true
+  when: not (odoo_sessions_bind_requis | bool)
+
+- name: Demonter un bind de sessions devenu inutile
+  # Pose par une execution anterieure de ce role, quand le volume etait attendu
+  # sur {{ odoo_data_dir }}/filestore. Il monterait aujourd'hui une partie du
+  # volume sur une autre partie du meme volume.
+  #
+  # "unmounted" et NON "absent" : ansible.posix.mount avec state=absent
+  # SUPPRIME le repertoire du point de montage. C'est ce qui a efface
+  # /srv/odoo-filestore le 25/09/2026. Ici cela detruirait les sessions.
+  ansible.posix.mount:
+    path: "{{ odoo_sessions_local }}"
+    state: unmounted
+  when: not (odoo_sessions_bind_requis | bool)
+  notify: redemarrer odoo
+
+- name: Retirer la ligne de fstab du bind inutile
+  # lineinfile plutot que mount state=absent, pour la meme raison : ne toucher
+  # qu'a la declaration, jamais au repertoire ni a son contenu.
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: "^\\S+\\s+{{ odoo_sessions_local | regex_escape }}\\s"
+    state: absent
+  when: not (odoo_sessions_bind_requis | bool)
+
+# ===========================================================================
+# CAS (b) - les sessions sont hors du volume : bind
+# ===========================================================================
+- name: Creer le repertoire des sessions sur le volume
+  ansible.builtin.file:
+    path: "{{ odoo_sessions_partage }}"
+    state: directory
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0700"
+  run_once: true
+  when: odoo_sessions_bind_requis | bool
+
+- name: Archiver les sessions locales avant de les masquer
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      if [ -d "{{ odoo_sessions_local }}" ] && [ -n "$(ls -A '{{ odoo_sessions_local }}' 2>/dev/null)" ]; then
+        tar czf "/root/sessions-avant-partage-{{ inventory_hostname }}.tgz" \
+            -C "{{ odoo_data_dir }}" sessions
+        echo "ARCHIVE=$(find '{{ odoo_sessions_local }}' -type f | wc -l) fichier(s)"
+      else
+        echo "ARCHIVE=0 (aucune session locale)"
+      fi
+    creates: "/root/sessions-avant-partage-{{ inventory_hostname }}.tgz"
+    executable: /bin/bash
+  register: _sess_archive
+  when:
+    - odoo_sessions_bind_requis | bool
+    - odoo_sessions_sauvegarder | bool
+
+- name: Le point de montage du bind existe
+  ansible.builtin.file:
+    path: "{{ odoo_sessions_local }}"
+    state: directory
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0700"
+  when: odoo_sessions_bind_requis | bool
+
+- name: Declarer le bind dans le fstab du conteneur
+  # x-systemd.requires-mounts-for : le bind n'a de sens qu'une fois le volume
+  # monte. Sans cette option, systemd peut tenter le bind avant, et Odoo
+  # repartirait sur des sessions locales sans que rien ne le signale.
+  ansible.posix.mount:
+    path: "{{ odoo_sessions_local }}"
+    src: "{{ odoo_sessions_partage }}"
+    fstype: none
+    opts: "bind,x-systemd.requires-mounts-for={{ odoo_filestore }}"
+    state: mounted
+  when: odoo_sessions_bind_requis | bool
+  notify: redemarrer odoo
+
+# ===========================================================================
+# Verification, dans les deux cas
+# ===========================================================================
+- name: Appliquer avant de verifier
+  ansible.builtin.meta: flush_handlers
+
+- name: Sur quel systeme de fichiers les sessions reposent-elles ?
+  # Le controle porte sur le repertoire des SESSIONS, et non sur le point de
+  # montage : c'est la destination reelle des ecritures d'Odoo. Un volume bien
+  # monte ne prouve pas que les sessions y atterrissent.
+  ansible.builtin.command: "findmnt -n -o TARGET,SOURCE,FSTYPE --target {{ odoo_sessions_local }}"
+  register: _sess_final
+  changed_when: false
+
+- name: Les sessions sont bien sur le volume partage
+  ansible.builtin.assert:
+    that:
+      - "'fuse.glusterfs' in _sess_final.stdout"
+    fail_msg: >-
+      {{ odoo_sessions_local }} ne repose pas sur GlusterFS
+      ({{ _sess_final.stdout | trim }}). Les sessions resteraient locales a ce
+      noeud, et le repartiteur deconnecterait les utilisateurs a chaque
+      bascule.
+    success_msg: "{{ inventory_hostname }} : {{ _sess_final.stdout | trim }}"
+    quiet: true

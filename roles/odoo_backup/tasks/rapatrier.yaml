@@ -1,0 +1,58 @@
+---
+# ===========================================================================
+# odoo_backup : point d'entree "rapatrier"
+#
+# Sort une copie de la derniere sauvegarde HORS du cluster, vers le poste de
+# controle.
+#
+# Les quatre hotes vivent tres probablement sur le meme hyperviseur : une
+# sauvegarde rangee sur .128 ne protege pas de la perte de l'ensemble. C'est
+# ce rapatriement qui l'en sort -- mais il exige que le poste de controle soit
+# la, donc il ne peut pas etre quotidien. A jouer avant toute operation
+# risquee.
+#
+#   - name: Rapatrier
+#     ansible.builtin.import_role:
+#       name: odoo_backup
+#       tasks_from: rapatrier
+# ===========================================================================
+
+- name: Identifier les fichiers de la derniere sauvegarde
+  # Les trois motifs sont traites separement : "ls -1t | head -1" doit rendre
+  # le plus recent de CHAQUE type, pas les trois plus recents tous types
+  # confondus -- ce qui ramenerait trois dumps et aucune archive.
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      for motif in '{{ odoo_shared_db }}-*.dump' 'filestore-*.tgz' 'manifeste-*.txt'; do
+        ls -1t {{ sauvegarde_dir }}/$motif 2>/dev/null | head -1
+      done
+  args:
+    executable: /bin/bash
+  register: _derniere
+  changed_when: false
+  when: sauvegarde_rapatrier | bool
+
+- name: Rapatrier
+  ansible.builtin.fetch:
+    src: "{{ item }}"
+    dest: "{{ sauvegarde_dir_local }}/"
+    flat: true
+  loop: "{{ _derniere.stdout_lines | default([]) }}"
+  when: sauvegarde_rapatrier | bool
+
+- name: Ou se trouve la copie hors cluster
+  ansible.builtin.debug:
+    msg: >-
+      {{ _derniere.stdout_lines | default([]) | length }} fichier(s)
+      rapatrie(s) dans {{ sauvegarde_dir_local }} sur le poste de controle.
+      Verifier les empreintes du manifeste avant de s'y fier.
+  when: sauvegarde_rapatrier | bool
+
+- name: Rapatriement non demande
+  ansible.builtin.debug:
+    msg: >-
+      Les sauvegardes restent sur {{ inventory_hostname }}, donc DANS le
+      cluster. Pour en sortir une copie :
+      -e sauvegarde_rapatrier=true
+  when: not (sauvegarde_rapatrier | bool)

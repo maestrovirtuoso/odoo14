@@ -1,0 +1,43 @@
+---
+# ===========================================================================
+# odoo_backup : point d'entree "sauvegarder"
+#
+# Lance une sauvegarde MAINTENANT et rend compte de son contenu.
+# Suppose que tasks/main.yaml est deja passe (script, .pgpass, repertoire).
+#
+#   - name: Sauvegarder
+#     ansible.builtin.import_role:
+#       name: odoo_backup
+#       tasks_from: sauvegarder
+# ===========================================================================
+
+- name: Lancer la sauvegarde
+  # Par le script et non par "systemctl start" : on veut la sortie dans le
+  # journal du playbook, et un echec qui fasse echouer la tache. Un
+  # "systemctl start" d'une unite oneshot rendrait la main sans dire si la
+  # sauvegarde a abouti.
+  ansible.builtin.command: /usr/local/bin/odoo-sauvegarde.sh
+  register: _sauvegarde
+  changed_when: true
+
+- name: Journal de la sauvegarde
+  ansible.builtin.debug:
+    msg: "{{ _sauvegarde.stdout_lines }}"
+
+- name: Relire le manifeste
+  ansible.builtin.command: "sh -c 'cat $(ls -1t {{ sauvegarde_dir }}/manifeste-*.txt | head -1)'"
+  register: _manifeste
+  changed_when: false
+
+- name: Contenu de la sauvegarde
+  ansible.builtin.debug:
+    msg: "{{ _manifeste.stdout_lines }}"
+
+- name: Etat de la destination
+  ansible.builtin.command: "sh -c 'ls -1t {{ sauvegarde_dir }} | head -12; echo ---; df -h {{ sauvegarde_dir }} | tail -1'"
+  register: _etat_dest
+  changed_when: false
+
+- name: Sauvegardes conservees
+  ansible.builtin.debug:
+    msg: "{{ _etat_dest.stdout_lines }}"

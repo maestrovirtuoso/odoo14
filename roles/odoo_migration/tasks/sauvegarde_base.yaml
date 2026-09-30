@@ -1,0 +1,20 @@
+---
+# ===========================================================================
+# odoo_migration : dump de la base AVANT toute modification.
+#
+# C'est le filet de securite de toute la migration. Tant qu'il existe, le
+# retour arriere reste possible.
+# ===========================================================================
+
+- name: Dump complet de la base avant migration
+  ansible.builtin.shell:
+    cmd: >-
+      pg_dump -Fc {{ odoo_shared_db }}
+      > /var/lib/postgresql/{{ odoo_shared_db }}-avant-gluster.dump
+  become: true
+  become_user: postgres
+  args:
+    # creates : ne refait pas le dump si un playbook precedent l'a deja pris.
+    # Le point de retour reste donc celui d'AVANT la premiere tentative, ce
+    # qui est exactement ce qu'on veut.
+    creates: "/var/lib/postgresql/{{ odoo_shared_db }}-avant-gluster.dump"

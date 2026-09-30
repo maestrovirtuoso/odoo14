@@ -1,0 +1,354 @@
+---
+# ===========================================================================
+# Role odoo_net  -  execute sur les HOTES (gluster_servers, Rocky 8)
+# But : router entre les 3 sous-reseaux conteneurs via le LAN, publier l'UI
+#       Odoo, et amorcer un acces SSH dans le conteneur pour la suite du
+#       playbook.
+#
+# PREREQUIS (plus assures par ce role, retires a la demande) :
+#   - /etc/sysconfig/lxc-net renseigne (LXC_ADDR / LXC_NETWORK / DHCP range)
+#     et le bridge lxcbr0 present et up, avec la bonne adresse ;
+#   - /var/lib/lxc/<conteneur>/rootfs/etc/systemd/network/eth0.network fixant
+#     l'IP statique du conteneur ;
+#   - NetworkManager configure pour ne pas gerer lxcbr0 ni les veth, sinon il
+#     les detruit et lxc-start echoue sur "Failed to attach vethXXX".
+# Ces points doivent etre etablis a la main sur chaque hote avant ce play.
+#
+# Toutes les etapes sensibles sont appliquees EN LIGNE (pas via handlers
+# differes) pour respecter l'ordre : conteneur -> firewalld -> re-assert
+# lxc-net -> bootstrap SSH.
+# ===========================================================================
+
+- name: Arreter le conteneur avant reconfiguration reseau
+  ansible.builtin.command: "lxc-stop -n {{ lxc_container_name }}"
+  register: _lxc_stop
+  changed_when: _lxc_stop.rc == 0
+  failed_when: false
+
+- name: (Re)demarrer le conteneur et confirmer l'etat RUNNING
+  block:
+    - name: (Re)demarrer le conteneur
+      ansible.builtin.command: "lxc-start -n {{ lxc_container_name }} -d"
+      register: _lxc_start
+      changed_when: _lxc_start.rc == 0
+      failed_when: false
+
+    - name: Attendre que le conteneur ait un PID actif
+      ansible.builtin.command: "lxc-info -n {{ lxc_container_name }} -sH"
+      register: _lxc_state
+      until: _lxc_state.stdout | trim == "RUNNING"
+      retries: 100
+      delay: 2
+      changed_when: false
+  rescue:
+    - name: Recuperer le log du conteneur
+      ansible.builtin.command: "tail -n 80 /var/log/lxc/{{ lxc_container_name }}.log"
+      register: _lxc_log
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher la config et le log du conteneur
+      ansible.builtin.debug:
+        msg: "{{ _lxc_log.stdout_lines | default(['(log absent)']) }}"
+
+    - name: Relayer l'echec de demarrage
+      ansible.builtin.fail:
+        msg: >-
+          Le conteneur {{ lxc_container_name }} ne demarre pas sur
+          {{ inventory_hostname }}. Voir le log ci-dessus. Verifier
+          /var/lib/lxc/{{ lxc_container_name }}/config (lxc.net.0.*),
+          l'espace disque, et 'systemctl status lxc-net'.
+
+# ---------------------------------------------------------------------------
+# 2. Routage inter-hotes entre les sous-reseaux des conteneurs
+# ---------------------------------------------------------------------------
+- name: Activer le routage IPv4 (persistant)
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Installer le hook NetworkManager pour les routes conteneurs
+  ansible.builtin.copy:
+    dest: /etc/NetworkManager/dispatcher.d/90-odoo-container-routes
+    mode: "0755"
+    content: |
+      #!/bin/bash
+      [ "$2" = "up" ] || exit 0
+      {% for r in peer_container_routes %}
+      ip route replace {{ r.network }} via {{ r.via }}
+      {% endfor %}
+
+- name: Appliquer les routes immediatement
+  ansible.builtin.command: "ip route replace {{ item.network }} via {{ item.via }}"
+  loop: "{{ peer_container_routes }}"
+  loop_control:
+    label: "{{ item.network }} via {{ item.via }}"
+  changed_when: true
+
+# ---------------------------------------------------------------------------
+# 3. firewalld : publication de l'UI Odoo
+#    (zone trusted, forwarding inter-reseaux et NAT sortant : a poser a la
+#     main sur l'hote -- retires a la demande)
+# ---------------------------------------------------------------------------
+- name: Activer le masquerade zone public (retour DNAT + trafic route)
+  ansible.posix.firewalld:
+    zone: public
+    masquerade: true
+    permanent: true
+    immediate: true
+    state: enabled
+
+- name: Publier l'UI web Odoo du conteneur sur l'IP LAN de l'hote (DNAT)
+  ansible.posix.firewalld:
+    zone: public
+    rich_rule: >-
+      rule family="ipv4"
+      forward-port port="{{ odoo_web_port }}" protocol="tcp"
+      to-port="{{ odoo_web_port }}" to-addr="{{ container_ip }}"
+    permanent: true
+    immediate: true
+    state: "{{ 'enabled' if (publish_odoo_web | default(false)) else 'disabled' }}"
+
+- name: Recharger firewalld
+  ansible.builtin.command: firewall-cmd --reload
+  changed_when: true
+
+# firewalld --reload purge les regles iptables posees par lxc-net :
+# on relance lxc-net APRES pour qu'il les reinsere (NAT sortant + FORWARD).
+# Le conteneur est arrete d'abord pour que son veth soit recree proprement
+# sur le bridge remis a neuf.
+- name: Arreter le conteneur avant de relancer lxc-net
+  ansible.builtin.command: "lxc-stop -n {{ lxc_container_name }}"
+  register: _lxc_stop2
+  changed_when: _lxc_stop2.rc == 0
+  failed_when: false
+
+- name: Re-asserter les regles lxc-net apres le reload firewalld
+  ansible.builtin.service:
+    name: lxc-net
+    state: restarted
+
+- name: Redemarrer le conteneur apres le restart lxc-net
+  ansible.builtin.command: "lxc-start -n {{ lxc_container_name }} -d"
+  register: _lxc_restart2
+  changed_when: _lxc_restart2.rc == 0
+  failed_when: false
+
+- name: Re-verifier l'etat RUNNING du conteneur
+  ansible.builtin.command: "lxc-info -n {{ lxc_container_name }} -sH"
+  register: _lxc_state2
+  until: _lxc_state2.stdout | trim == "RUNNING"
+  retries: 15
+  delay: 2
+  changed_when: false
+
+- name: Attendre que systemd-networkd du conteneur configure eth0
+  ansible.builtin.command:
+    argv:
+      - lxc-attach
+      - -n
+      - "{{ lxc_container_name }}"
+      - --
+      - /bin/bash
+      - -c
+      - |
+        for i in $(seq 1 30); do
+          if ip -4 addr show eth0 2>/dev/null | grep -q '{{ container_ip }}'; then
+            echo IP_OK; exit 0
+          fi
+          sleep 1
+        done
+        echo IP_KO
+        ip -4 addr show eth0 2>&1 || true
+  register: _ctr_ip
+  changed_when: false
+  # lxc-attach perd le code retour : on valide sur le marqueur.
+  failed_when: "'IP_OK' not in _ctr_ip.stdout"
+
+# ---------------------------------------------------------------------------
+# 4. Amorcage de l'acces SSH dans le conteneur (via lxc-attach)
+# ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# 3bis. Acces sortant du conteneur (prerequis a apt) - on echoue ICI, sur la
+#       vraie cause, plutot que plus loin sur un apt qui rate.
+# ---------------------------------------------------------------------------
+- name: Verifier que le NAT sortant est actif dans la table nat
+  ansible.builtin.shell: >-
+    iptables -t nat -S POSTROUTING | grep -q -- "-s {{ lxcbr0_network }}"
+  register: _nat_present
+  changed_when: false
+  failed_when: false
+
+- name: Reappliquer lxc-net si le NAT sortant manque
+  ansible.builtin.service:
+    name: lxc-net
+    state: restarted
+  when: _nat_present.rc != 0
+
+
+
+- name: Verifier qu'une cle publique de controleur est disponible
+  ansible.builtin.assert:
+    that: controller_ssh_pubkey | length > 0
+    fail_msg: >-
+      Aucune cle SSH sur le poste de controle. Fais 'ssh-keygen' puis relance,
+      ou passe -e controller_ssh_pubkey="ssh-ed25519 AAAA...".
+
+- name: Installer openssh-server + cle du controleur dans le conteneur
+  ansible.builtin.command:
+    argv:
+      - lxc-attach
+      - -n
+      - "{{ lxc_container_name }}"
+      - --
+      - /bin/bash
+      - -c
+      - |
+        # Pas de "set -e" : on veut derouler jusqu'au bout et TOUT tracer sur
+        # stdout, seule voie de retour fiable (lxc-attach perd le code retour).
+        exec 2>&1
+        export DEBIAN_FRONTEND=noninteractive
+
+        # Debian 12 (bookworm) est pleinement maintenue : main, updates et
+        # security sont servis et coherents entre eux. Le contournement de
+        # date herite de Debian 11 est retire s'il traine encore.
+        rm -f /etc/apt/apt.conf.d/99-ignore-valid-until
+
+        {
+          printf 'deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware\n'
+          printf 'deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware\n'
+          printf 'deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware\n'
+        } > /etc/apt/sources.list
+
+        apt-get update || true
+
+        # Meme cause que roles/odoo14/files/apt-realign, mais ici python3-apt
+        # n'existe pas encore : version shell.
+        # L'image du conteneur embarque des paquets dans leur version
+        # "security" (openssh-client ...u7) alors que les depots encore
+        # servis n'offrent que l'origine (...u3). apt bloque alors sur la
+        # dependance stricte et ne retrograde jamais de lui-meme :
+        #   openssh-server : Depends: openssh-client (= ...u3)
+        #                    but 1:8.4p1-5+deb11u7 is to be installed
+        # On retrograde donc, en UNE SEULE transaction (les paquets lies par
+        # une dependance stricte doivent bouger ensemble), tout paquet
+        # installe en version superieure a la meilleure version REELLEMENT
+        # telechargeable.
+        realign_apt() {
+          declare -A inst best
+          # "apt-cache policy" est inutilisable ici : pour un paquet installe
+          # dans une version absente de tout depot, il renvoie comme candidate
+          # la version installee elle-meme, et le paquet passe inapercu.
+          # "apt-cache madison" ne liste que ce qui est dans un depot.
+          while read -r p v; do
+            inst["$p"]="$v"
+          done < <(dpkg-query -W -f='${Package} ${Version}\n' 2>/dev/null)
+          # NB : jamais la forme "dollar-accolade-diese" (cardinal d'un
+          # tableau) dans ce script -- Ansible le passe d'abord dans Jinja2,
+          # qui lit accolade-diese comme un debut de commentaire et echoue
+          # sur "Missing end of comment tag", avant meme toute execution.
+          [ -n "${inst[*]}" ] || return 0
+          while read -r p v; do
+            [ -n "${inst[$p]+x}" ] || continue
+            if [ -z "${best[$p]}" ] || dpkg --compare-versions "$v" gt "${best[$p]}"; then
+              best["$p"]="$v"
+            fi
+          done < <(apt-cache madison "${!inst[@]}" 2>/dev/null \
+                   | awk -F'|' '/Packages$/ { gsub(/^ +| +$/, "", $1);
+                                              gsub(/^ +| +$/, "", $2);
+                                              print $1, $2 }')
+          local targets=""
+          local p
+          for p in "${!best[@]}"; do
+            if dpkg --compare-versions "${inst[$p]}" gt "${best[$p]}"; then
+              targets="$targets $p=${best[$p]}"
+            fi
+          done
+          if [ -z "$targets" ]; then
+            echo "--- realignement: aucune retrogradation necessaire ---"
+            return 0
+          fi
+          echo "--- realignement:$targets ---"
+          apt-get install -y --allow-downgrades $targets || true
+          dpkg --configure -a || true
+          apt-get -y --fix-broken install || true
+        }
+
+        # Paquets indispensables pour la suite :
+        #  - openssh-server : Ansible atteint le conteneur en SSH (plays 2 et 3)
+        #  - python3        : sans lui, tout module Ansible echoue en "not found"
+        #  - python3-apt    : requis par le module apt d'Ansible
+        # dpkg -s est la seule preuve fiable qu'un paquet est installe :
+        # "command -v" peut reussir sur un residu et masquer un apt rate.
+        REQUIRED="openssh-server python3 python3-apt"
+        missing=""
+        for p in $REQUIRED; do
+          dpkg -s "$p" >/dev/null 2>&1 || missing="$missing $p"
+        done
+
+        if [ -n "$missing" ]; then
+          realign_apt
+          installed=0
+          for i in 1 2 3; do
+            echo "--- tentative apt $i (manquants:$missing) ---"
+            if apt-get update && apt-get install -y $missing; then
+              installed=1; break
+            fi
+            sleep 5
+          done
+          if [ "$installed" != "1" ]; then
+            echo "ECHEC: installation de$missing impossible apres 3 tentatives."
+            echo "--- DNS ---"; getent hosts deb.debian.org || echo "resolution KO"
+            echo "--- routes ---"; ip r
+            echo "--- resolv.conf ---"; cat /etc/resolv.conf
+            exit 10
+          fi
+        fi
+
+        for p in $REQUIRED; do
+          dpkg -s "$p" >/dev/null 2>&1 || { echo "ECHEC: $p absent apres installation"; exit 10; }
+        done
+
+        install -d -m 700 /root/.ssh
+        touch /root/.ssh/authorized_keys
+        chmod 600 /root/.ssh/authorized_keys
+        grep -qF "{{ controller_ssh_pubkey }}" /root/.ssh/authorized_keys \
+          || echo "{{ controller_ssh_pubkey }}" >> /root/.ssh/authorized_keys
+        sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+
+        # Les cles d'hote manquent parfois en conteneur : sshd refuse de demarrer.
+        ssh-keygen -A
+
+        systemctl enable ssh
+        systemctl restart ssh
+        if ! systemctl is-active --quiet ssh; then
+          echo "ECHEC: ssh.service inactif"
+          systemctl status ssh --no-pager -l || true
+          journalctl -u ssh --no-pager -n 30 || true
+          exit 11
+        fi
+        if ! ss -ltn | grep -qE '(0\.0\.0\.0|\[::\]):22[[:space:]]'; then
+          echo "ECHEC: rien n'ecoute sur :22"
+          ss -ltn
+          exit 12
+        fi
+        # Ansible utilise cet interpreteur (cf. ansible_python_interpreter
+        # dans inventory.yaml) : on verifie qu'il repond vraiment.
+        /usr/bin/python3 -c 'import sys; print("python", sys.version.split()[0])' \
+          || { echo "ECHEC: /usr/bin/python3 inutilisable"; exit 13; }
+
+        echo "BOOTSTRAP_SSH_OK"
+  register: _ssh_bootstrap
+  changed_when: true
+  # lxc-attach renvoie toujours 0 (LXC 3.0.4) : on valide sur le marqueur.
+  failed_when: "'BOOTSTRAP_SSH_OK' not in _ssh_bootstrap.stdout"
+
+- name: Attendre que le port SSH du conteneur soit ouvert (vu depuis l'hote)
+  ansible.builtin.wait_for:
+    host: "{{ container_ip }}"
+    port: 22
+    timeout: 120
+    delay: 2

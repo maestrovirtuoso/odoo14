@@ -1,0 +1,71 @@
+---
+# ===========================================================================
+# odoo_migration : preflight cote HOTES (horloge et stockage).
+# ===========================================================================
+
+# --- Horloge ---------------------------------------------------------------
+# Verifie AVANT le reste : un desaccord sur l'heure entre noeuds fausse
+# l'arbitrage de toute replication, et fait echouer apt dans les conteneurs
+# ("Release file is not valid yet"). Un ecart de 12 h 38 a ete observe le
+# 2026-09-24, puis de 14 h 09 le 2026-09-25 : chronyd tournait et etait
+# synchronise, mais la politique "makestep 1.0 3" de Rocky lui interdisait de
+# corriger un ecart apparu apres son demarrage.
+- name: Relever l'horloge de l'hote
+  ansible.builtin.command: "date -u +%s"
+  register: _pre_epoch
+  changed_when: false
+
+- name: Les horloges concordent avec le poste de controle
+  ansible.builtin.assert:
+    that:
+      - (_pre_epoch.stdout | int - _contr_epoch | int) | abs < 60
+    fail_msg: >-
+      {{ inventory_hostname }} derive de
+      {{ ((_pre_epoch.stdout | int - _contr_epoch | int) / 3600) | round(2) }} h
+      par rapport au poste de controle.
+      Correction immediate :
+        ansible gluster_servers -k -m shell -a 'chronyc makestep'
+      Correction DURABLE, sur les 4 hotes, sans redemarrer les conteneurs :
+        ansible-playbook playbooks/ansi_odoo.yaml -k --ask-vault-pass --tags horloge
+      La politique Rocky par defaut, "makestep 1.0 3", n'autorise le saut
+      que lors des 3 premieres mises a jour apres demarrage de chronyd :
+      une derive apparue ensuite n'est JAMAIS rattrapee.
+    success_msg: >-
+      {{ inventory_hostname }} :
+      {{ _pre_epoch.stdout | int - _contr_epoch | int }} s d'ecart
+  vars:
+    _contr_epoch: "{{ lookup('pipe', 'date -u +%s') }}"
+
+# --- Stockage --------------------------------------------------------------
+# Le filestore est le point de montage du volume GlusterFS partage. On verifie
+# ici qu'il est monte ET de quel TYPE il est, AVANT de couper quoi que ce soit.
+#
+# Le controle du seul chemin ne dit RIEN : un volume non monte laisse un
+# repertoire vide au meme endroit, et Odoo y ecrit sans se plaindre. C'est ce
+# qui a fait diverger les trois filestores a 37, 38 et 39 fichiers le
+# 25/09/2026, avec une interface web cassee sur deux noeuds et pas une erreur
+# dans les journaux.
+#
+# filestore_host_src vient de group_vars/gluster_bricks/vars.yml, et non des
+# defaults du role odoo_filestore : ceux-ci ne sont pas en portee ici.
+- name: Relever le stockage du filestore
+  ansible.builtin.command: >-
+    findmnt --noheadings --output FSTYPE,SOURCE,SIZE,AVAIL {{ filestore_host_src }}
+  register: _pre_stockage
+  changed_when: false
+  failed_when: false
+
+- name: Le filestore est bien servi par le volume partage
+  ansible.builtin.assert:
+    that:
+      - _pre_stockage.rc == 0
+      - filestore_fstype_attendu in _pre_stockage.stdout
+    fail_msg: >-
+      {{ filestore_host_src }} n'est pas un montage {{ filestore_fstype_attendu }}
+      sur {{ inventory_hostname }}
+      (findmnt : "{{ _pre_stockage.stdout | trim | default('rien') }}").
+      Le monter AVANT toute migration -- ce depot ne s'en charge pas :
+        mount -t glusterfs localhost:/odoo14 {{ filestore_host_src }}
+    success_msg: >-
+      {{ inventory_hostname }} : {{ filestore_host_src }} servi par
+      {{ _pre_stockage.stdout | trim }}

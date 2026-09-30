@@ -1,6 +1,11 @@
 ---
-# Conteneur(s) LXC deployes sur CHAQUE hote du groupe gluster_servers
-# (les 3 VM listees dans inventory.yaml).
-# Template "download" : -d debian -r bullseye -a amd64  =>  Debian 11
-containers:
-  - { name: "devodoo14" }
+# Conteneur LXC deploye sur chaque hote du groupe gluster_servers.
+# Template "download" : -d debian -r bookworm -a amd64  =>  Debian 12.
+#
+# La valeur est volontairement une expression Jinja, non une liste litterale :
+# ce fichier est injecte par "vars_files:" dans les playbooks, et vars_files a
+# une precedence SUPERIEURE a host_vars/. Une liste en dur ici ne pourrait
+# donc pas etre surchargee par hote, silencieusement. En passant par
+# lxc_container_name, l'expression est resolue par hote au moment de l'usage :
+# devodoo14 sur les noeuds Odoo, devpg15 sur l'hote de la base.
+containers: "{{ [ {'name': lxc_container_name} ] }}"

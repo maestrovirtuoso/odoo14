@@ -1,0 +1,5 @@
+---
+# Temps d'attente maximal (secondes) pour obtenir le verrou RPM.
+# Le timer dnf-makecache peut le detenir plusieurs minutes ; passe ce delai la
+# tache echoue avec un message clair au lieu de bloquer le playbook.
+dnf_lock_timeout: 120

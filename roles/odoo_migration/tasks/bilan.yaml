@@ -1,0 +1,78 @@
+---
+# ===========================================================================
+# odoo_migration : bilan, et recuperation d'espace si la migration allege.
+#
+# CE FICHIER DEPEND DU SENS. Il l'etait implicitement avant le 25/09/2026, et
+# echouait donc sur un retour arriere vers la base : son assertion exigeait
+# "plus aucune piece jointe en base", l'inverse du resultat attendu quand on
+# migre VERS la base.
+# ===========================================================================
+
+- name: Reecrire la table ir_attachment
+  # UNIQUEMENT vers le disque. La migration a mis db_datas a NULL, mais
+  # PostgreSQL ne rend AUCUN espace pour autant : les lignes mortes restent
+  # dans la table et son TOAST. Sans ce VACUUM FULL, la base reste aussi
+  # grosse qu'avant et la migration parait inutile.
+  #
+  # Dans l'autre sens la table VIENT de grossir : un VACUUM FULL n'y
+  # recupererait rien et reecrirait pour rien une table plus volumineuse.
+  #
+  # VACUUM FULL pose un verrou exclusif et reecrit la table a cote avant de
+  # basculer : il faut temporairement de la place pour les deux. Sans risque
+  # ici, Odoo est arrete.
+  #
+  # autocommit obligatoire : VACUUM ne peut pas tourner dans une transaction.
+  community.postgresql.postgresql_query:
+    login_host: "{{ odoo_db_host }}"
+    login_port: "{{ odoo_db_port }}"
+    login_user: "{{ odoo_db_user }}"
+    login_password: "{{ odoo_db_password }}"
+    db: "{{ odoo_shared_db }}"
+    query: "VACUUM (FULL, ANALYZE) ir_attachment"
+    autocommit: true
+  changed_when: true
+  when: odoo_attachment_location == 'file'
+
+- name: Mesurer le resultat
+  community.postgresql.postgresql_query:
+    login_host: "{{ odoo_db_host }}"
+    login_port: "{{ odoo_db_port }}"
+    login_user: "{{ odoo_db_user }}"
+    login_password: "{{ odoo_db_password }}"
+    db: "{{ odoo_shared_db }}"
+    query: >-
+      SELECT pg_size_pretty(pg_total_relation_size('ir_attachment')) AS taille,
+             count(*) FILTER (WHERE db_datas IS NOT NULL) AS en_base,
+             count(*) FILTER (WHERE store_fname IS NOT NULL) AS sur_disque,
+             count(*) AS total
+      FROM ir_attachment
+  register: _post_attach
+  changed_when: false
+
+- name: Repartition apres migration
+  ansible.builtin.debug:
+    msg: >-
+      ir_attachment : {{ _post_attach.query_result[0].taille }},
+      {{ _post_attach.query_result[0].total }} piece(s) jointe(s) --
+      {{ _post_attach.query_result[0].en_base }} en base,
+      {{ _post_attach.query_result[0].sur_disque }} sur disque.
+
+- name: Plus rien ne reste sur l'ancien support
+  # Le compteur a surveiller depend du sens : vers le disque, il ne doit plus
+  # rien rester en base ; vers la base, plus rien sur disque.
+  ansible.builtin.assert:
+    that:
+      - _reste | int == 0
+    fail_msg: >-
+      {{ _reste }} piece(s) jointe(s) sont restees sur
+      {{ 'la base' if odoo_attachment_location == 'file' else 'le disque' }}.
+      La migration est INCOMPLETE : ne pas supprimer les sauvegardes, et
+      relire le journal de l'etape de migration.
+    success_msg: >-
+      Migration vers "{{ odoo_attachment_location }}" complete :
+      ir_attachment ramene a {{ _post_attach.query_result[0].taille }}.
+  vars:
+    _reste: >-
+      {{ _post_attach.query_result[0].en_base
+         if odoo_attachment_location == 'file'
+         else _post_attach.query_result[0].sur_disque }}

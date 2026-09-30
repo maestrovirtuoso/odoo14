@@ -1,0 +1,56 @@
+---
+# ===========================================================================
+# Valeurs par defaut du role odoo_filestore.
+#
+# Ce role s'execute sur les HOTES Rocky 8, pas dans les conteneurs : Odoo vit
+# dans le conteneur, le volume GlusterFS est monte sur l'hote, et c'est
+# lxc.mount.entry qui fait le pont.
+#
+# IL NE GERE PAS LE MONTAGE, a la demande : le montage du volume est fait a la
+# main (voir docs/ARCHITECTURE.md). Le role se contente de VERIFIER qu'il est
+# la, et refuse de continuer sinon -- ce qui empeche exactement l'accident du
+# 25/09/2026, ou les conteneurs se sont retrouves silencieusement sur du
+# stockage local en croyant ecrire sur le volume.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# filestore_host_src et filestore_fstype_attendu ne sont PAS definis ici :
+# ils vivent dans group_vars/gluster_bricks/vars.yml.
+#
+# Raison : le preflight de ansi_syncro.yaml les lit depuis le role
+# odoo_migration, ou les defaults de CE role ne sont pas en portee. La valeur
+# retombait alors sur un default de secours pointant sur la BRIQUE, et le
+# preflight validait le disque local au lieu du volume partage.
+#
+# Ce qui suit ne sert qu'a l'interieur de ce role, et reste donc ici.
+# ---------------------------------------------------------------------------
+
+# Cible du bind DANS le conteneur.
+#
+# Chemin RELATIF, sans "/" initial : lxc.mount.entry suit la syntaxe de fstab,
+# ou la destination est resolue depuis la racine du rootfs. Un chemin absolu
+# y serait interprete comme un chemin de l'HOTE et le montage echouerait sans
+# message clair.
+odoo_ct_filestore: var/lib/odoo/filestore
+
+# Recuperer les reliquats d'un ancien filestore local avant de binder.
+#
+# Quand les conteneurs ont tourne sur du stockage local, leurs pieces jointes
+# sont restees dans ce repertoire. Le bind vient se poser par-dessus
+# /var/lib/odoo/filestore : il ne les supprime pas, il les MASQUE -- et Odoo
+# cite alors des store_fname introuvables, sans qu'aucune tache n'echoue.
+#
+# La recopie utilise cp -a -n : elle n'ecrase JAMAIS un fichier present. Les
+# noms etant des empreintes SHA-1 du contenu, deux fichiers de meme nom sont
+# identiques par construction.
+filestore_reliquat_local: /bricks/odoo14/prod
+filestore_recuperer_reliquat: true
+
+# UID/GID du compte odoo dans les conteneurs. Doivent correspondre au role
+# odoo_uid : un systeme de fichiers partage retient des NUMEROS, pas des noms.
+filestore_uid: 105
+filestore_gid: 112
+
+# Delai d'attente du conteneur en etat RUNNING apres redemarrage.
+lxc_start_retries: 100
+lxc_start_delay: 2

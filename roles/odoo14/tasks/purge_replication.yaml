@@ -1,57 +1,19 @@
 ---
 # ---------------------------------------------------------------------------
-# Demantelement de l'ancienne architecture repliquee
+# Demantelement de l'ancienne architecture repliquee - partie conteneur Odoo
 #
-# Ce projet a d'abord deploye une replication PostgreSQL streaming (un primaire,
-# deux standbys). L'architecture retenue est desormais faite d'instances
-# autonomes. Les taches ci-dessous effacent tout ce que la replication avait
-# laisse sur les conteneurs. Elles sont idempotentes : une fois le parc propre
-# elles ne signalent plus aucun changement, et elles rattrapent un conteneur
-# restaure depuis une sauvegarde anterieure.
+# Ce projet a d'abord deploye une replication PostgreSQL streaming (un
+# primaire, deux standbys), puis des instances autonomes. Les taches
+# ci-dessous effacent ce que la replication avait laisse DANS LES CONTENEURS
+# ODOO. Elles sont idempotentes.
 #
-# Le plus sensible est /var/lib/postgresql/.pgpass : il contient le mot de passe
-# de replication EN CLAIR alors que plus rien ne l'utilise.
+# La partie PostgreSQL de cette purge (replication.conf, standby.signal,
+# .pgpass) vit desormais dans roles/pg_server/tasks/purge_replication.yaml :
+# ces chemins n'existent plus dans un conteneur Odoo, qui n'heberge plus de
+# serveur, et la tache y notifiait un handler "restart postgresql" disparu.
 # ---------------------------------------------------------------------------
 
-# --- 1. Sortir du mode standby -------------------------------------------
-# Un ancien standby tourne en recovery : sa base est en LECTURE SEULE et Odoo
-# ne peut pas y ecrire. La promotion le rend independant.
-- name: Determiner si PostgreSQL est en mode recovery
-  community.postgresql.postgresql_query:
-    query: "SELECT pg_is_in_recovery() AS in_recovery"
-  become: true
-  become_user: postgres
-  register: _pg_recovery
-  changed_when: false
-
-- name: Rendre le noeud autonome
-  when: _pg_recovery.query_result[0].in_recovery | bool
-  block:
-    - name: Promouvoir l'instance PostgreSQL
-      ansible.builtin.command: "pg_ctlcluster {{ pg_version }} main promote"
-      become: true
-      become_user: postgres
-      changed_when: true
-
-    - name: Attendre la sortie du mode recovery
-      community.postgresql.postgresql_query:
-        query: "SELECT pg_is_in_recovery() AS in_recovery"
-      become: true
-      become_user: postgres
-      register: _pg_after
-      until: not (_pg_after.query_result[0].in_recovery | bool)
-      retries: 15
-      delay: 2
-      changed_when: false
-
-# --- 2. Synchronisation du filestore --------------------------------------
-- name: Arreter le timer de synchro du filestore
-  ansible.builtin.systemd:
-    name: odoo-filestore-sync.timer
-    state: stopped
-    enabled: false
-  failed_when: false
-
+# --- 1. Synchronisation du filestore --------------------------------------
 - name: Supprimer les unites et le script de synchro du filestore
   ansible.builtin.file:
     path: "{{ item }}"
@@ -67,42 +29,7 @@
     daemon_reload: true
   when: _fs_units is changed
 
-# --- 3. Configuration PostgreSQL de replication ---------------------------
-- name: Supprimer les fichiers de replication PostgreSQL
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - "{{ pg_conf_dir }}/conf.d/replication.conf"
-    - "{{ pg_data_dir }}/standby.signal"
-    # Mot de passe de replication en clair, sans usage desormais.
-    - /var/lib/postgresql/.pgpass
-  notify: restart postgresql
-
-- name: Retirer primary_conninfo de postgresql.auto.conf
-  ansible.builtin.lineinfile:
-    path: "{{ pg_data_dir }}/postgresql.auto.conf"
-    regexp: '^primary_conninfo'
-    state: absent
-  failed_when: false
-  notify: restart postgresql
-
-- name: Retirer les autorisations de replication de pg_hba.conf
-  ansible.builtin.lineinfile:
-    path: "{{ pg_conf_dir }}/pg_hba.conf"
-    regexp: '^host\s+replication\s+'
-    state: absent
-  notify: reload postgresql
-
-- name: Supprimer le role SQL de replication
-  community.postgresql.postgresql_user:
-    name: replicator
-    state: absent
-  become: true
-  become_user: postgres
-  failed_when: false
-
-# --- 4. Cle SSH de la synchro filestore -----------------------------------
+# --- 2. Cle SSH de la synchro filestore -----------------------------------
 # Le primaire generait une paire de cles pour pousser le filestore par rsync,
 # et sa cle publique etait autorisee sur les autres noeuds. Son commentaire
 # (root@devodoo14) la distingue de celle du poste de controle, a conserver.

@@ -1,0 +1,28 @@
+---
+# ===========================================================================
+# odoo_migration : redemarrage des instances et rappel des controles manuels.
+# ===========================================================================
+
+- name: Odoo actif et persistant
+  ansible.builtin.service:
+    name: odoo
+    state: started
+    enabled: true
+
+- name: Attendre que l'interface web reponde
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: 8069
+    timeout: 120
+    delay: 5
+
+- name: Ce qu'il reste a verifier a la main
+  run_once: true
+  ansible.builtin.debug:
+    msg:
+      - "Migration terminee. A verifier a la main :"
+      - "1. joindre un fichier a un contact via http://192.168.96.151:8069"
+      - "2. ouvrir le meme contact via .152 puis .153 : le fichier doit s'afficher"
+      - "3. redemarrer un conteneur et verifier que /var/lib/odoo remonte"
+      - "Retour arriere possible tant que les sauvegardes existent :"
+      - "  -e odoo_attachment_location=db -e odoo_force_storage=true"

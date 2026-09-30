@@ -1,0 +1,10 @@
+---
+dependencies:
+  - role: base_debian
+    vars:
+      apt_validate_packages:
+        - gnupg
+        - gpgv
+        - postgresql
+        - "postgresql-{{ pg_version }}"
+        - python3-psycopg2

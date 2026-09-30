@@ -1,5 +1,5 @@
 ---
-- name: Installer un conteneur LXC Debian 11 (bullseye) sur les VM Gluster
+- name: Installer un conteneur LXC Debian 12 (bookworm) sur les VM Gluster
   hosts: gluster_servers
   gather_facts: true
   vars_files:

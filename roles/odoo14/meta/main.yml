@@ -1,0 +1,20 @@
+---
+dependencies:
+  # Sources APT bookworm + reparation dpkg + realignement de versions.
+  # La liste validee simule ce que ce role installe reellement : plus aucun
+  # paquet PostgreSQL SERVEUR, seulement le client.
+  - role: base_debian
+    vars:
+      apt_validate_packages:
+        - gnupg
+        - gpgv
+        - wget
+        - rsync
+        - wkhtmltopdf
+        - "postgresql-client-{{ pg_version }}"
+        - python3-psycopg2
+
+  # Interpreteur 3.8 compile sous /opt : Odoo 14 ne fonctionne pas sur le
+  # Python 3.11 de bookworm (safe_eval rejette les opcodes 3.11). Le venv
+  # construit par ce role s'appuie dessus, d'ou la dependance.
+  - role: python38

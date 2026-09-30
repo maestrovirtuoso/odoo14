@@ -1,0 +1,60 @@
+# {{ ansible_managed }}
+#
+# ATTENTION : ce fichier est la SEULE barriere d'acces reseau a la base.
+# Les conteneurs sont exposes sur le LAN par une carte physique dediee
+# (lxc.net.0.type = phys) : leurs paquets ne traversent pas le pare-feu de
+# l'hote, aucune regle firewalld n'est dans le chemin. D'ou l'absence
+# deliberee de toute ligne fourre-tout en 0.0.0.0/0, et des /32 uniquement.
+#
+# Les clients autorises sont derives de l'inventaire (odoo_client_ips dans
+# group_vars/all/vars.yml) : cette liste ne peut pas diverger des instances
+# Odoo reellement declarees.
+
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+
+# Boucle locale par socket : indispensable, les taches Ansible qui creent le
+# role et la base passent par "become_user: postgres" en authentification peer.
+local   all             postgres                                peer
+local   all             all                                     peer
+
+host    all             all             127.0.0.1/32            {{ pg_password_encryption }}
+host    all             all             ::1/128                 {{ pg_password_encryption }}
+
+{% if odoo_client_ips | length == 0 %}
+# Aucun client declare : la base n'accepte que la boucle locale.
+{% else %}
+# Instances Odoo, une ligne par hote, limitees au role odoo et aux deux
+# seules bases dont il a besoin.
+#
+# "postgres" n'est PAS un oubli de cloisonnement : a chaque demarrage, pour
+# chaque base passee en -d, Odoo 14 appelle _create_empty_database(), qui se
+# connecte d'abord a la base de maintenance "postgres" pour interroger
+# pg_database. La base partagee existant deja, il en recoit DatabaseExists,
+# exception qu'il rattrape, et poursuit. Sans cette autorisation la connexion
+# est refusee avant meme ce test et Odoo s'arrete sur
+# "no pg_hba.conf entry for host ..., database postgres".
+#
+# Le role odoo reste NOCREATEDB (cf. tasks/main.yaml) : cet acces lui permet
+# de LIRE le catalogue, pas de creer ni de detruire une base.
+{% set odoo_databases = odoo_shared_db ~ ',postgres' %}
+{% for ip in odoo_client_ips -%}
+host    {{ odoo_databases.ljust(16) }}{{ odoo_db_user.ljust(16) }}{{ (ip ~ '/32').ljust(24) }}{{ pg_password_encryption }}
+{% endfor -%}
+{% endif %}
+
+{% if pg_backup_client_ips | length > 0 %}
+# Hote de sauvegarde (groupe backup_host), pour pg_dump et le test de
+# restauration.
+#
+# C'est un HOTE, pas un conteneur : son IP n'est pas dans odoo_client_ips, et
+# autoriser le conteneur odoo1 n'autorise pas l'hote qui le porte. Les deux
+# machines ont des adresses distinctes, le conteneur ayant la sienne par carte
+# physique dediee.
+#
+# La base partagee uniquement. Pas "postgres" : l'hote de sauvegarde n'a
+# aucune raison de lire le catalogue.
+{% set backup_databases = odoo_shared_db %}
+{% for ip in pg_backup_client_ips -%}
+host    {{ backup_databases.ljust(16) }}{{ odoo_db_user.ljust(16) }}{{ (ip ~ '/32').ljust(24) }}{{ pg_password_encryption }}
+{% endfor -%}
+{% endif %}

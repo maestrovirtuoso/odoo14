@@ -1,0 +1,14 @@
+---
+# ===========================================================================
+# odoo_migration : archive du filestore local de chaque noeud, AVANT montage.
+#
+# Cette archive a sauve la migration du 24/09/2026 : elle contenait les 14
+# fichiers que le bind avait masques. Voir tasks/fusion.yaml.
+# ===========================================================================
+
+- name: Archiver /var/lib/odoo
+  # Dans /root et non /var : la sauvegarde ne doit pas remplir la partition
+  # qu'elle sauvegarde.
+  ansible.builtin.command:
+    cmd: "tar czf /root/odoo-data-{{ inventory_hostname }}.tgz -C /var/lib odoo"
+    creates: "/root/odoo-data-{{ inventory_hostname }}.tgz"

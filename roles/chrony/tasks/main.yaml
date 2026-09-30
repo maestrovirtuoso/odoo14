@@ -1,0 +1,98 @@
+---
+# ===========================================================================
+# Role chrony  -  execute sur les HOTES Rocky 8
+#
+# Garantit que les hotes sont a l'heure, et le RESTENT.
+#
+# Pourquoi ce role existe : les horloges ont derive trois fois sur ce projet,
+# et chaque fois chronyd paraissait parfaitement sain.
+#
+#   24/09/2026 : 12 h 38 d'ecart sur .128 .129 .140
+#   25/09/2026 : 14 h 09 d'ecart sur les memes
+#
+# "chronyc tracking" affichait "active", stratum 2, et une Ref time CORRECTE :
+# chrony connaissait l'heure juste et refusait de l'appliquer. La cause est la
+# politique Rocky par defaut, "makestep 1.0 3", qui n'autorise le saut que lors
+# des 3 premieres mises a jour apres demarrage. Au-dela, chrony ne peut plus
+# que glisser.
+#
+# Symptomes observes, qui n'ont rien d'evident :
+#   - apt-get update rc=100, "Release file is NOT VALID YET" (controle du
+#     champ Date:, l'inverse du cas expire -- Acquire::Check-Valid-Until n'y
+#     peut rien) ;
+#   - "uptime -s" annonce une heure de demarrage dans le futur ;
+#   - RMS offset en centaines ou milliers de secondes, seul indice fiable.
+#
+# Les conteneurs LXC n'ont PAS d'horloge propre : ils lisent celle du noyau de
+# l'hote. Corriger l'hote les corrige instantanement, rien a faire dedans.
+# ===========================================================================
+
+- name: Installer chrony
+  # .141 n'avait aucun chronyd le 25/09/2026, et se trouvait a l'heure par
+  # l'outil d'invite de l'hyperviseur. C'est l'hote de la base de donnees :
+  # laisser son horloge dependre d'un mecanisme non declare n'est pas tenable.
+  ansible.builtin.dnf:
+    name: chrony
+    state: present
+
+- name: Autoriser chrony a corriger un ecart a tout moment
+  ansible.builtin.lineinfile:
+    path: /etc/chrony.conf
+    regexp: '^\s*makestep\s'
+    line: "{{ chrony_makestep }}"
+    insertafter: '^#?\s*makestep'
+  notify: redemarrer chronyd
+
+- name: Demarrer chronyd et le rendre persistant
+  ansible.builtin.systemd:
+    name: chronyd
+    enabled: true
+    state: started
+
+- name: Appliquer la configuration avant de mesurer
+  ansible.builtin.meta: flush_handlers
+
+# --- Correction immediate --------------------------------------------------
+- name: Mesurer l'ecart avec le poste de controle
+  ansible.builtin.command: "date -u +%s"
+  register: _horloge
+  changed_when: false
+
+- name: Forcer le saut si l'ecart depasse la tolerance
+  # "chronyc makestep" applique tout de suite ce que la configuration vient
+  # d'autoriser. Sans lui, la correction n'aurait lieu qu'au prochain
+  # redemarrage de chronyd.
+  ansible.builtin.command: chronyc makestep
+  register: _makestep
+  changed_when: "'200 OK' in _makestep.stdout"
+  when: (_horloge.stdout | int - _controleur | int) | abs > chrony_ecart_max | int
+  vars:
+    _controleur: "{{ lookup('pipe', 'date -u +%s') }}"
+
+- name: Laisser le saut se propager
+  ansible.builtin.wait_for:
+    timeout: 3
+  when: _makestep is changed
+
+# --- Verification ----------------------------------------------------------
+- name: Remesurer apres correction
+  ansible.builtin.command: "date -u +%s"
+  register: _horloge2
+  changed_when: false
+
+- name: L'hote est a l'heure
+  ansible.builtin.assert:
+    that:
+      - (_horloge2.stdout | int - _controleur | int) | abs <= chrony_ecart_max | int
+    fail_msg: >-
+      {{ inventory_hostname }} reste a
+      {{ ((_horloge2.stdout | int - _controleur | int) / 3600) | round(2) }} h
+      du poste de controle malgre "chronyc makestep". Verifier que chronyd
+      atteint bien une source :
+      chronyc tracking ; chronyc sources -v
+      Si le RTC de la VM est en heure locale : timedatectl set-local-rtc 0
+    success_msg: >-
+      {{ inventory_hostname }} :
+      {{ _horloge2.stdout | int - _controleur | int }} s d'ecart
+  vars:
+    _controleur: "{{ lookup('pipe', 'date -u +%s') }}"

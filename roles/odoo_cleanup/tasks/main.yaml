@@ -11,6 +11,11 @@
 #   - -e full_reset=true : desinstalle en plus Odoo, PostgreSQL, leurs donnees,
 #                   le depot nightly et les fichiers deposes par les roles.
 #                   DESTRUCTIF : supprime les bases et le filestore.
+#
+# GARDE-FOU : depuis le passage a une base partagee, le conteneur du groupe
+# db_containers porte l'UNIQUE copie des donnees de toutes les instances.
+# La purge PostgreSQL y est donc refusee, sauf -e destroy_shared_db=true.
+# Sur les conteneurs Odoo elle reste sans risque : ils n'ont plus de serveur.
 # ===========================================================================
 
 - name: Annoncer le niveau de nettoyage
@@ -106,10 +111,20 @@
         purge: true
       failed_when: false
 
+    - name: Refuser de detruire la base partagee sans confirmation explicite
+      ansible.builtin.assert:
+        that: destroy_shared_db | default(false) | bool
+        fail_msg: >-
+          {{ inventory_hostname }} porte la base PARTAGEE par toutes les
+          instances Odoo : sa purge detruirait l'unique copie des donnees.
+          Sauvegarder d'abord (pg_dump -Fc), puis relancer avec
+          -e destroy_shared_db=true si c'est bien l'intention.
+      when: "'db_containers' in group_names"
+
     - name: Purger PostgreSQL et ses donnees
       ansible.builtin.apt:
         name:
-          - "postgresql-{{ pg_version | default('13') }}"
+          - "postgresql-{{ pg_version | default('15') }}"
           - postgresql-common
         state: absent
         purge: true
@@ -130,7 +145,8 @@
         # Unites de l'ancienne synchro de filestore : elles vivent hors des
         # repertoires supprimes ci-dessus, il faut donc les nommer.
         # Le reste des reliquats de replication est traite en continu par
-        # roles/odoo14/tasks/purge_replication.yaml.
+        # roles/odoo14/tasks/purge_replication.yaml et, pour la partie serveur,
+        # roles/pg_server/tasks/purge_replication.yaml.
         - /usr/local/bin/odoo-filestore-sync.sh
         - /etc/systemd/system/odoo-filestore-sync.service
         - /etc/systemd/system/odoo-filestore-sync.timer
@@ -155,7 +171,7 @@
     echo "--- odoo ---"
     dpkg -s odoo 2>/dev/null | grep -E '^(Status|Version)' || echo "absent"
     echo "--- postgresql ---"
-    dpkg -s postgresql-{{ pg_version | default('13') }} 2>/dev/null | grep -E '^(Status|Version)' || echo "absent"
+    dpkg -s postgresql-{{ pg_version | default('15') }} 2>/dev/null | grep -E '^(Status|Version)' || echo "absent"
     echo "--- espace disque ---"
     df -h / | tail -1
   register: _etat

@@ -1,5 +1,46 @@
 ---
+# ===========================================================================
+# Collections Ansible requises par ce depot.
+#
+# Installation :
+#   ansible-galaxy collection install -r requirements.yml
+#
+# POURQUOI DES VERSIONS EXACTES
+#
+# Sans borne, ansible-galaxy installe la DERNIERE version publiee, qui peut
+# changer d'un jour a l'autre sans qu'une seule ligne du depot ne bouge. Deux
+# personnes clonant ce depot a un mois d'ecart n'obtiendraient alors pas le
+# meme comportement.
+#
+# Ce n'est pas theorique ici : community.general.make n'expose le parametre
+# "jobs" qu'a partir d'une version posterieure a celle installee, ce qui a
+# fait echouer la compilation de Python 3.8 dans roles/python38 jusqu'a ce
+# qu'on appelle make directement.
+#
+# CONTRAINTE FORTE : ce poste de controle est en ansible 2.10.8, et
+# ansible.posix 1.1.1 declare "requires_ansible: >=2.9,<2.11". Toute version
+# plus recente de cette collection exige ansible-core >= 2.11 et refusera de
+# se charger ici. Les versions ci-dessous sont celles effectivement en place
+# et validees par le deploiement complet du 21/09/2026 : ne pas les monter
+# sans monter aussi ansible.
+#
+# Relever les versions reellement chargees :
+#   ansible --version
+#   ansible-galaxy collection list
+# ===========================================================================
+
 collections:
+  # Modules lxc_container (roles/install) et make.
   - name: community.general
+    version: "1.3.6"
+
+  # Modules postgresql_user, postgresql_db, postgresql_query (roles/pg_server,
+  # roles/odoo_dbinit).
   - name: community.postgresql
+    version: "1.1.1"
+
+  # Module mount (roles/install, deport du stockage LXC vers /srv).
+  # NE PAS monter sans passer ansible en >= 2.11 : cette version declare
+  # "requires_ansible: >=2.9,<2.11".
   - name: ansible.posix
+    version: "1.1.1"

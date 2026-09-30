@@ -1,0 +1,12 @@
+---
+# ===========================================================================
+# odoo_migration : arret des instances. A partir d'ici le service est coupe.
+# ===========================================================================
+
+- name: Odoo arrete pendant la migration
+  # Aucun fichier ne doit etre ecrit pendant qu'on deplace les donnees, et le
+  # changement d'UID qui suit exige qu'aucun processus ne tourne sous l'ancien
+  # numero -- il perdrait l'acces a ses propres fichiers au chown.
+  ansible.builtin.service:
+    name: odoo
+    state: stopped

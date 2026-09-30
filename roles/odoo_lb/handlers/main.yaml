@@ -1,0 +1,10 @@
+---
+- name: redemarrer haproxy
+  ansible.builtin.systemd:
+    name: haproxy
+    state: restarted
+
+- name: redemarrer keepalived
+  ansible.builtin.systemd:
+    name: keepalived
+    state: restarted

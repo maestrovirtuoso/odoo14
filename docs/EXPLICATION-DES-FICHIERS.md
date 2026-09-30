@@ -7,6 +7,8 @@ ProSys/
 ├── ansible.cfg                       configuration Ansible
 ├── inventory.yaml                    hôtes et conteneurs
 ├── requirements.yml                  collections Ansible requises
+├── .env.example                      modèle des variables d'environnement
+├── .env                              copie locale (non versionnée)
 ├── .gitignore                        exclusions Git (dont les secrets)
 ├── README.md                         vue d'ensemble du projet
 ├── group_vars/odoo_containers/       variables des conteneurs
@@ -44,9 +46,34 @@ Collections Ansible à installer avant tout déploiement :
 `community.general` (module `lxc_container`), `community.postgresql` (gestion
 des rôles et bases), `ansible.posix` (`firewalld`, `sysctl`, `authorized_key`).
 
+### `.env.example` et `.env`
+`.env.example` est le **modèle versionné**, sans aucun secret ; `.env` en est la
+copie locale, ignorée par git. Deux familles de variables y cohabitent.
+
+Les `ANSIBLE_*` sont lues nativement par Ansible et priment sur `ansible.cfg` :
+config et inventaire, `ANSIBLE_HOST_KEY_CHECKING=False` (les conteneurs sont
+recréés et changent de clé d'hôte), `ANSIBLE_PIPELINING` et `ANSIBLE_FORKS` pour
+la vitesse, et `ANSIBLE_VAULT_PASSWORD_FILE` qui évite de retaper le mot de
+passe du vault à chaque lancement.
+
+Les `PROSYS_*` sont propres au projet et relues côté playbooks avec
+`lookup('env', ...)` : `PROSYS_ODOO_VERSION` et `PROSYS_ODOO_INITIAL_DB` dans
+`group_vars/odoo_containers/vars.yml`, `PROSYS_ODOO_WEB_PORT` et
+`PROSYS_CONTROLLER_SSH_PUBKEY` dans `roles/odoo_net/defaults/main.yml`. Chacune
+est filtrée par `| default(<valeur>, true)` : vide ou absente, c'est la valeur
+du fichier de variables qui s'applique — le `.env` ne peut donc rien casser s'il
+est incomplet.
+
+Ansible ne lit pas `.env` tout seul : il faut l'exporter avant de lancer un
+playbook, avec `set -a && source .env && set +a`.
+
+Les mots de passe restent dans `vault.yml`, chiffré : le `.env` ne contient
+qu'un *chemin* vers le mot de passe du vault, jamais le mot de passe lui-même.
+
 ### `.gitignore`
-Exclut `group_vars/odoo_containers/vault.yml` tant qu'il est en clair, ainsi que
-`.claude/` (configuration locale de l'éditeur) et les artefacts Ansible.
+Exclut `group_vars/odoo_containers/vault.yml` tant qu'il est en clair et `.env`
+(réglages propres au poste), ainsi que `.claude/` (configuration locale de
+l'éditeur) et les artefacts Ansible.
 
 ---
 
@@ -122,12 +149,14 @@ joignables et disposent d'un accès sortant.
 ### `roles/odoo_net/tasks/main.yaml`
 Le cœur du rôle, dans cet ordre précis :
 
-1. **Sous-réseau `lxcbr0`** — écrit `/etc/sysconfig/lxc-net` avec l'adressage du
-   nœud, et force l'IP statique du conteneur via `systemd-networkd` dans son
-   rootfs (l'image bullseye n'embarque pas `ifupdown`).
-2. **Soustraction à NetworkManager** — sans ce fichier, NM s'approprie `lxcbr0`,
-   ne trouve aucun profil et le détruit ; `lxc-net` dit « success » mais le
-   bridge n'existe pas et `lxc-start` échoue.
+1. **Prérequis manuels** — la configuration du sous-réseau (`/etc/sysconfig/lxc-net`),
+   l'IP statique du conteneur (`systemd-networkd` dans son rootfs) et la
+   soustraction de `lxcbr0`/`veth*` à NetworkManager ont été retirées du rôle :
+   elles doivent être établies à la main sur chaque hôte avant ce play. Sans la
+   soustraction à NM en particulier, NM s'approprie `lxcbr0`, ne trouve aucun
+   profil et le détruit : `lxc-net` dit « success » mais le bridge n'existe pas
+   et `lxc-start` échoue sur « Failed to attach vethXXX ».
+2. **Conteneur** — arrêt puis (re)démarrage, avec attente de l'état `RUNNING`.
 3. **Routage inter-nœuds** — `ip_forward`, routes vers les sous-réseaux des
    pairs, et un hook NetworkManager pour les rejouer au redémarrage.
 4. **firewalld** — `lxcbr0` en zone `trusted`, règles directes de forwarding,
@@ -141,14 +170,6 @@ Le cœur du rôle, dans cet ordre précis :
 Toutes les vérifications faites dans le conteneur reposent sur un **marqueur
 imprimé sur stdout** (`NET_OK`, `IP_OK`, `BOOTSTRAP_SSH_OK`), jamais sur le code
 retour : `lxc-attach` en LXC 3.0.4 renvoie toujours 0, quoi qu'il arrive.
-
-### `roles/odoo_net/tasks/ensure_lxcbr0.yaml`
-Garantit que le bridge existe réellement et porte la bonne adresse. Inclus deux
-fois : après la configuration initiale, et après le redémarrage de `lxc-net`
-consécutif au reload de firewalld. Si le bridge manque, relance `lxc-net`
-directement après avoir purgé `/run/lxc/network_up` (sans quoi `lxc-net` refuse
-de démarrer), et échoue avec un message exploitable plutôt que de laisser
-`lxc-start` planter plus loin.
 
 ### `roles/odoo_net/defaults/main.yml`
 Nom du conteneur, nom du bridge, port web, et la clé publique du poste de

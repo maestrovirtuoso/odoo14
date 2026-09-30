@@ -1,0 +1,12 @@
+---
+# ===========================================================================
+# odoo_migration : attendre le retour des conteneurs redemarres.
+#
+# Le role odoo_filestore redemarre le conteneur pour appliquer
+# lxc.mount.entry : la connexion Ansible est donc coupee entre les deux plays.
+# ===========================================================================
+
+- name: Le conteneur repond de nouveau en SSH
+  ansible.builtin.wait_for_connection:
+    timeout: 180
+    delay: 5

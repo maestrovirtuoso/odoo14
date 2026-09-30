@@ -1,0 +1,91 @@
+---
+# ===========================================================================
+# Role odoo_uid  -  execute DANS les conteneurs Odoo
+#
+# Aligne l'UID et le GID du compte systeme odoo sur une valeur commune aux
+# trois noeuds, prealable obligatoire a tout filestore partage.
+#
+# Odoo doit etre ARRETE : renumeroter un compte dont des processus tournent
+# laisse ces processus sur l'ancien UID, et ils perdent l'acces a leurs
+# propres fichiers a l'instant du chown.
+# ===========================================================================
+
+- name: Relever l'identite actuelle du compte odoo
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ odoo_system_user }}"
+
+- name: Identite actuelle
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} : {{ odoo_system_user }}
+      uid={{ _uid_actuel }} gid={{ _gid_actuel }}
+      -> cible uid={{ odoo_uid }} gid={{ odoo_gid }}
+      ({{ 'deja aligne' if (_uid_actuel | int == odoo_uid | int and _gid_actuel | int == odoo_gid | int) else 'A RENUMEROTER' }})
+  vars:
+    _uid_actuel: "{{ getent_passwd[odoo_system_user][1] }}"
+    _gid_actuel: "{{ getent_passwd[odoo_system_user][2] }}"
+
+# Un usermod vers un UID deja pris echoue en cours de route, apres que le GID
+# a peut-etre deja ete change : on verifie avant de toucher a quoi que ce soit.
+- name: L'UID vise est libre ou deja celui d'odoo
+  ansible.builtin.command: "getent passwd {{ odoo_uid }}"
+  register: _uid_occupant
+  changed_when: false
+  failed_when: false
+
+- name: Refuser de renumeroter vers un UID deja attribue
+  ansible.builtin.assert:
+    that:
+      - _uid_occupant.rc != 0 or _uid_occupant.stdout.split(':')[0] == odoo_system_user
+    fail_msg: >-
+      L'UID {{ odoo_uid }} est deja pris sur {{ inventory_hostname }} par
+      "{{ _uid_occupant.stdout.split(':')[0] | default('?') }}".
+      Choisir une autre valeur pour odoo_uid / odoo_gid, commune aux trois
+      noeuds.
+
+- name: Aligner le GID du groupe odoo
+  # Le groupe d'abord : usermod refuserait un -g pointant sur un GID inexistant.
+  ansible.builtin.group:
+    name: "{{ odoo_system_user }}"
+    gid: "{{ odoo_gid }}"
+    state: present
+  register: _odoo_group
+
+- name: Aligner l'UID du compte odoo
+  ansible.builtin.user:
+    name: "{{ odoo_system_user }}"
+    uid: "{{ odoo_uid }}"
+    # | string explicite : le parametre "group" attend un nom ou un GID sous
+    # forme de chaine. Sans cela Ansible convertit l'entier et emet un
+    # avertissement a chaque passage, pour un resultat identique.
+    group: "{{ odoo_gid | string }}"
+    state: present
+  register: _odoo_user
+
+- name: Reprendre les fichiers laisses sur l'ancien numero
+  # Conditionne au changement : un chown -R recursif sur un filestore partage
+  # de plusieurs Go a chaque passage du playbook couterait cher pour rien.
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: "{{ odoo_uid }}"
+    group: "{{ odoo_gid }}"
+    recurse: true
+    state: directory
+  loop: "{{ odoo_owned_paths }}"
+  when: _odoo_user is changed or _odoo_group is changed
+
+- name: Signaler les fichiers restes sur un numero orphelin
+  # Filet de securite : tout ce qui vivait hors des chemins ci-dessus.
+  # Diagnostic seulement, on ne chown pas a l'aveugle hors du perimetre Odoo.
+  ansible.builtin.command: find / -xdev \( -nouser -o -nogroup \) -print
+  register: _orphelins
+  changed_when: false
+  failed_when: false
+
+- name: Fichiers orphelins detectes
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} : {{ _orphelins.stdout_lines | length }} fichier(s)
+      sans proprietaire connu. {{ _orphelins.stdout_lines[:10] | join(', ') }}
+  when: _orphelins.stdout_lines | length > 0

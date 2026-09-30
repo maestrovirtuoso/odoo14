@@ -1,33 +1,150 @@
 ---
 # ===========================================================================
-# Deploiement d'Odoo 14 dans le conteneur LXC "devodoo14" de chaque noeud.
+# Deploiement d'Odoo 14 sur une base PostgreSQL PARTAGEE.
 #
-# Trois instances AUTONOMES : chacune a sa propre base PostgreSQL locale et
-# son propre filestore. Aucune donnee n'est partagee entre les noeuds.
-# La haute disponibilite (bascule automatique) reste a construire : voir la
-# section correspondante du README.
+# Architecture :
+#   - un conteneur PostgreSQL dedie (192.168.96.150, hote .141), sans Odoo ;
+#   - trois conteneurs Odoo (.151 .152 .153) sans serveur PostgreSQL local ;
+#   - une base unique "prod" ;
+#   - un filestore LOCAL a chaque noeud depuis le 25/09/2026 : le montage
+#     GlusterFS a ete retire, chaque hote bind son propre volume logique
+#     /bricks/odoo14 dans son conteneur (role odoo_filestore). Il n'est donc
+#     ni partage ni replique -- voir la mise en garde de ansi_syncro.yaml sur
+#     ir_attachment.location ;
+#   - pas de repartiteur de charge : chaque utilisateur vise une IP.
+#
+# L'ORDRE DES PLAYS EST CONTRAIGNANT :
+#   1. l'horloge puis le reseau : une horloge fausse fait echouer apt dans les
+#      conteneurs, et rien n'est joignable sans reseau ;
+#   2. la base, avant que le moindre client ne tente de s'y connecter ;
+#   3. Odoo installe et configure, mais LAISSE ARRETE ;
+#   4. l'initialisation du registre, par le SEUL noeud primaire ;
+#   5. le demarrage des trois instances, une fois la base prete.
+# Demarrer les trois instances avant l'etape 4 leur ferait ouvrir un registre
+# a moitie initialise.
 #
 # Prerequis :
 #   - conteneurs deja crees (playbooks/ansi2-snapchot.yaml)
-#   - authentification par CLE vers les 3 hotes gluster :
-#       for h in 139 140 141; do ssh-copy-id root@192.168.96.$h; done
+#   - authentification par CLE vers les 4 hotes :
+#       for h in 128 129 140 141; do ssh-copy-id root@192.168.96.$h; done
 #   - ansible-galaxy collection install -r requirements.yml
-#   - group_vars/odoo_containers/vault.yml renseigne puis chiffre
+#   - group_vars/all/vault.yml renseigne puis chiffre
 #
 # Lancement :
 #   ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass
+#
+# Le controle d'environnement (play 0/5) ne tourne PLUS par defaut. Pour le
+# rejouer, typiquement apres un changement d'ansible ou de collections :
+#   ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass --tags all,preflight
+# ou seul, sans toucher aux hotes :
+#   ansible-playbook playbooks/ansi_odoo.yaml --tags preflight
 # ===========================================================================
 
-- name: "1/2 - Reseau des hotes : bridge, routage, publication d'Odoo"
+# ---------------------------------------------------------------------------
+# Controle d'environnement, avant tout contact avec les hotes.
+#
+# Documenter les versions dans requirements.yml ne suffit pas : rien
+# n'empeche de jouer ce playbook avec un ansible ou des collections
+# differents. Ce controle echoue AVANT la premiere modification, plutot que
+# de laisser une incompatibilite se manifester au milieu du deploiement sous
+# la forme d'un parametre inconnu ou d'un comportement change.
+#
+# Le tag "never" le met hors du parcours par defaut : le poste de controle
+# bouge rarement, et le verifier a chaque deploiement n'apprend rien. Il faut
+# desormais le demander explicitement (voir "Lancement" en tete de fichier),
+# ce qui reste a faire apres toute mise a jour d'ansible ou des collections.
+# ---------------------------------------------------------------------------
+- name: "0/5 - Verifier l'environnement du poste de controle"
+  hosts: localhost
+  gather_facts: false
+  connection: local
+  become: false
+  tags: [preflight, never]
+  vars:
+    # Bornes validees par le deploiement complet du 21/09/2026.
+    # ansible.posix 1.1.1 declare "requires_ansible: >=2.9,<2.11" : monter
+    # ansible impose donc de monter aussi les collections, et inversement.
+    ansible_version_min: "2.10"
+    ansible_version_max: "2.11"
+
+  tasks:
+    - name: La version d'ansible est dans la fourchette validee
+      ansible.builtin.assert:
+        that:
+          - ansible_version.full is version(ansible_version_min, '>=')
+          - ansible_version.full is version(ansible_version_max, '<')
+        fail_msg: >-
+          ansible {{ ansible_version.full }} hors de la fourchette validee
+          [{{ ansible_version_min }}, {{ ansible_version_max }}[.
+          Les collections epinglees dans requirements.yml ne sont pas
+          compatibles : ansible.posix 1.1.1 exige ansible < 2.11. Monter
+          ansible impose de monter aussi requirements.yml, puis de rejouer
+          un deploiement complet.
+        success_msg: "ansible {{ ansible_version.full }}"
+
+    - name: Les collections requises sont presentes aux versions attendues
+      ansible.builtin.command: ansible-galaxy collection list
+      register: _collections
+      changed_when: false
+
+    - name: Aucune collection requise ne manque
+      ansible.builtin.assert:
+        that: item.name ~ ' ' in _collections.stdout
+        fail_msg: >-
+          Collection {{ item.name }} absente.
+          Lancer : ansible-galaxy collection install -r requirements.yml
+      loop: "{{ (lookup('file', playbook_dir ~ '/../requirements.yml') | from_yaml).collections }}"
+      loop_control:
+        label: "{{ item.name }} {{ item.version }}"
+
+- name: "1/5 - Hotes : horloge puis reseau"
   hosts: gluster_servers
   gather_facts: true
   vars_files:
     - ../common/group_vars/local_dev.yml
   roles:
-    - odoo_net
+    # chrony AVANT lxc_lan, et non apres : une horloge fausse fait echouer
+    # apt-get update dans les conteneurs ("Release file is not valid yet"), et
+    # fait arbitrer GlusterFS sur des horodatages incoherents. Corriger l'heure
+    # est donc un prealable a tout le reste, pas une finition.
+    # Tag "horloge" : permet d'appliquer la seule correction d'horloge sans
+    # declencher lxc_lan, qui redemarre les conteneurs.
+    #   ansible-playbook playbooks/ansi_odoo.yaml -k --ask-vault-pass --tags horloge
+    - role: chrony
+      tags: [horloge]
+    - lxc_lan
 
-- name: "2/2 - Installation d'Odoo 14 (depot nightly) dans les conteneurs"
+- name: "2/5 - Base PostgreSQL partagee"
+  hosts: db_containers
+  gather_facts: true
+  roles:
+    - pg_server
+
+- name: "3/5 - Odoo 14 installe et configure (service laisse arrete)"
   hosts: odoo_containers
   gather_facts: true
   roles:
     - odoo14
+
+- name: "4/5 - Initialisation de la base partagee (noeud primaire seul)"
+  hosts: odoo_primary
+  gather_facts: false
+  roles:
+    - odoo_dbinit
+
+- name: "5/5 - Demarrage des instances Odoo"
+  hosts: odoo_containers
+  gather_facts: false
+  tasks:
+    - name: Odoo actif et persistant
+      ansible.builtin.service:
+        name: odoo
+        state: started
+        enabled: true
+
+    - name: Attendre que l'interface web reponde
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 8069
+        timeout: 120
+        delay: 5

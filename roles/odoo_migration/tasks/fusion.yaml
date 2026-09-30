@@ -1,0 +1,82 @@
+---
+# ===========================================================================
+# odoo_migration : recuperer les pieces jointes des ANCIENS filestores.
+#
+# ETAPE INDISPENSABLE, et facile a manquer.
+#
+# ir_attachment.location = db ne valait que pour les pieces jointes A VENIR :
+# celles creees AVANT que ce parametre soit pose sont restees sur disque, dans
+# le filestore LOCAL de chaque conteneur. Le bind vient se poser par-dessus
+# /var/lib/odoo/filestore : il ne les supprime pas, il les MASQUE. Odoo
+# continue alors de citer des store_fname devenus introuvables, et l'interface
+# affiche des images cassees sans qu'aucune tache n'ait echoue.
+#
+# Constate le 2026-09-24 : 14 fichiers distincts, cites par 27 pieces jointes,
+# disparus de la vue apres le montage. Ils etaient intacts sous le point de
+# montage, et dans les archives de sauvegarde_filestore.yaml.
+#
+# Chaque noeud verse SON archive dans SON filestore. L'operation est sans
+# risque : les noms de fichiers sont des empreintes SHA-1 du contenu, deux
+# fichiers de meme nom sont identiques par construction, d'ou
+# --skip-old-files plutot qu'un ecrasement.
+# ===========================================================================
+
+- name: L'archive d'avant migration existe-t-elle ?
+  ansible.builtin.stat:
+    path: "/root/odoo-data-{{ inventory_hostname }}.tgz"
+  register: _archive_locale
+
+- name: Archive absente
+  ansible.builtin.debug:
+    msg: >-
+      Pas d'archive /root/odoo-data-{{ inventory_hostname }}.tgz sur
+      {{ inventory_hostname }} : rien a recuperer depuis ce noeud. C'est
+      normal si ce conteneur n'a jamais eu de filestore local.
+  when: not _archive_locale.stat.exists
+
+- name: Verser l'ancien filestore local dans le filestore courant
+  # --skip-old-files : n'ecrase JAMAIS un fichier deja present, ce qui rend
+  #   l'operation idempotente et rejouable.
+  # --strip-components=1 : l'archive contient "odoo/filestore/prod/...", on
+  #   retire le "odoo/" de tete pour retomber sur {{ odoo_data_dir }}.
+  # --exclude checklist : liens physiques poses par le ramasse-miettes
+  #   d'Odoo, inutiles a restaurer.
+  # --no-same-owner : l'archive porte les UID d'origine ; le chown qui suit
+  #   fait foi.
+  ansible.builtin.command:
+    argv:
+      - tar
+      - xzf
+      - "/root/odoo-data-{{ inventory_hostname }}.tgz"
+      - --skip-old-files
+      - --no-same-owner
+      - --strip-components=1
+      - -C
+      - "{{ odoo_data_dir }}"
+      - --exclude=*/checklist/*
+      - odoo/filestore
+  register: _fusion
+  changed_when: true
+  when: _archive_locale.stat.exists
+
+- name: Rendre les fichiers verses au compte odoo
+  ansible.builtin.command:
+    argv:
+      - chown
+      - -R
+      - "{{ odoo_system_user }}:{{ odoo_system_user }}"
+      - "{{ odoo_filestore }}"
+  changed_when: true
+  when: _archive_locale.stat.exists
+
+- name: Fichiers presents dans le filestore apres recuperation
+  ansible.builtin.shell:
+    cmd: "find {{ odoo_filestore }} -type f -not -path '*/checklist/*' | wc -l"
+  register: _apres_fusion
+  changed_when: false
+
+- name: Etat du filestore
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} :
+      {{ _apres_fusion.stdout | trim }} fichier(s) dans son filestore.

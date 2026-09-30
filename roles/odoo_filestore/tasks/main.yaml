@@ -1,0 +1,175 @@
+---
+# ===========================================================================
+# Role odoo_filestore  -  execute sur les HOTES
+#
+# Donne aux trois instances Odoo un filestore COMMUN, porte par le volume
+# GlusterFS "odoo14" en replica 3.
+#
+#   volume gluster odoo14                      replica 3 sur .128 .129 .140
+#         |  mount -t glusterfs                <- FAIT A LA MAIN, pas ici
+#         v
+#   /mnt/odoo14                                  sur l'HOTE Rocky
+#         |  lxc.mount.entry (bind)
+#         v
+#   /var/lib/odoo/filestore                    dans le CONTENEUR Debian
+#
+# POURQUOI DEUX ETAGES : Odoo ne tourne pas sur l'hote, il tourne dans le
+# conteneur. Monter quoi que ce soit sur /var/lib/odoo de l'hote ne servirait
+# a rien -- il n'y a pas d'Odoo a cet endroit. Le client Gluster DANS le
+# conteneur obligerait a exposer /dev/fuse et a assouplir les cgroups, pour un
+# montage a refaire a chaque demarrage LXC.
+#
+# POURQUOI UN FILESTORE COMMUN : les trois instances partagent UNE base. Une
+# piece jointe y est une ligne avec un seul store_fname, resolu en
+# {data_dir}/filestore/{db}/{store_fname}. Aucune colonne ne dit quel noeud l'a
+# ecrite. Trois filestores separes rendent donc ~2/3 des pieces jointes
+# illisibles depuis un noeud donne -- et _file_read renvoie une chaine VIDE
+# sans lever d'erreur, donc rien ne le signale.
+#
+# CE ROLE NE MONTE PAS LE VOLUME, a la demande. Il le VERIFIE.
+# ===========================================================================
+
+- name: Le conteneur cible est bien nomme
+  ansible.builtin.assert:
+    that:
+      - lxc_container_name is defined
+      - lxc_container_name | length > 0
+    fail_msg: >-
+      lxc_container_name n'est pas defini pour {{ inventory_hostname }}.
+      Ce role agit sur la configuration LXC de l'hote : sans le nom du
+      conteneur il ecrirait dans un chemin inexistant.
+
+# --- 1. Le volume partage est-il vraiment la ? -----------------------------
+- name: Relever le systeme de fichiers du point de montage
+  ansible.builtin.command: "findmnt --noheadings --output FSTYPE,SOURCE {{ filestore_host_src }}"
+  register: _fs
+  changed_when: false
+  failed_when: false
+
+- name: Le filestore est bien servi par le volume GlusterFS
+  # LE GARDE-FOU CENTRAL. Sans lui, un volume non monte ferait ecrire Odoo sur
+  # le disque local : le filestore paraitrait fonctionner, et les trois noeuds
+  # divergeraient en silence. C'est exactement l'accident du 25/09/2026.
+  ansible.builtin.assert:
+    that:
+      - _fs.rc == 0
+      - filestore_fstype_attendu in _fs.stdout
+    fail_msg: >-
+      {{ filestore_host_src }} n'est pas un montage {{ filestore_fstype_attendu }}
+      sur {{ inventory_hostname }} (findmnt : "{{ _fs.stdout | trim | default('rien') }}").
+      Le monter AVANT de rejouer ce role -- il ne s'en charge pas :
+        mkdir -p {{ filestore_host_src }}
+        mount -t glusterfs localhost:/odoo14 {{ filestore_host_src }}
+      Et le rendre persistant dans /etc/fstab avec _netdev,
+      x-systemd.requires=glusterd.service et backup-volfile-servers.
+    success_msg: >-
+      {{ inventory_hostname }} : {{ filestore_host_src }} servi par
+      {{ _fs.stdout | trim }}
+
+- name: Refuser de partager un repertoire de brique
+  # Une brique porte un index interne .glusterfs. Y faire ecrire Odoo par un
+  # autre chemin que le volume court-circuite la replication et corrompt cet
+  # index -- gfid mismatch, split-brain. Gluster l'interdit explicitement.
+  ansible.builtin.stat:
+    path: "{{ filestore_host_src }}/.glusterfs"
+  register: _est_brique
+
+- name: Le chemin partage n'est pas une brique
+  ansible.builtin.assert:
+    that:
+      - not _est_brique.stat.exists
+    fail_msg: >-
+      {{ filestore_host_src }} contient .glusterfs : c'est une BRIQUE, pas le
+      point de montage du volume. Y ecrire corromprait la replication.
+      Utiliser le point de montage du volume (mount -t glusterfs).
+
+# --- 2. Recuperer un eventuel filestore local laisse derriere ---------------
+# Quand les conteneurs ont tourne sur du stockage local, leurs pieces jointes
+# y sont restees. Le bind les MASQUE sans les supprimer, et Odoo cite alors
+# des store_fname introuvables. On les verse donc dans le volume AVANT.
+- name: Un reliquat de filestore local existe-t-il ?
+  ansible.builtin.stat:
+    path: "{{ filestore_reliquat_local }}"
+  register: _reliquat
+
+- name: Verser le reliquat local dans le volume partage
+  # cp -a -n n'ecrase JAMAIS un fichier present : les noms sont des empreintes
+  # SHA-1 du contenu, donc un fichier de meme nom est identique par
+  # construction. L'operation est rejouable sans risque.
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      mkdir -p "{{ filestore_host_src }}/{{ odoo_shared_db }}"
+      cp -a -n "{{ filestore_reliquat_local }}/." \
+               "{{ filestore_host_src }}/{{ odoo_shared_db }}/"
+      echo "FICHIERS=$(find '{{ filestore_host_src }}/{{ odoo_shared_db }}' -type f -not -path '*/checklist/*' | wc -l)"
+    executable: /bin/bash
+  register: _recup
+  changed_when: true
+  when:
+    - filestore_recuperer_reliquat | bool
+    - _reliquat.stat.exists
+
+- name: Contenu du filestore partage
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} :
+      {{ _recup.stdout | default('aucun reliquat local a recuperer') | trim }}
+
+- name: Le filestore appartient au compte odoo
+  # Par NUMERO et non par nom : l'hote n'a pas de compte "odoo", c'est le
+  # conteneur qui en a un. Les conteneurs etant privilegies (aucun lxc.idmap),
+  # les UID traversent le bind sans translation.
+  ansible.builtin.file:
+    path: "{{ filestore_host_src }}/{{ odoo_shared_db }}"
+    state: directory
+    owner: "{{ filestore_uid }}"
+    group: "{{ filestore_gid }}"
+    mode: "0750"
+
+# --- 3. Bind du volume dans le conteneur -----------------------------------
+- name: Partager le filestore avec le conteneur
+  # lxc.mount.entry est une directive REPETABLE : le modele "un lineinfile par
+  # cle" utilise par lxc_lan pour lxc.net.0.* ne s'y transpose pas. Le regexp
+  # discrimine donc sur le point de montage DESTINATION, qui est unique.
+  # create=dir fait creer /var/lib/odoo/filestore par LXC s'il manque.
+  ansible.builtin.lineinfile:
+    path: "/var/lib/lxc/{{ lxc_container_name }}/config"
+    regexp: '^lxc\.mount\.entry\s*=.*\s{{ odoo_ct_filestore | regex_escape }}\s'
+    line: >-
+      lxc.mount.entry = {{ filestore_host_src }} {{ odoo_ct_filestore }}
+      none bind,create=dir 0 0
+    insertafter: EOF
+  notify: redemarrer le conteneur
+
+# Les entrees lxc.mount.entry ne sont lues qu'au DEMARRAGE : ajouter la ligne
+# ne suffit pas. Sans ce flush, la verification suivante testerait encore
+# l'ancien montage.
+- name: Appliquer la nouvelle configuration du conteneur
+  ansible.builtin.meta: flush_handlers
+
+- name: Verifier que le conteneur voit bien le volume partage
+  # LXC 3.0.4 : lxc-attach renvoie TOUJOURS 0, y compris quand la commande
+  # interne echoue. La validation porte donc sur un MARQUEUR stdout.
+  # Le controle porte sur le TYPE de systeme de fichiers, pas sur la seule
+  # presence d'un montage : c'est la difference entre le volume partage et un
+  # disque local qui en aurait l'air.
+  ansible.builtin.command:
+    argv:
+      - lxc-attach
+      - -n
+      - "{{ lxc_container_name }}"
+      - --
+      - sh
+      - -c
+      - "findmnt -n -o FSTYPE /{{ odoo_ct_filestore }} | grep -q {{ filestore_fstype_attendu }} && echo FILESTORE_PARTAGE_OK"
+  register: _ct_fs
+  changed_when: false
+  failed_when: "'FILESTORE_PARTAGE_OK' not in _ct_fs.stdout"
+
+- name: Filestore partage en place
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} : le conteneur {{ lxc_container_name }} ecrit
+      desormais dans le volume replica 3. Une piece jointe ecrite ici est
+      visible depuis les deux autres instances.

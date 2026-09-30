@@ -1,0 +1,42 @@
+---
+# ===========================================================================
+# Reseau des conteneurs LXC, joue SEUL.
+#
+# Expose chaque conteneur directement sur le LAN en lui donnant une carte
+# physique dediee (lxc.net.0.type = phys), puis amorce son acces SSH.
+#
+# C'est exactement la play 1/5 de ansi_odoo.yaml, extraite pour pouvoir
+# rejouer l'etape reseau sans dérouler tout le deploiement : apres un
+# changement de carte, une reinstallation de conteneur, ou pour diagnostiquer
+# un conteneur injoignable. Le role etant idempotent, le rejouer sur une
+# installation saine ne change rien.
+#
+# Ce playbook remplace l'ancien lxc-nic.yml, qui faisait la meme chose en
+# moins complet : ni garde-fou sur la carte par defaut, ni diagnostic au
+# demarrage, ni amorcage SSH. Il utilisait aussi son propre inventaire
+# (inventory-lxc.ini) dont le groupe "lxc_nodes" doublonnait gluster_servers.
+#
+# Lancement :
+#   ansible-playbook playbooks/reseau-lxc.yaml -k
+#
+# Voir d'abord ce qui changerait, sans rien toucher :
+#   ansible-playbook playbooks/reseau-lxc.yaml -k --check --diff
+#
+# Un seul hote :
+#   ansible-playbook playbooks/reseau-lxc.yaml -k --limit 192.168.96.128
+#
+# AVERTISSEMENT : ce playbook REDEMARRE les conteneurs et retire la carte
+# {{ nic }} de l'hote. Verifier avant qu'elle ne porte pas votre session SSH :
+#   ansible gluster_servers -k -m shell -a 'ip -br link show ens224; ip r | head -1'
+# Le role refuse de deporter la carte qui porte la route par defaut, mais ce
+# controle ne couvre pas le cas d'un acces par une route plus specifique.
+# ===========================================================================
+
+- name: "Reseau : exposer les conteneurs LXC sur le LAN"
+  hosts: gluster_servers
+  gather_facts: true
+  vars_files:
+    # Fournit "containers", derive de lxc_container_name (host_vars/<ip>.yml).
+    - ../common/group_vars/local_dev.yml
+  roles:
+    - lxc_lan

@@ -1,0 +1,24 @@
+---
+# Support de stockage des pieces jointes (ir_attachment.location).
+#
+#   file - sur disque, dans {{ data_dir }}/filestore/<base>. C'est le mode
+#          retenu depuis que le role odoo_filestore monte un volume GlusterFS
+#          replica 3 sur ce repertoire : les trois instances voient les memes
+#          fichiers, et la base ne porte plus le poids des documents.
+#   db   - en base. C'etait le seul support commun possible AVANT le volume
+#          partage. A ne remettre que pour un retour arriere, et jamais sans
+#          repasser force_storage ensuite.
+#
+# Odoo 14 lit toute valeur commencant par "db" comme un stockage en base, et
+# retombe sur "file" si le parametre est absent.
+odoo_attachment_location: file
+
+# Migrer les pieces jointes DEJA stockees vers le support ci-dessus.
+#
+# Opt-in : l'operation relit et reecrit chaque piece jointe, elle peut etre
+# longue, et ne doit pas se declencher a chaque passage du playbook.
+#   ansible-playbook ... -e odoo_force_storage=true
+#
+# force_storage() migre dans LES DEUX SENS : le sens suit la valeur de
+# odoo_attachment_location au moment de l'appel.
+odoo_force_storage: false

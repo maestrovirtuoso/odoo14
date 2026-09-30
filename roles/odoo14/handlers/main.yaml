@@ -1,16 +1,8 @@
 ---
+# Les handlers postgresql ont ete deplaces dans roles/pg_server : ce
+# conteneur n'heberge plus de serveur, et notifier un service inexistant
+# ferait echouer la play.
 - name: restart odoo
   ansible.builtin.service:
     name: odoo
     state: restarted
-
-- name: restart postgresql
-  ansible.builtin.service:
-    name: postgresql
-    state: restarted
-
-# pg_hba.conf ne demande qu'un rechargement, pas une coupure des connexions.
-- name: reload postgresql
-  ansible.builtin.service:
-    name: postgresql
-    state: reloaded

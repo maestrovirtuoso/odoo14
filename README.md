@@ -72,7 +72,32 @@ ansible-galaxy collection install -r requirements.yml
 cp group_vars/odoo_containers/vault.yml.example group_vars/odoo_containers/vault.yml
 $EDITOR group_vars/odoo_containers/vault.yml                  # vrais mots de passe
 ansible-vault encrypt group_vars/odoo_containers/vault.yml
+cp .env.example .env                                          # variables d'environnement
 ```
+
+### Variables d'environnement
+
+`.env.example` est le modèle versionné ; `.env` est la copie locale, ignorée par
+git. Il faut l'**exporter** avant de lancer un playbook (Ansible ne le lit pas
+tout seul) :
+
+```bash
+set -a && source .env && set +a
+ansible-playbook playbooks/ansi_odoo.yaml
+```
+
+| Variable | Effet |
+|---|---|
+| `ANSIBLE_*` | Réglages Ansible (config, inventaire, pipelining, forks, sortie) — priment sur `ansible.cfg` |
+| `ANSIBLE_VAULT_PASSWORD_FILE` | Rend `--ask-vault-pass` inutile (fichier hors dépôt, `chmod 600`) |
+| `PROSYS_ODOO_VERSION` | Version d'Odoo déployée depuis le dépôt nightly |
+| `PROSYS_ODOO_INITIAL_DB` | Base créée sur chaque nœud au premier déploiement |
+| `PROSYS_ODOO_WEB_PORT` | Port web publié sur l'IP LAN des hôtes |
+| `PROSYS_CONTROLLER_SSH_PUBKEY` | Clé publique injectée dans les conteneurs (sinon `~/.ssh/id_rsa.pub`) |
+
+Une variable `PROSYS_*` vide ou absente laisse la valeur définie dans
+`group_vars/` ou dans les `defaults/` du rôle. Les mots de passe restent dans
+`vault.yml`, **jamais** dans `.env`.
 
 L'authentification **par clé** vers les trois hôtes n'est pas optionnelle : la
 play 2 atteint les conteneurs par `ProxyCommand`, qui ne peut pas demander de

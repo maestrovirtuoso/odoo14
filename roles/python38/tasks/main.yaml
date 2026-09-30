@@ -1,0 +1,167 @@
+---
+# ===========================================================================
+# Role python38  -  execute DANS les conteneurs Odoo (Debian 12 bookworm)
+#
+# Compile et installe CPython {{ python38_version }} sous {{ python38_prefix }}.
+# Voir defaults/main.yml pour la raison de cette compilation.
+#
+# Le role ne touche PAS au Python du systeme : "make altinstall" n'ecrit que
+# sous le prefixe, et aucun lien n'est pose dans /usr/bin. Le 3.11 de
+# bookworm reste l'interpreteur par defaut du conteneur.
+# ===========================================================================
+
+- name: Afficher la cible
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} - CPython {{ python38_version }}
+      sous {{ python38_prefix }} (systeme laisse en
+      {{ ansible_python_version | default('?') }})
+
+# Sonde d'idempotence. La compilation prend une dizaine de minutes : on ne la
+# rejoue pas a chaque passage du playbook. On interroge l'interpreteur plutot
+# que de tester la presence du fichier : un binaire tronque par une
+# compilation interrompue existe mais ne repond pas.
+- name: Un interpreteur utilisable est-il deja en place ?
+  ansible.builtin.command: "{{ python38_prefix }}/bin/python3.8 -c 'import sys; print(\"%d.%d.%d\" % sys.version_info[:3])'"
+  register: _py38_present
+  changed_when: false
+  failed_when: false
+
+# stdout est lu avec un default AVANT tout autre filtre : quand le binaire
+# n'existe pas encore, le module command echoue avant de s'executer et le
+# resultat enregistre ne porte ni stdout ni stderr, seulement rc et msg.
+# Ecrire "_py38_present.stdout | default(...)" ne suffirait pas : l'acces a
+# l'attribut leve l'erreur avant que le filtre ne s'applique, d'ou le passage
+# par le dictionnaire.
+- name: Retenir l'etat de l'interpreteur
+  ansible.builtin.set_fact:
+    python38_found: "{{ _py38_present.get('stdout', '') | trim | default('absent', true) }}"
+    python38_build_needed: "{{ _py38_present.rc != 0 or _py38_present.get('stdout', '') | trim != python38_version }}"
+
+- name: Etat de l'interpreteur
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'compilation necessaire (trouve : ' ~ python38_found ~ ', attendu : ' ~ python38_version ~ ')'
+         if python38_build_needed
+         else 'CPython ' ~ python38_version ~ ' deja en place, compilation sautee' }}
+
+- name: Compiler CPython {{ python38_version }}
+  when: python38_build_needed
+  block:
+    - name: Installer les dependances de compilation
+      ansible.builtin.apt:
+        name: "{{ python38_build_packages }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Creer le repertoire de compilation
+      ansible.builtin.file:
+        path: "{{ python38_build_dir }}"
+        state: directory
+        mode: "0755"
+
+    # checksum verifie l'archive A CHAQUE passage, y compris sur un fichier
+    # deja present : un telechargement precedent interrompu est ainsi rejete
+    # au lieu d'etre compile.
+    - name: Telecharger l'archive source
+      ansible.builtin.get_url:
+        url: "{{ python38_tarball_url }}"
+        dest: "{{ python38_build_dir }}/Python-{{ python38_version }}.tgz"
+        checksum: "sha256:{{ python38_tarball_sha256 }}"
+        mode: "0644"
+        timeout: 120
+      register: _py38_dl
+      until: _py38_dl is succeeded
+      retries: 3
+      delay: 10
+
+    - name: Extraire l'archive
+      ansible.builtin.unarchive:
+        src: "{{ python38_build_dir }}/Python-{{ python38_version }}.tgz"
+        dest: "{{ python38_build_dir }}"
+        remote_src: true
+        creates: "{{ python38_build_dir }}/Python-{{ python38_version }}/configure"
+
+    # --with-ensurepip : sans lui le venv construit plus tard n'a ni pip ni
+    # setuptools, et "python3.8 -m venv" echoue sans message clair.
+    - name: Configurer la compilation
+      ansible.builtin.command:
+        cmd: >-
+          ./configure
+          --prefix={{ python38_prefix }}
+          --with-ensurepip=install
+          {{ '--enable-optimizations' if python38_optimizations | bool else '' }}
+        chdir: "{{ python38_build_dir }}/Python-{{ python38_version }}"
+        creates: "{{ python38_build_dir }}/Python-{{ python38_version }}/Makefile"
+
+    # community.general.make n'expose pas -j dans la version livree par
+    # Debian : on appelle make directement, sans quoi la compilation se ferait
+    # sur un seul coeur et prendrait trois a quatre fois plus longtemps.
+    - name: Compiler (plusieurs minutes)
+      ansible.builtin.command:
+        cmd: "make -j{{ ansible_processor_vcpus | default(2) }}"
+        chdir: "{{ python38_build_dir }}/Python-{{ python38_version }}"
+      changed_when: true
+
+    # altinstall et non install : meme sous un prefixe dedie, install poserait
+    # un lien "python3" generique dans {{ python38_prefix }}/bin. On veut que
+    # tout appel soit explicitement "python3.8", pour qu'aucune erreur de
+    # chemin ne passe inapercue.
+    - name: Installer sous {{ python38_prefix }}
+      ansible.builtin.command:
+        cmd: make altinstall
+        chdir: "{{ python38_build_dir }}/Python-{{ python38_version }}"
+      changed_when: true
+
+# ---------------------------------------------------------------------------
+# Verification
+#
+# CPython ne CASSE PAS quand un en-tete de developpement manque : il desactive
+# le module concerne et termine la compilation sans erreur. Un interpreteur
+# sans _ssl s'installe donc normalement, et ne se trahit qu'au premier appel
+# HTTPS d'Odoo, des semaines plus tard. D'ou ce controle explicite.
+# ---------------------------------------------------------------------------
+- name: Verifier la version installee
+  ansible.builtin.command: "{{ python38_prefix }}/bin/python3.8 -c 'import sys; print(\"%d.%d.%d\" % sys.version_info[:3])'"
+  register: _py38_version
+  changed_when: false
+
+- name: La version installee est bien celle attendue
+  ansible.builtin.assert:
+    that: _py38_version.stdout | trim == python38_version
+    fail_msg: >-
+      {{ python38_prefix }}/bin/python3.8 annonce
+      {{ _py38_version.stdout | trim }} au lieu de {{ python38_version }}.
+
+- name: Verifier les modules critiques
+  ansible.builtin.command: "{{ python38_prefix }}/bin/python3.8 -c 'import {{ item }}'"
+  loop: "{{ python38_required_modules }}"
+  register: _py38_modules
+  changed_when: false
+  failed_when: false
+
+- name: Aucun module critique ne manque
+  ansible.builtin.assert:
+    that: _py38_modules.results | selectattr('rc', 'ne', 0) | list | length == 0
+    fail_msg: >-
+      Modules absents de l'interpreteur compile :
+      {{ _py38_modules.results | selectattr('rc', 'ne', 0) | map(attribute='item') | join(', ') }}.
+      L'en-tete de developpement correspondant manquait a la compilation.
+      Installer le paquet -dev manquant, supprimer
+      {{ python38_build_dir }}/Python-{{ python38_version }} et rejouer.
+
+# Sur bookworm, OpenSSL est en 3.x alors que Python 3.8 a ete ecrit pour
+# 1.1.1. La compilation aboutit, mais la combinaison est peu eprouvee : on
+# affiche la version liee pour qu'elle figure au journal du deploiement.
+- name: Afficher la version d'OpenSSL liee
+  ansible.builtin.command: "{{ python38_prefix }}/bin/python3.8 -c 'import ssl; print(ssl.OPENSSL_VERSION)'"
+  register: _py38_ssl
+  changed_when: false
+
+- name: Recapitulatif
+  ansible.builtin.debug:
+    msg:
+      - "CPython {{ _py38_version.stdout | trim }} installe sous {{ python38_prefix }}"
+      - "{{ _py38_ssl.stdout | trim }}"
+      - "modules critiques verifies : {{ python38_required_modules | join(', ') }}"

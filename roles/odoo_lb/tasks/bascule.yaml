@@ -1,0 +1,112 @@
+---
+# ===========================================================================
+# EPREUVE DE BASCULE  -  a la demande uniquement :
+#
+#   ansible-playbook playbooks/ansi_repartiteur.yaml -k --tags bascule
+#
+# Arrete HAProxy sur l'hote qui porte la VIP, verifie qu'elle passe a un
+# autre, interroge le service par la VIP, puis remet HAProxy en marche.
+#
+# POURQUOI L'EPROUVER. Une redondance jamais testee est une hypothese. Les
+# deux pannes classiques -- VRRP filtre par le pare-feu, et HAProxy mort sur
+# les hotes de secours faute d'ip_nonlocal_bind -- ne se voient PAS en marche
+# normale : tout fonctionne, jusqu'au jour ou le maitre tombe.
+#
+# Ce test coupe brievement le service. Il est sous le tag "bascule", jamais
+# joue par defaut.
+# ===========================================================================
+
+- name: Cet hote porte-t-il la VIP ?
+  ansible.builtin.command: "ip -o addr show to {{ lb_vip }}"
+  register: _lb_av
+  changed_when: false
+  failed_when: false
+
+- name: Retenir le porteur de depart
+  ansible.builtin.set_fact:
+    _lb_porte_avant: "{{ lb_vip in _lb_av.stdout }}"
+
+- name: Nommer le porteur de depart
+  ansible.builtin.set_fact:
+    _lb_avant: >-
+      {% for h in ansible_play_hosts if hostvars[h]._lb_porte_avant | bool %}{{ h }}{% endfor %}
+  run_once: true
+
+- name: Il faut un porteur pour eprouver la bascule
+  ansible.builtin.assert:
+    that: [_lb_avant | length > 0]
+    fail_msg: "Aucun hote ne porte {{ lb_vip }} : rien a faire basculer. Jouer --tags verif d'abord."
+    quiet: true
+  run_once: true
+
+- name: Arreter HAProxy sur le porteur
+  # Le script chk_haproxy de keepalived cherche le processus haproxy toutes
+  # les 2 s, avec fall 2 : la priorite chute apres ~4 s et la VIP part.
+  ansible.builtin.systemd:
+    name: haproxy
+    state: stopped
+  when: inventory_hostname == _lb_avant
+
+- name: Laisser VRRP constater la panne
+  ansible.builtin.wait_for:
+    timeout: 8
+  run_once: true
+  delegate_to: localhost
+
+- name: Qui porte la VIP maintenant ?
+  ansible.builtin.command: "ip -o addr show to {{ lb_vip }}"
+  register: _lb_ap
+  changed_when: false
+  failed_when: false
+
+- name: Retenir le nouveau porteur
+  ansible.builtin.set_fact:
+    _lb_porte_apres: "{{ lb_vip in _lb_ap.stdout }}"
+
+- name: Nommer le nouveau porteur
+  ansible.builtin.set_fact:
+    _lb_apres: >-
+      {% for h in ansible_play_hosts if hostvars[h]._lb_porte_apres | bool %}{{ h }} {% endfor %}
+  run_once: true
+
+- name: Le service repond-il toujours par la VIP ?
+  ansible.builtin.uri:
+    url: "http://{{ lb_vip }}:{{ lb_port }}{{ lb_check_uri }}"
+    status_code: [200]
+  register: _lb_pendant
+  run_once: true
+  failed_when: false
+
+- name: Remettre HAProxy en marche
+  # Toujours execute, meme si les controles ci-dessus ont echoue : un test ne
+  # doit pas laisser le service dans l'etat degrade qu'il a provoque. D'ou le
+  # failed_when: false plus haut, et l'assertion apres cette remise en route.
+  ansible.builtin.systemd:
+    name: haproxy
+    state: started
+
+- name: Laisser la VIP revenir au maitre nominal
+  ansible.builtin.wait_for:
+    timeout: 8
+  run_once: true
+  delegate_to: localhost
+
+- name: Verdict de la bascule
+  ansible.builtin.assert:
+    that:
+      - _lb_apres | trim | length > 0
+      - _lb_apres | trim != _lb_avant | trim
+      - _lb_pendant.status | default(0) == 200
+    fail_msg: >-
+      Bascule non concluante. Depart : {{ _lb_avant }}.
+      Apres arret de HAProxy : {{ _lb_apres | trim | default('aucun porteur', true) }}.
+      Reponse par la VIP : {{ _lb_pendant.status | default('aucune') }}.
+      Aucun porteur = VRRP filtre (protocole IP 112), ou keepalived arrete sur
+      les autres hotes. Porteur inchange = le script chk_haproxy ne detecte pas
+      l'arret. Porteur nouveau mais pas de reponse = HAProxy n'ecoutait pas sur
+      la VIP la-bas, donc ip_nonlocal_bind manque.
+    success_msg: >-
+      VIP passee de {{ _lb_avant }} a {{ _lb_apres | trim }}, service toujours
+      servi (HTTP 200). HAProxy a ete remis en marche.
+    quiet: true
+  run_once: true

@@ -1,0 +1,141 @@
+#!/bin/bash
+# {{ ansible_managed }}
+#
+# Sauvegarde complete d'Odoo : base PARTAGEE + filestore PARTAGE.
+#
+# Depuis que les pieces jointes sont passees sur disque
+# (ir_attachment.location = file), un pg_dump seul N'EST PLUS une sauvegarde
+# complete : la base ne contient que les metadonnees et un store_fname qui
+# designe un fichier du filestore. Restaurer la base seule donnerait une
+# instance pleine de references mortes, sans aucun message d'erreur.
+# Les deux morceaux doivent donc etre pris ensemble.
+
+set -euo pipefail
+
+DEST="{{ sauvegarde_dir }}"
+BASE="{{ odoo_shared_db }}"
+HOTE="{{ odoo_db_host }}"
+PORT="{{ odoo_db_port }}"
+UTIL="{{ odoo_db_user }}"
+FILESTORE="{{ sauvegarde_filestore_src }}"
+
+# Retention exprimee en MINUTES, parce que find -mmin accepte n'importe quelle
+# echelle la ou -mtime est limite au jour entier. Une surcharge en minutes
+# l'emporte, ce qui permet de voir la rotation a l'oeuvre en demonstration.
+{% if sauvegarde_retention_minutes | string | length > 0 %}
+RETENTION_MIN={{ sauvegarde_retention_minutes | int }}
+RETENTION_TXT="{{ sauvegarde_retention_minutes | int }} minutes"
+{% else %}
+RETENTION_MIN={{ sauvegarde_retention_jours | int * 1440 }}
+RETENTION_TXT="{{ sauvegarde_retention_jours | int }} jours"
+{% endif %}
+
+export PGPASSFILE=/root/.pgpass
+
+# --- Le filestore est-il la, AVANT de commencer ? --------------------------
+#
+# Controle place ici, et non au moment du tar : la base est sauvegardee en
+# premier, et un echec tardif laisse un dump orphelin en donnant l'illusion
+# qu'une sauvegarde a eu lieu.
+#
+# Ce qui s'est produit le 30/09/2026 : le volume a ete deplace des hotes vers
+# les conteneurs, ${FILESTORE} n'existait plus sur cette machine, et tar a
+# echoue avec "open impossible: No such file or directory" -- message qui ne
+# dit pas quel est le bon chemin ni quoi monter. Resultat : les dumps de base
+# etaient a jour chaque matin, et la DERNIERE archive de filestore datait du
+# 25/09. Cinq jours pendant lesquels la sauvegarde paraissait fonctionner.
+#
+# Le test porte sur le TYPE du systeme de fichiers, pas sur l'existence du
+# repertoire : un repertoire vide existe aussi, et aurait produit une archive
+# vide sans le moindre avertissement.
+if ! findmnt -n -o FSTYPE "${FILESTORE}" 2>/dev/null | grep -q glusterfs; then
+  echo "ERREUR : ${FILESTORE} n'est pas un point de montage GlusterFS sur $(hostname)." >&2
+  echo "         Un pg_dump SEUL n'est pas une sauvegarde : la base ne contient" >&2
+  echo "         que des store_fname qui designent des fichiers du filestore." >&2
+  echo "         Le volume doit etre monte sur cette machine, par exemple :" >&2
+  echo "           mount -t glusterfs localhost:/{{ gluster_volume | default('odoo14') }} ${FILESTORE}" >&2
+  echo "         NE PAS viser /bricks : une brick contient l'index interne" >&2
+  echo "         .glusterfs et la lire court-circuite la couche de coherence." >&2
+  exit 3
+fi
+
+
+# 077 : les sauvegardes contiennent l'integralite des donnees metier, elles ne
+# doivent etre lisibles que par root.
+umask 077
+
+horodatage=$(date +%Y%m%d-%H%M%S)
+dump="${DEST}/${BASE}-${horodatage}.dump"
+archive="${DEST}/filestore-${horodatage}.tgz"
+manifeste="${DEST}/manifeste-${horodatage}.txt"
+
+echo "=== Sauvegarde ${horodatage} ==="
+
+# Reliquats d'une execution interrompue. Le suffixe .part est ce qui rend une
+# sauvegarde incomplete reconnaissable : un fichier n'obtient son nom
+# definitif qu'une fois ecrit en entier.
+find "${DEST}" -maxdepth 1 -name '*.part' -mmin +60 -print -delete || true
+
+# --- 1. La base D'ABORD ----------------------------------------------------
+# L'ordre n'est pas indifferent. Base puis filestore : une piece jointe creee
+# entre les deux se retrouve dans l'archive sans etre en base, ce qui donne un
+# fichier orphelin que personne ne reclame. Dans l'autre sens, la base citerait
+# un fichier absent de l'archive : reference morte, image cassee apres
+# restauration.
+echo "-- pg_dump ${BASE}@${HOTE}:${PORT}"
+pg_dump -h "${HOTE}" -p "${PORT}" -U "${UTIL}" -Fc "${BASE}" > "${dump}.part"
+mv "${dump}.part" "${dump}"
+
+# --- 2. Le filestore ENSUITE -----------------------------------------------
+# Lu depuis le point de montage GlusterFS, jamais depuis la brick : une brick
+# contient aussi l'index interne .glusterfs, et la lire directement
+# court-circuite la couche qui garantit une vue coherente.
+echo "-- archive du filestore"
+# Les sessions Odoo vivent sur ce meme volume, le point de montage etant le
+# data_dir entier. Ce sont des JETONS D'AUTHENTIFICATION a duree de vie de
+# quelques heures : les archiver grossirait la sauvegarde de milliers de petits
+# fichiers, allongerait le tar, et mettrait des jetons valides dans une archive
+# conservee un mois. Aucune restauration n'en a besoin -- une session perdue se
+# retraduit par une reconnexion.
+#
+# LES DEUX chemins sont exclus : ./sessions est celui qu'Odoo utilise, et
+# ./_sessions un reliquat de l'epoque ou les sessions etaient jointes au volume
+# par un bind. N'exclure que ./_sessions aurait laisse passer les vraies.
+tar czf "${archive}.part" --exclude=./sessions --exclude=./_sessions -C "${FILESTORE}" .
+mv "${archive}.part" "${archive}"
+
+{% if sauvegarde_verifier %}
+# --- 3. Verification -------------------------------------------------------
+# Un dump illisible se decouvre le jour ou on en a besoin, c'est-a-dire le
+# pire jour. Ces deux lectures coutent quelques secondes.
+echo "-- verification"
+pg_restore --list "${dump}" > /dev/null
+tar tzf "${archive}" > /dev/null
+{% endif %}
+
+# --- 4. Manifeste ----------------------------------------------------------
+# Empreintes et comptages : de quoi verifier plus tard qu'une sauvegarde
+# rapatriee est arrivee intacte.
+nb_fichiers=$(tar tzf "${archive}" | grep -cv '/$' || true)
+{
+  echo "date=$(date -Is)"
+  echo "base=${BASE}@${HOTE}:${PORT}"
+  echo "dump=$(basename "${dump}")"
+  echo "dump_octets=$(stat -c%s "${dump}")"
+  echo "dump_sha256=$(sha256sum "${dump}" | cut -d' ' -f1)"
+  echo "archive=$(basename "${archive}")"
+  echo "archive_octets=$(stat -c%s "${archive}")"
+  echo "archive_sha256=$(sha256sum "${archive}" | cut -d' ' -f1)"
+  echo "fichiers_filestore=${nb_fichiers}"
+} > "${manifeste}"
+
+# --- 5. Rotation, APRES une sauvegarde reussie -----------------------------
+# set -e garantit qu'on n'arrive ici qu'en cas de succes : une sauvegarde
+# ratee ne doit jamais effacer les precedentes, qui sont alors tout ce qui
+# reste.
+echo "-- rotation au-dela de ${RETENTION_TXT}"
+find "${DEST}" -maxdepth 1 -type f \
+  \( -name "${BASE}-*.dump" -o -name 'filestore-*.tgz' -o -name 'manifeste-*.txt' \) \
+  -mmin "+${RETENTION_MIN}" -print -delete
+
+echo "=== Termine : $(basename "${dump}") + $(basename "${archive}") (${nb_fichiers} fichiers) ==="

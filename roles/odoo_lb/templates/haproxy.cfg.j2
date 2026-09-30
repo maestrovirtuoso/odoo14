@@ -1,0 +1,73 @@
+# {{ ansible_managed }}
+#
+# Repartiteur de charge devant les trois instances Odoo 14.
+#
+# La liste des serveurs est DERIVEE DE L'INVENTAIRE, jamais ecrite en dur :
+# une IP recopiee a la main finit toujours par diverger, et un backend qui
+# pointe sur la mauvaise instance ne se voit pas -- il repond.
+
+global
+    log         /dev/log local0
+    maxconn     {{ lb_maxconn }}
+    daemon
+    stats socket /var/lib/haproxy/stats mode 660 level admin
+
+defaults
+    mode        http
+    log         global
+    option      httplog
+    # forwardfor : pose X-Forwarded-For. INDISPENSABLE ici, odoo.conf ayant
+    # proxy_mode = True -- sans cet en-tete Odoo verrait toutes les requetes
+    # venir du repartiteur.
+    option      forwardfor
+    # redispatch : si le serveur colle par le cookie est tombe, renvoyer la
+    # requete ailleurs au lieu d'echouer. C'est lui qui rend la panne
+    # invisible pour l'utilisateur -- a condition que les sessions soient
+    # partagees, sinon il serait simplement deconnecte sur un autre noeud.
+    option      redispatch
+    retries     3
+    timeout connect {{ lb_timeout_connect }}
+    timeout client  {{ lb_timeout_client }}
+    timeout server  {{ lb_timeout_server }}
+
+frontend odoo_front
+    bind {{ lb_vip }}:{{ lb_port }}
+
+    acl est_stats       path_beg {{ lb_stats_uri }}
+    acl est_longpolling path_beg /longpolling
+
+    use_backend stats_back       if est_stats
+    use_backend odoo_longpolling if est_longpolling
+    default_backend odoo_http
+
+# --- Interface web ---------------------------------------------------------
+backend odoo_http
+    balance roundrobin
+    # cookie SRV : colle l'utilisateur au serveur qui l'a servi la premiere
+    # fois. "indirect nocache" : le cookie n'est jamais transmis a Odoo et
+    # n'est pas mis en cache par les intermediaires.
+    cookie SRV insert indirect nocache
+    option httpchk GET {{ lb_check_uri }}
+    http-check expect status {{ lb_check_statut }}
+{% for h in groups['odoo_containers'] %}
+    server {{ h }} {{ hostvars[h].ansible_host }}:{{ odoo_http_port }} check cookie {{ h }}
+{% endfor %}
+
+# --- Bus de notifications --------------------------------------------------
+# Port distinct : Odoo n'ouvre 8072 que si workers > 0. Y router /longpolling
+# est ce qui fait fonctionner la messagerie, les compteurs et les alertes.
+# Tout envoyer sur 8069 donnerait une interface qui marche, sans jamais
+# notifier -- une panne muette.
+backend odoo_longpolling
+    balance roundrobin
+    cookie SRV insert indirect nocache
+{% for h in groups['odoo_containers'] %}
+    server {{ h }} {{ hostvars[h].ansible_host }}:{{ odoo_longpolling_port }} check cookie {{ h }}
+{% endfor %}
+
+# --- Etat des backends, en direct ------------------------------------------
+backend stats_back
+    stats enable
+    stats uri {{ lb_stats_uri }}
+    stats refresh 5s
+    stats auth {{ lb_stats_user }}:{{ lb_stats_password }}

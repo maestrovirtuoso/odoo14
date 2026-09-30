@@ -1,0 +1,29 @@
+---
+# Temps d'attente maximal (secondes) pour obtenir le verrou RPM.
+# Le timer dnf-makecache peut le detenir plusieurs minutes ; passe ce delai la
+# tache echoue avec un message clair au lieu de bloquer le playbook.
+dnf_lock_timeout: 120
+
+# Espace libre minimal (Mo) exige sur /var/lib/lxc avant de creer un
+# conteneur. Le rootfs Debian 12 pese ~500 Mo decompresse ; la marge couvre
+# l'installation d'Odoo 14 et de ses dependances Python dans le conteneur.
+lxc_min_free_mb: 3000
+
+# Partition d'accueil quand /var est trop petit pour le stockage LXC (cas du
+# partitionnement Rocky par defaut : /var = 1 Go, / = 15 Go).
+lxc_storage_root: /srv
+
+# Repertoires LXC deportes par bind mount. Les chemins d'origine restent
+# valides : le reste des roles ecrit en dur dans /var/lib/lxc/<nom>/config.
+lxc_bind_mounts:
+  - path: /var/lib/lxc
+    src: "{{ lxc_storage_root }}/lxc"
+  - path: /var/cache/lxc
+    src: "{{ lxc_storage_root }}/lxc-cache"
+
+# Nombre de tentatives de lxc-create. Le miroir images.linuxcontainers.org
+# refuse regulierement des connexions, d'ou un rejeu par defaut. Passer
+# -e lxc_create_retries=0 pour atteindre tout de suite le bloc rescue et son
+# diagnostic quand l'echec est manifestement systematique (tous les hotes).
+lxc_create_retries: 3
+lxc_create_delay: 15

@@ -1,0 +1,27 @@
+---
+# ---------------------------------------------------------------------------
+# Demantelement de l'ancienne replication PostgreSQL streaming
+#
+# Ce projet a d'abord deploye une replication (un primaire, deux standbys),
+# puis des instances autonomes, et desormais une base unique partagee. Les
+# taches ci-dessous effacent ce que la replication avait laisse dans le
+# cluster. Elles sont idempotentes et rattrapent un cluster restaure depuis
+# une sauvegarde anterieure.
+#
+# Le plus sensible est /var/lib/postgresql/.pgpass : il contient le mot de
+# passe de replication EN CLAIR alors que plus rien ne l'utilise.
+#
+# La promotion d'un ancien standby (sortie du mode recovery) a ete retiree a
+# la demande : elle doit etre faite a la main sur le cluster concerne
+# ("pg_ctlcluster <version> main promote" en tant que postgres), sinon la
+# base reste en LECTURE SEULE et Odoo ne peut pas y ecrire.
+# ---------------------------------------------------------------------------
+- name: Supprimer les fichiers de replication PostgreSQL
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ pg_conf_dir }}/conf.d/replication.conf"
+    - "{{ pg_data_dir }}/standby.signal"
+    - /var/lib/postgresql/.pgpass
+  notify: restart postgresql

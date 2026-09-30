@@ -1,0 +1,57 @@
+---
+# ===========================================================================
+# Variables communes a TOUS les hotes et conteneurs.
+#
+# Architecture : une base PostgreSQL unique, servie par un conteneur dedie,
+# partagee par les instances Odoo. Ces valeurs doivent etre identiques des
+# deux cotes de la connexion, d'ou leur portee "all" plutot que par groupe.
+# ===========================================================================
+
+# Conteneur PostgreSQL dedie (hote 192.168.96.141).
+odoo_db_host: 192.168.96.150
+odoo_db_port: 5432
+odoo_db_user: odoo
+
+# Base UNIQUE partagee par toutes les instances Odoo.
+# Surchargeable par l'environnement (cf. .env / .env.example).
+odoo_shared_db: "{{ lookup('env', 'PROSYS_ODOO_DB') | default('prod', true) }}"
+
+# Version PostgreSQL livree par Debian 12 bookworm.
+pg_version: "15"
+
+# Adresses autorisees a se connecter a la base, derivees de l'inventaire :
+# pg_hba.conf ne peut donc pas diverger de la liste reelle des instances.
+odoo_client_ips: "{{ groups['odoo_containers'] | map('extract', hostvars, 'ansible_host') | list }}"
+
+# Hote de sauvegarde, qui se connecte a la base pour pg_dump.
+#
+# Il ne peut PAS etre couvert par odoo_client_ips : c'est un HOTE Rocky
+# (192.168.96.128), pas un conteneur. Les conteneurs Odoo portent leurs
+# propres IP LAN (.151 .152 .153) via une carte physique dediee, et l'hote qui
+# heberge odoo1 est une machine distincte avec une autre adresse. Autoriser
+# odoo1 n'autorise donc en rien son hote -- c'est ce qui a produit
+# "no pg_hba.conf entry for host 192.168.96.128" le 2026-09-24.
+#
+# Les membres du groupe backup_host sont declares par leur IP dans
+# l'inventaire : la liste est directement utilisable.
+# Ports d'ecoute d'Odoo.
+#
+# Portee "all" et non par groupe : ces valeurs doivent etre identiques des
+# DEUX cotes -- le template odoo.conf.j2 les pose dans les conteneurs, et le
+# template haproxy.cfg.j2 les vise depuis les hotes. Une divergence donnerait
+# un repartiteur qui frappe un port que personne n'ecoute.
+#
+# 8072 est le port du LONGPOLLING, qu'Odoo n'ouvre que si workers > 0. Il
+# porte le bus de notifications : messagerie instantanee, compteurs, alertes.
+# Un repartiteur qui enverrait /longpolling vers 8069 donnerait une interface
+# fonctionnelle mais sans aucune notification -- une panne difficile a
+# diagnostiquer, parce que rien n'echoue visiblement.
+odoo_http_port: 8069
+odoo_longpolling_port: 8072
+
+pg_backup_client_ips: "{{ groups['backup_host'] | default([]) | list }}"
+
+
+# Secrets (group_vars/all/vault.yml, gitignore tant qu'il est en clair).
+odoo_admin_password: "{{ vault_odoo_admin_password }}"
+odoo_db_password: "{{ vault_odoo_db_password }}"

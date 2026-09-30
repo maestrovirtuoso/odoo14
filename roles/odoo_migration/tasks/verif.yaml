@@ -1,0 +1,67 @@
+---
+# ===========================================================================
+# odoo_migration : chaque store_fname a-t-il son fichier ?
+#
+# Sur l'hote de sauvegarde, seul point qui voit a la fois la base (client
+# PostgreSQL 15 et .pgpass poses par le role odoo_backup) et un filestore.
+#
+# ATTENTION : celui de SON noeud seulement. Les references vers des fichiers
+# d'odoo2 ou odoo3 apparaitront donc comme manquantes -- consequence directe
+# d'un filestore non partage, pas d'un defaut de la verification.
+#
+# Compare dans les DEUX sens :
+#   - reference sans fichier : une image cassee pour l'utilisateur ;
+#   - fichier sans reference : un orphelin, sans gravite, mais qui revele
+#     souvent une migration a moitie faite.
+# ===========================================================================
+
+- name: Confronter les store_fname au contenu du filestore
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      export PGPASSFILE=/root/.pgpass
+      psql -h {{ odoo_db_host }} -p {{ odoo_db_port }} -U {{ odoo_db_user }} \
+           -d {{ odoo_shared_db }} -Atc \
+           "SELECT DISTINCT store_fname FROM ir_attachment WHERE store_fname IS NOT NULL" \
+        | sort > /tmp/verif-base.txt
+      (cd {{ sauvegarde_filestore_src }}/{{ odoo_shared_db }} \
+        && find . -type f -not -path './checklist/*' | sed 's|^\./||') \
+        | sort > /tmp/verif-disque.txt
+      echo "REFERENCES=$(wc -l < /tmp/verif-base.txt)"
+      echo "FICHIERS=$(wc -l < /tmp/verif-disque.txt)"
+      comm -23 /tmp/verif-base.txt /tmp/verif-disque.txt > /tmp/verif-absents.txt
+      comm -13 /tmp/verif-base.txt /tmp/verif-disque.txt > /tmp/verif-orphelins.txt
+      head -10 /tmp/verif-absents.txt | sed 's/^/SANS_FICHIER /'
+      head -10 /tmp/verif-orphelins.txt | sed 's/^/ORPHELIN /'
+      echo "SANS_FICHIER=$(wc -l < /tmp/verif-absents.txt)"
+      echo "ORPHELINS=$(wc -l < /tmp/verif-orphelins.txt)"
+      rm -f /tmp/verif-*.txt
+  args:
+    executable: /bin/bash
+  register: _verif
+  changed_when: false
+  failed_when: false
+
+- name: Resultat de la verification
+  # Affiche AVANT le verdict : si l'assertion echoue, c'est cette sortie qui
+  # dit pourquoi.
+  ansible.builtin.debug:
+    msg: "{{ _verif.stdout_lines | default(['(aucune sortie)']) }}"
+
+- name: Chaque piece jointe referencee a bien son fichier
+  ansible.builtin.assert:
+    that:
+      - _verif.rc == 0
+      - "'SANS_FICHIER=0' in _verif.stdout"
+    fail_msg: >-
+      {{ _verif.stdout | regex_findall('SANS_FICHIER=(\d+)') | first | default('?') }}
+      fichier(s) cite(s) par la base sont absents du filestore : autant
+      d'images cassees pour les utilisateurs. Si ce sont d'anciennes pieces
+      jointes, jouer la recuperation des filestores locaux :
+      ansible-playbook playbooks/ansi_syncro.yaml --tags fusion
+    success_msg: >-
+      Base et filestore concordent :
+      {{ _verif.stdout | regex_findall('REFERENCES=(\d+)') | first | default('?') }}
+      reference(s), toutes servies par un fichier existant
+      ({{ _verif.stdout | regex_findall('ORPHELINS=(\d+)') | first | default('?') }}
+      orphelin(s) sans gravite).

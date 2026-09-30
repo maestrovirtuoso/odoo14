@@ -1,0 +1,5 @@
+---
+# Noeud Odoo primaire : le SEUL a initialiser la base partagee et a porter
+# les taches planifiees. Les autres noeuds ont max_cron_threads = 0.
+odoo_is_primary: true
+odoo_max_cron_threads: 1

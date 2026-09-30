@@ -1,0 +1,17 @@
+---
+# ===========================================================================
+# odoo_migration : preflight cote CONTENEURS (identite du compte odoo).
+#
+# Un systeme de fichiers stocke des NUMEROS, pas des noms. Si odoo vaut 105
+# sur un noeud et 106 sur un autre, les fichiers deviennent illisibles d'un
+# noeud a l'autre des qu'un stockage est partage ou restaure ailleurs.
+# ===========================================================================
+
+- name: Relever l'identite du compte odoo
+  ansible.builtin.command: "id {{ odoo_system_user }}"
+  register: _pre_id
+  changed_when: false
+
+- name: Identite par noeud
+  ansible.builtin.debug:
+    msg: "{{ inventory_hostname }} : {{ _pre_id.stdout }}"

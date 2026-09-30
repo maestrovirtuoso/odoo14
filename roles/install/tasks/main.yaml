@@ -22,16 +22,20 @@
   when: ansible_os_family == "Debian"
 
 # ---------------------------------------------------------------------------
-# Rocky / RHEL / CentOS / Alma
+# Rocky / RHEL /
 # ---------------------------------------------------------------------------
+# ansible.builtin.dnf plutot que le module generique "package" : lui seul
+# expose lock_timeout. Sans cela, si le timer dnf-makecache tient le verrou
+# RPM, la tache attend indefiniment au lieu d'echouer.
 - name: Activer le depot EPEL (Rocky / RHEL)
-  package:
+  ansible.builtin.dnf:
     name: epel-release
     state: present
+    lock_timeout: "{{ dnf_lock_timeout }}"
   when: ansible_os_family in ["RedHat", "Rocky", ]
 
 - name: Installer les dependances LXC (Rocky / RHEL)
-  package:
+  ansible.builtin.dnf:
     name:
       - lxc
       - lxc-templates
@@ -44,6 +48,7 @@
       - rsync
       - ca-certificates
     state: present
+    lock_timeout: "{{ dnf_lock_timeout }}"
   when: ansible_os_family in ["RedHat", "Rocky",]
 
 - name: Passer SELinux en permissif (requis pour LXC sur Rocky)
@@ -69,6 +74,24 @@
     state: directory
     mode: '0755'
 
+# Le conteneur NAIT sur le bridge lxcbr0, puis le role lxc_lan le bascule sur
+# une carte physique dediee. Ce fichier ne sert donc qu'a la creation, mais il
+# est indispensable : le paquet EPEL "lxc" (Rocky / RHEL), contrairement a
+# celui de Debian, ne fournit pas /etc/lxc/default.conf ; lxc-create echoue
+# alors sur "Failed to open file /etc/lxc/default.conf" avant meme de creer
+# le conteneur. On ne le pose que s'il est absent (force: false) pour ne pas
+# ecraser une configuration deja personnalisee.
+- name: Poser /etc/lxc/default.conf s'il est absent (Rocky / RHEL)
+  ansible.builtin.copy:
+    dest: /etc/lxc/default.conf
+    mode: '0644'
+    force: false
+    content: |
+      lxc.net.0.type = veth
+      lxc.net.0.link = lxcbr0
+      lxc.net.0.flags = up
+  when: ansible_os_family in ["RedHat", "Rocky", ]
+
 - name: Activer le bridge LXC (Rocky / RHEL)
   ansible.builtin.copy:
     dest: /etc/sysconfig/lxc-net
@@ -80,7 +103,7 @@
   service:
     name: lxc-net
     state: started
-    enabled: true
+    enabled: true #enabled: true : Ce paramètre demande à Ansible d'activer le service au démarrage du système.
   failed_when: false
 
 - name: Demarrer et activer le service LXC
@@ -88,19 +111,228 @@
     name: lxc
     state: started
     enabled: true
+  failed_when: false # Ce paramètre force Ansible à ignorer les erreurs pour cette tâche.
+
+# lxc-create creerait ces repertoires lui-meme, mais df a besoin qu'ils
+# existent pour rapporter la partition qui les porte.
+- name: S'assurer que les repertoires LXC existent
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /var/lib/lxc
+    - /var/cache/lxc
+
+# ---------------------------------------------------------------------------
+# Residus de diagnostic
+#
+# Le bloc rescue plus bas cree des conteneurs "diag-<nom>" pour rejouer
+# lxc-create sans --quiet et obtenir la cause reelle d'un echec, puis les
+# detruit. Mais si le playbook est interrompu PENDANT le rescue (Ctrl-C), la
+# destruction n'est jamais atteinte et le rootfs reste : ~430 Mo par residu.
+#
+# Le nettoyage est donc fait ICI, en debut de role et sans condition, plutot
+# que de dependre du bon deroulement du rescue. Il precede la mesure d'espace
+# libre : sinon la place occupee par ces residus serait comptee comme perdue
+# et pourrait declencher a tort le deport du stockage vers /srv.
+#
+# Portee volontairement etroite : seuls les noms prefixes "diag-", que ce
+# role est seul a creer. Aucun conteneur applicatif ne peut etre touche.
+# ---------------------------------------------------------------------------
+- name: Lister les conteneurs de diagnostic oublies
+  ansible.builtin.find:
+    paths: /var/lib/lxc
+    patterns: "diag-*"
+    file_type: directory
+  register: _diag_leftovers
+
+- name: Detruire les conteneurs de diagnostic oublies
+  ansible.builtin.command: "lxc-destroy --force --name {{ item.path | basename }}"
+  loop: "{{ _diag_leftovers.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  register: _diag_destroy
+  changed_when: _diag_destroy.rc == 0
+  # lxc-destroy sort en erreur si le conteneur a deja disparu entre le
+  # listage et ici : cas nominal, la tache doit rester idempotente.
   failed_when: false
 
-- name: Creer et demarrer les conteneurs Debian 11 (bullseye)
+- name: Annoncer le nettoyage
+  ansible.builtin.debug:
+    msg: >-
+      {{ _diag_leftovers.files | length }} conteneur(s) de diagnostic
+      supprime(s) :
+      {{ _diag_leftovers.files | map(attribute='path') | map('basename') | join(', ') }}
+  when: _diag_leftovers.files | length > 0
+
+# Sans espace libre, lxc-create echoue a l'extraction du rootfs puis detruit
+# le conteneur partiel : le log ne garde qu'un "Failed to create container
+# from template" muet. On verifie donc en amont pour echouer avec un message
+# exploitable. Hors du block plus bas : si ce controle echoue lui-meme, le
+# rescue ne doit pas lancer son rejeu de lxc-create, qui consomme du disque.
+- name: Mesurer l'espace libre sur /var/lib/lxc
+  ansible.builtin.command: df -Pm /var/lib/lxc
+  register: _lxc_avail
+  changed_when: false
+
+# La mesure est retenue dans un FAIT, pas lue directement depuis la variable
+# enregistree. Une tache sautee enregistre malgre tout son resultat : quand le
+# bloc de deport ci-dessous ne s'applique pas, sa derniere tache ecraserait
+# _lxc_avail par un {"skipped": true} sans stdout_lines, et l'assertion finale
+# echouerait sur une variable indefinie. Un set_fact saute, lui, ne touche a
+# rien : lxc_free_mb garde sa premiere valeur.
+- name: Retenir l'espace libre mesure
+  ansible.builtin.set_fact:
+    lxc_free_mb: "{{ _lxc_avail.stdout_lines[-1].split()[3] | int }}"
+
+# Le partitionnement Rocky par defaut donne a /var un volume LVM de 1 Go,
+# trop petit pour un rootfs Debian 12 (~500 Mo) plus le cache d'image, alors
+# que / dispose de plusieurs Go. On deporte donc le stockage LXC par bind
+# mount : les chemins /var/lib/lxc et /var/cache/lxc restent valides, ce qui
+# evite de toucher aux roles qui les ecrivent en dur.
+- name: Deporter le stockage LXC hors de /var s'il est trop petit
+  when: lxc_free_mb | int < lxc_min_free_mb
   block:
+    - name: Creer les repertoires d'accueil
+      ansible.builtin.file:
+        path: "{{ item.src }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ lxc_bind_mounts }}"
+
+    - name: Mesurer l'espace libre sur la partition d'accueil
+      ansible.builtin.command: "df -Pm {{ lxc_storage_root }}"
+      register: _lxc_dest_avail
+      changed_when: false
+
+    - name: Verifier que la partition d'accueil est assez grande
+      ansible.builtin.assert:
+        that: _lxc_dest_avail.stdout_lines[-1].split()[3] | int >= lxc_min_free_mb
+        fail_msg: >-
+          {{ lxc_storage_root }} n'a que
+          {{ _lxc_dest_avail.stdout_lines[-1].split()[3] }} Mo libres pour
+          {{ lxc_min_free_mb }} Mo requis : aucune partition de cet hote ne
+          peut accueillir le stockage LXC. Agrandir le disque.
+
+    - name: Reperer les repertoires deja deportes
+      ansible.builtin.command: "mountpoint -q {{ item.path }}"
+      loop: "{{ lxc_bind_mounts }}"
+      register: _lxc_mounted
+      changed_when: false
+      failed_when: false
+
+    # Un bind mount masque le contenu du repertoire d'origine : tout conteneur
+    # ou cache deja present doit etre recopie avant, sinon il devient
+    # invisible et l'espace qu'il occupe dans /var reste perdu.
+    - name: Recopier le contenu existant avant le montage
+      ansible.builtin.command: "rsync -aHAX {{ item.item.path }}/ {{ item.item.src }}/"
+      loop: "{{ _lxc_mounted.results }}"
+      loop_control:
+        label: "{{ item.item.path }}"
+      when: item.rc != 0
+      changed_when: true
+
+    - name: Monter et persister dans /etc/fstab
+      ansible.posix.mount:
+        path: "{{ item.path }}"
+        src: "{{ item.src }}"
+        fstype: none
+        opts: bind
+        state: mounted
+      loop: "{{ lxc_bind_mounts }}"
+      loop_control:
+        label: "{{ item.path }} <- {{ item.src }}"
+
+    - name: Remesurer l'espace libre apres deport
+      ansible.builtin.command: df -Pm /var/lib/lxc
+      register: _lxc_avail_post
+      changed_when: false
+
+    - name: Retenir l'espace libre apres deport
+      ansible.builtin.set_fact:
+        lxc_free_mb: "{{ _lxc_avail_post.stdout_lines[-1].split()[3] | int }}"
+
+- name: Exiger assez d'espace libre pour le rootfs
+  ansible.builtin.assert:
+    that: lxc_free_mb | int >= lxc_min_free_mb
+    fail_msg: >-
+      Espace insuffisant sur /var/lib/lxc :
+      {{ lxc_free_mb }} Mo libres,
+      {{ lxc_min_free_mb }} Mo requis, deport vers
+      {{ lxc_storage_root }} compris. Aucune partition de cet hote n'a la
+      place : agrandir le disque, ou pointer lxc_storage_root vers un
+      volume plus grand.
+
+# Retrait des conteneurs obsoletes AVANT la creation : ils occupent de la
+# place sur un /var deja etroit, et un ancien conteneur en demarrage
+# automatique se disputerait la carte physique avec le nouveau.
+- name: Supprimer les conteneurs obsoletes de cet hote
+  ansible.builtin.import_tasks: reap_stale.yaml
+  when: stale_containers | default([]) | length > 0
+
+- name: Creer et demarrer les conteneurs Debian 12 (bookworm)
+  block:
+    # retries : le miroir images.linuxcontainers.org refuse regulierement des
+    # connexions ; une seule tentative fait echouer tout le playbook.
     - name: Creer et demarrer les conteneurs
       community.general.lxc_container:
         name: "{{ item.name }}"
         container_log: true
         template: download
         state: started
-        template_options: -d debian -r bullseye -a amd64 --no-validate
+        template_options: -d debian -r bookworm -a amd64 --no-validate
       loop: "{{ containers }}"
+      register: _lxc_create
+      until: _lxc_create is not failed
+      retries: "{{ lxc_create_retries }}"
+      delay: "{{ lxc_create_delay }}"
   rescue:
+    # La creation qui vient d'echouer a pu remplir le disque : on remesure
+    # avant de rejouer lxc-create, sinon le rejeu ne fait qu'aggraver l'etat
+    # de l'hote pour un diagnostic qu'on connait deja.
+    - name: Remesurer l'espace libre avant le rejeu
+      ansible.builtin.command: df -Pm /var/lib/lxc
+      register: _lxc_avail_rescue
+      changed_when: false
+      failed_when: false
+
+    # lxc_container passe toujours --quiet a lxc-create, ce qui bâillonne le
+    # template download : le log ne contient que l'echec generique. On rejoue
+    # donc le template a la main, sans --quiet, pour obtenir la vraie cause.
+    # tail : une extraction qui echoue emet des milliers de lignes "tar:" ;
+    # seules les dernieres portent la cause, et tout afficher noie le rapport.
+    - name: Rejouer lxc-create sans --quiet pour obtenir la cause reelle
+      ansible.builtin.shell: >-
+        lxc-create --name diag-{{ item.name }} --template download --bdev dir
+        -- -d debian -r bookworm -a amd64 --no-validate 2>&1 | tail -n 25
+      loop: "{{ containers }}"
+      register: _lxc_diag
+      changed_when: false
+      failed_when: false
+      when: (_lxc_avail_rescue.stdout_lines | default([]) | length > 0)
+            and (_lxc_avail_rescue.stdout_lines[-1].split()[3] | int >= lxc_min_free_mb)
+
+    - name: Supprimer le conteneur de diagnostic
+      ansible.builtin.command: "lxc-destroy --force --name diag-{{ item.name }}"
+      loop: "{{ containers }}"
+      changed_when: false
+      failed_when: false
+
+    - name: Collecter l'etat disque et reseau
+      ansible.builtin.shell: |
+        echo "--- df -h /var/lib/lxc /var/cache/lxc ---"
+        df -h /var/lib/lxc /var/cache/lxc 2>&1
+        echo "--- df -i /var/lib/lxc ---"
+        df -i /var/lib/lxc 2>&1
+        echo "--- resolution DNS ---"
+        getent hosts images.linuxcontainers.org 2>&1 || echo "DNS KO"
+        echo "--- acces HTTPS ---"
+        wget -q -S --spider https://images.linuxcontainers.org/meta/1.0/index-system 2>&1 | head -5 || echo "HTTPS KO"
+      register: _lxc_env
+      changed_when: false
+      failed_when: false
+
     - name: Afficher le log lxc-create en cas d'echec
       ansible.builtin.command: "tail -n 60 /var/log/lxc/lxc-{{ item.name }}.log"
       loop: "{{ containers }}"
@@ -108,13 +340,19 @@
       changed_when: false
       failed_when: false
 
-    - name: Sortie du log
+    - name: Sortie du diagnostic
       ansible.builtin.debug:
-        var: _lxclog.results | map(attribute='stdout') | list
+        msg:
+          - "=== sortie lxc-create verbeuse ==="
+          - "{{ _lxc_diag.results | map(attribute='stdout_lines', default=['(rejeu ignore : disque plein)']) | list }}"
+          - "=== environnement hote ==="
+          - "{{ _lxc_env.stdout_lines }}"
+          - "=== log lxc ==="
+          - "{{ _lxclog.results | map(attribute='stdout_lines') | list }}"
 
     - name: Relayer l'echec
       ansible.builtin.fail:
-        msg: "lxc-create a echoue - voir le log ci-dessus"
+        msg: "lxc-create a echoue - voir le diagnostic ci-dessus"
 
 - name: Activer le demarrage automatique des conteneurs
   lineinfile:

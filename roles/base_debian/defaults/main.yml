@@ -1,0 +1,11 @@
+---
+# Miroirs Debian utilises dans sources.list.
+debian_mirror: http://deb.debian.org/debian
+debian_security_mirror: http://security.debian.org/debian-security
+
+# Paquets simules par la validation finale. Chaque role consommateur y met
+# CE QU'IL VA REELLEMENT INSTALLER : un blocage de dependances se revele
+# alors avant toute modification. La liste etait codee en dur sur les paquets
+# PostgreSQL serveur, ce qui n'a plus de sens depuis que seul le conteneur
+# db_containers en heberge un.
+apt_validate_packages: []

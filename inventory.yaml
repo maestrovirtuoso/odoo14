@@ -1,21 +1,107 @@
+# ---------------------------------------------------------------------------
+# Hotes physiques (VM Gluster, Rocky 8). Chacun heberge un conteneur LXC.
+# ---------------------------------------------------------------------------
 [gluster_servers]
-192.168.96.139 ansible_user=root
-192.168.96.141 ansible_user=root
+192.168.96.128 ansible_user=root
+192.168.96.129 ansible_user=root
 192.168.96.140 ansible_user=root
+192.168.96.141 ansible_user=root
+
+[gluster_servers:vars]
+# Carte physique dediee, donnee au conteneur par le role lxc_lan
+# (lxc.net.0.type = phys). Surchargeable par hote dans host_vars/<ip>.yml si
+# un hote nomme ses interfaces autrement.
+#
+# ATTENTION : ce ne doit JAMAIS etre la carte qui porte la route par defaut
+# de l'hote. La donner au conteneur couperait l'hote sans retour possible.
+# Le role refuse de le faire, mais autant ne pas l'y amener.
+#
+# Cette variable venait de inventory-lxc.ini, qui declarait sous le nom
+# "lxc_nodes" exactement les memes quatre hotes que ce groupe. Un seul
+# inventaire desormais : deux listes d'hotes a tenir a jour finissent
+# toujours par diverger.
+nic=ens224
 
 # ---------------------------------------------------------------------------
-# Conteneurs LXC "devodoo14" - un par hote Gluster, instances autonomes.
-# Ansible les atteint en rebondissant (ProxyCommand) sur leur hote respectif :
-# le conteneur n'a pas d'IP routable depuis le poste de controle, mais il est
-# joignable depuis son hote via lxcbr0.
-# proxy_host = IP LAN de l'hote qui heberge le conteneur.
+# Hotes porteurs d'une brick du volume GlusterFS "odoo14" (replica 3).
+#
+# Sous-ensemble STRICT de gluster_servers : l'hote .141 porte le conteneur
+# PostgreSQL et n'a pas de brick. Lui appliquer le role odoo_filestore
+# monterait un volume dont il n'a aucun usage, et surtout ecrirait un
+# lxc.mount.entry vers /var/lib/odoo/filestore dans un conteneur qui n'heberge
+# pas Odoo.
+#
+# Le nom du groupe parent est trompeur : gluster_servers designe les quatre
+# hotes physiques, pour des raisons historiques, et aucun d'eux n'executait de
+# tache Gluster avant ce groupe-ci.
+# ---------------------------------------------------------------------------
+[gluster_bricks]
+192.168.96.128
+192.168.96.129
+192.168.96.140
+
+# ---------------------------------------------------------------------------
+# Hote porteur des sauvegardes (role odoo_backup).
+#
+# Doit etre un hote Gluster : il lui faut le filestore monte sur
+# /srv/odoo-filestore pour l'archiver.
+#
+# NE PAS y mettre .141 : c'est l'hote du conteneur PostgreSQL, et ranger les
+# sauvegardes d'une base sur la machine qui la porte fait perdre la donnee et
+# sa copie du meme coup.
+#
+# Un seul hote suffit : la base est unique et le filestore est repliquee ×3
+# avec un contenu identique sur les trois bricks. Sauvegarder depuis les trois
+# archiverait trois fois la meme chose.
+# ---------------------------------------------------------------------------
+[backup_host]
+192.168.96.128
+
+# ---------------------------------------------------------------------------
+# Hotes portant le repartiteur de charge (HAProxy + keepalived).
+#
+# Les TROIS hotes Odoo, et non .141 : chacun porte deja une instance, donc
+# HAProxy y est au plus pres de ses backends, et la VIP peut basculer sur l'un
+# des deux autres si l'un tombe. Mettre le repartiteur sur .141 le placerait
+# sur la meme machine que PostgreSQL -- une panne emporterait la base ET
+# l'entree unique.
+#
+# L'ORDRE COMPTE : keepalived derive la priorite de la position dans ce
+# groupe. Le premier est le maitre nominal, les suivants prennent la VIP dans
+# cet ordre en cas de panne.
+# ---------------------------------------------------------------------------
+[lb_hosts]
+192.168.96.129
+192.168.96.140
+192.168.96.128
+
+# ---------------------------------------------------------------------------
+# Conteneurs LXC. Ils sont exposes DIRECTEMENT sur le LAN par une carte
+# physique dediee (lxc.net.0.type = phys), donc joignables en SSH sans
+# rebond : le ProxyCommand de l'ancienne architecture routee a disparu.
+# lxc_host indique quel hote porte le conteneur (utile aux roles qui
+# agissent sur l'hote a partir du conteneur).
 # ---------------------------------------------------------------------------
 [odoo_containers]
-odoo1 ansible_host=10.0.1.10 proxy_host=192.168.96.139
-odoo2 ansible_host=10.0.2.10 proxy_host=192.168.96.140
-odoo3 ansible_host=10.0.3.10 proxy_host=192.168.96.141
+odoo1 ansible_host=192.168.96.151 lxc_host=192.168.96.128
+odoo2 ansible_host=192.168.96.152 lxc_host=192.168.96.129
+odoo3 ansible_host=192.168.96.153 lxc_host=192.168.96.140
 
-[odoo_containers:vars]
+# Noeud qui initialise la base partagee et porte les taches planifiees.
+# Il doit rester UNIQUE : trois "odoo -i base" concurrents sur la meme base
+# corrompent le registre.
+[odoo_primary]
+odoo1
+
+# Conteneur PostgreSQL dedie : la base de TOUTES les instances Odoo.
+# Aucun paquet Odoo n'y est installe.
+[db_containers]
+odoodb ansible_host=192.168.96.150 lxc_host=192.168.96.141
+
+[lxc_containers:children]
+odoo_containers
+db_containers
+
+[lxc_containers:vars]
 ansible_user=root
 ansible_python_interpreter=/usr/bin/python3
-ansible_ssh_common_args=-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ProxyCommand="ssh -W %h:%p -q -o StrictHostKeyChecking=no root@{{ proxy_host }}"

@@ -1,0 +1,20 @@
+---
+# ===========================================================================
+# Valeurs par defaut du role chrony.
+# ===========================================================================
+
+# Ecart tolere avec le poste de controle, en secondes.
+chrony_ecart_max: 60
+
+# Autoriser chrony a SAUTER l'horloge a tout moment.
+#
+# La valeur Rocky par defaut est "makestep 1.0 3" : chrony n'a le droit de
+# sauter que lors des 3 PREMIERES mises a jour apres son demarrage. Passe ce
+# delai, il ne peut plus que glisser, a quelques dizaines de ppm -- rattraper
+# 14 h prendrait des mois.
+#
+# "-1" leve cette limite. Le compromis est connu : un saut d'horloge peut
+# perturber une base de donnees en cours d'ecriture. Une derive de 14 h en
+# perturbe infiniment plus, et c'est ce qui s'est produit trois fois ici
+# (24/09 : 12 h 38 ; 25/09 : 14 h 09).
+chrony_makestep: "makestep 1.0 -1"

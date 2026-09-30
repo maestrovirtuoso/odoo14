@@ -1,0 +1,31 @@
+---
+# Les entrees lxc.mount.entry ne sont lues qu'au DEMARRAGE du conteneur :
+# ajouter la ligne ne suffit pas, il faut un cycle complet.
+#
+# Les trois taches partagent le meme "listen" pour former une seule sequence
+# ordonnee, declenchee par "notify: redemarrer le conteneur".
+
+- name: Arreter le conteneur avant application du montage
+  ansible.builtin.command: "lxc-stop -n {{ lxc_container_name }}"
+  register: _fs_lxc_stop
+  # lxc-stop rend un code non nul si le conteneur etait deja arrete : ce n'est
+  # pas une erreur ici, l'etat vise est atteint.
+  changed_when: _fs_lxc_stop.rc == 0
+  failed_when: false
+  listen: redemarrer le conteneur
+
+- name: Redemarrer le conteneur
+  ansible.builtin.command: "lxc-start -n {{ lxc_container_name }} -d"
+  register: _fs_lxc_start
+  changed_when: _fs_lxc_start.rc == 0
+  failed_when: false
+  listen: redemarrer le conteneur
+
+- name: Attendre que le conteneur soit RUNNING
+  ansible.builtin.command: "lxc-info -n {{ lxc_container_name }} -sH"
+  register: _fs_lxc_state
+  until: _fs_lxc_state.stdout | trim == "RUNNING"
+  retries: "{{ lxc_start_retries }}"
+  delay: "{{ lxc_start_delay }}"
+  changed_when: false
+  listen: redemarrer le conteneur

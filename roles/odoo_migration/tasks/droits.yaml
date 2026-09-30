@@ -1,0 +1,23 @@
+---
+# ===========================================================================
+# odoo_migration : le filestore appartient au compte odoo.
+# ===========================================================================
+
+- name: Le filestore est bien monte
+  ansible.builtin.command: "findmnt -n {{ odoo_filestore }}"
+  register: _fs_check
+  changed_when: false
+  failed_when: _fs_check.rc != 0
+
+- name: Le filestore appartient au compte odoo
+  # Non recursif : un recurse couterait cher a chaque rejeu. Les fichiers
+  # verses par fusion.yaml sont chownes par cette tache-la.
+  #
+  # Par NOM et non par numero : le role odoo_uid a garanti que odoo porte les
+  # memes uid/gid partout, donc le nom resout au bon numero.
+  ansible.builtin.file:
+    path: "{{ odoo_filestore }}"
+    state: directory
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0750"

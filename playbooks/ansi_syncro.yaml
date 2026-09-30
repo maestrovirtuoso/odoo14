@@ -1,0 +1,257 @@
+---
+# ===========================================================================
+# Bascule des pieces jointes Odoo entre la base et le filestore disque.
+#
+# Playbook de MIGRATION. Il fait passer les pieces jointes du stockage en base
+# (ir_attachment.location = db) vers un filestore sur disque -- ou l'inverse,
+# le sens etant pilote par odoo_attachment_location.
+#
+# Ce playbook n'ORCHESTRE que : chaque etape vit dans un role. Meme principe
+# que ansi_odoo.yaml et nettoyage_odoo.yaml, ou aucune logique n'est ecrite
+# dans le playbook.
+#
+#   odoo_migration   les 12 etapes propres a cette migration (tasks_from)
+#   odoo_uid         identite commune du compte odoo
+#   odoo_filestore   bind du stockage dans le conteneur
+#   odoo_dbinit      support de stockage et deplacement des pieces jointes
+#
+# ---------------------------------------------------------------------------
+# Architecture posee, DEPUIS LE 25/09/2026 :
+#   volume gluster odoo14, replica 3    <- monte A LA MAIN sur /mnt/odoo14
+#         |  lxc.mount.entry (bind)     <- CONTENEUR Debian (.151 .152 .153)
+#         v
+#   /var/lib/odoo/filestore             <- COMMUN aux trois instances
+#
+# Le filestore est COMMUN aux trois instances et replique x3, ce qui est la
+# seule configuration coherente avec une base PostgreSQL unique : une piece
+# jointe y est une ligne avec un seul store_fname, et aucune colonne ne dit
+# quel noeud l'a ecrite.
+#
+# Le MONTAGE du volume n'est pas gere par ce playbook, a la demande. Le role
+# odoo_filestore verifie seulement qu'il est la, et refuse sinon.
+#
+# COUPURE DE SERVICE : les instances sont arretees du play 2 au play 8.
+#
+# L'ORDRE DES PLAYS EST CONTRAIGNANT :
+#   1. sauvegardes, tant que rien n'a bouge ;
+#   2. arret, pour qu'aucun fichier ne soit ecrit pendant la migration ;
+#   3. UID alignes AVANT le stockage : un systeme de fichiers retient des
+#      NUMEROS, pas des noms ;
+#   4. bind du stockage, qui redemarre les conteneurs ;
+#   5. recuperation des anciens filestores AVANT la migration, sans quoi Odoo
+#      reecrirait des pieces jointes vides (voir tasks/fusion.yaml) ;
+#   6. migration, par le SEUL noeud primaire ;
+#   7. bilan ; 8. demarrage.
+#
+# Prerequis :
+#   - volume gluster "odoo14" DEMARRE et monte sur /mnt/odoo14 des 3 hotes :
+#       mount -t glusterfs localhost:/odoo14 /mnt/odoo14
+#   - deploiement nominal deja joue (playbooks/ansi_odoo.yaml) ;
+#   - UID cible pose dans roles/odoo_uid/defaults/main.yml.
+#
+# Etat des lieux SEUL, sans rien modifier ni couper le service :
+#   ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass --tags preflight
+#
+# Bascule du stockage SEULE (verification du montage, recuperation, bind) :
+#   ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass --tags filestore
+#
+# Recuperation des anciens filestores SEULE, sans coupure :
+#   ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass --tags fusion
+#
+# Verification SEULE, sans coupure :
+#   ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass --tags verif
+#
+# Migration complete :
+#   ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass
+# ===========================================================================
+
+- name: "0/8 - Preflight : horloges et stockage des hotes"
+  hosts: gluster_bricks
+  gather_facts: false
+  tags: [preflight]
+  tasks:
+    - name: Controler horloge et stockage
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: preflight_hotes
+
+- name: "0/8 - Preflight : les UID du compte odoo concordent-ils ?"
+  hosts: odoo_containers
+  gather_facts: false
+  tags: [preflight]
+  tasks:
+    - name: Relever l'identite du compte odoo
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: preflight_uid
+
+- name: "0/8 - Preflight : quel volume de pieces jointes y a-t-il en base ?"
+  hosts: odoo_primary
+  gather_facts: false
+  tags: [preflight]
+  tasks:
+    - name: Mesurer le volume a migrer
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: preflight_base
+
+# ---------------------------------------------------------------------------
+# 1/8 - Sauvegardes. Tout ce qui suit est reversible tant qu'elles existent.
+# ---------------------------------------------------------------------------
+- name: "1/8 - Sauvegarder la base partagee"
+  hosts: db_containers
+  gather_facts: false
+  tasks:
+    - name: Dump de la base avant migration
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: sauvegarde_base
+
+- name: "1/8 - Sauvegarder les filestores locaux des noeuds Odoo"
+  hosts: odoo_containers
+  gather_facts: false
+  tasks:
+    - name: Archiver /var/lib/odoo
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: sauvegarde_filestore
+
+# ---------------------------------------------------------------------------
+# 2/8 - Arret. A partir d'ici le service est coupe.
+# ---------------------------------------------------------------------------
+- name: "2/8 - Arreter les instances Odoo"
+  hosts: odoo_containers
+  gather_facts: false
+  tasks:
+    - name: Arreter Odoo
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: arreter
+
+# ---------------------------------------------------------------------------
+# 3/8 - UID communs, AVANT le stockage : il retient des NUMEROS, pas des noms.
+# ---------------------------------------------------------------------------
+- name: "3/8 - Aligner l'UID du compte odoo sur les noeuds"
+  hosts: odoo_containers
+  gather_facts: false
+  roles:
+    - odoo_uid
+
+# ---------------------------------------------------------------------------
+# 4/8 - Bind du volume partage dans le conteneur.
+# ---------------------------------------------------------------------------
+- name: "4/8 - Brancher le filestore du conteneur sur le volume partage"
+  hosts: gluster_bricks
+  gather_facts: true
+  roles:
+    # Tag "filestore" : joue la seule bascule du stockage -- verification que
+    # le volume est monte, recuperation d'un eventuel reliquat local, puis bind
+    # -- sans la migration des pieces jointes ni le VACUUM FULL.
+    # Breve coupure : le conteneur est redemarre pour appliquer le bind.
+    - role: odoo_filestore
+      tags: [filestore]
+
+- name: "4/8 - Attendre le retour des conteneurs redemarres"
+  hosts: odoo_containers
+  gather_facts: false
+  tasks:
+    - name: Attendre le retour SSH
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: attendre_conteneurs
+
+# ---------------------------------------------------------------------------
+# 5/8 - Droits sur le filestore.
+# ---------------------------------------------------------------------------
+- name: "5/8 - Donner le filestore au compte odoo"
+  hosts: odoo_primary
+  gather_facts: false
+  tasks:
+    - name: Poser les droits
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: droits
+
+# ---------------------------------------------------------------------------
+# 5bis/8 - Recuperer les ANCIENS filestores locaux.
+#
+# ETAPE INDISPENSABLE, et facile a manquer : le bind MASQUE les pieces jointes
+# anterieures au parametre ir_attachment.location. Detail dans
+# roles/odoo_migration/tasks/fusion.yaml.
+#
+# Rejouable seule, sans couper le service (elle ne fait qu'ajouter) :
+#   ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass --tags fusion
+# ---------------------------------------------------------------------------
+- name: "5bis/8 - Recuperer les anciens filestores locaux"
+  hosts: odoo_containers
+  gather_facts: false
+  tags: [fusion]
+  # Un noeud a la fois : limite la charge disque simultanee sur les hotes.
+  throttle: 1
+  tasks:
+    - name: Verser les archives d'avant migration
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: fusion
+
+# ---------------------------------------------------------------------------
+# 6/8 - Support de stockage et deplacement des pieces jointes.
+# ---------------------------------------------------------------------------
+- name: "6/8 - Migrer les pieces jointes"
+  hosts: odoo_primary
+  gather_facts: false
+  vars:
+    # Le SENS de la migration. Surchargeable en ligne de commande pour le
+    # retour arriere : -e odoo_attachment_location=db
+    odoo_attachment_location: file
+    # Relit chaque piece jointe et la reecrit sur le support courant. C'est
+    # l'etape longue.
+    odoo_force_storage: true
+  roles:
+    - odoo_dbinit
+
+# ---------------------------------------------------------------------------
+# 7/8 - Bilan, et recuperation d'espace si la migration allege la base.
+# ---------------------------------------------------------------------------
+- name: "7/8 - Bilan de la migration"
+  hosts: odoo_primary
+  gather_facts: false
+  vars:
+    # Doit valoir la MEME chose qu'au play 6 : le bilan verifie le compteur
+    # correspondant au sens, et le VACUUM FULL n'a de sens que vers le disque.
+    # Un "-e odoo_attachment_location=db" en ligne de commande surcharge les
+    # deux plays a la fois, donc ils ne peuvent pas diverger.
+    odoo_attachment_location: file
+  tasks:
+    - name: Mesurer et verifier
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: bilan
+
+# ---------------------------------------------------------------------------
+# 8/8 - Redemarrage.
+# ---------------------------------------------------------------------------
+- name: "8/8 - Redemarrer les instances Odoo"
+  hosts: odoo_containers
+  gather_facts: false
+  tasks:
+    - name: Redemarrer et attendre l'interface web
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: demarrer
+
+# ---------------------------------------------------------------------------
+# Verification finale : chaque store_fname a-t-il son fichier ?
+#
+# Rejouable seule, a tout moment, sans rien couper :
+#   ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass --tags verif
+# ---------------------------------------------------------------------------
+- name: "Verification : la base et le filestore concordent-ils ?"
+  hosts: backup_host
+  gather_facts: false
+  tags: [verif]
+  tasks:
+    - name: Confronter la base au filestore
+      ansible.builtin.import_role:
+        name: odoo_migration
+        tasks_from: verif

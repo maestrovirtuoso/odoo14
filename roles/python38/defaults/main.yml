@@ -1,0 +1,74 @@
+---
+# ===========================================================================
+# Valeurs par defaut du role python38.
+#
+# POURQUOI COMPILER UN INTERPRETEUR
+#
+# Odoo 14 vise Python 3.6 a 3.10. Debian 12 bookworm livre Python 3.11, dont
+# CPython a change le jeu d'opcodes : safe_eval d'Odoo 14 valide le bytecode
+# des expressions contre une liste blanche qui s'arrete a 3.10 (sa derniere
+# entree est commentee "GEN_START, added in 3.10"), et rejette l'opcode
+# RESUME que 3.11 place en tete de toute expression. Aucune version de
+# bibliotheque ne corrige cela : c'est le code d'Odoo face a l'interpreteur.
+#
+# Aucune version de Debian ne livre Python 3.8 : buster a 3.7, bullseye 3.9,
+# bookworm 3.11. D'ou la compilation depuis les sources.
+#
+# FIN DE VIE : Python 3.8 n'est plus maintenu depuis octobre 2024 et ne
+# recoit plus de correctifs de securite. Choix assume : l'interpreteur est
+# confine dans /opt, Odoo en est le seul consommateur, et le Python du
+# systeme (3.11) reste celui de tout le reste du conteneur.
+# ===========================================================================
+
+python38_version: "3.8.20"
+python38_prefix: /opt/python3.8
+
+# Empreinte de l'archive officielle. Verifiee ici par signature GPG amont
+# (clef E3FF2839C048B25C084DEBE9B26995E310250568, Lukasz Langa, release
+# manager de la serie 3.8) avant d'etre reportee dans ce fichier.
+python38_tarball_sha256: "9f2d5962c2583e67ef75924cd56d0c1af78bf45ec57035cf8a2cc09f74f4bf78"
+python38_tarball_url: "https://www.python.org/ftp/python/{{ python38_version }}/Python-{{ python38_version }}.tgz"
+
+# Repertoire de compilation. Hors /tmp : la construction pese ~500 Mo et
+# certains conteneurs montent /tmp en tmpfs.
+python38_build_dir: /usr/local/src
+
+# --enable-optimizations (PGO) rend l'interpreteur ~10 % plus rapide mais
+# TRIPLE le temps de compilation, car il execute la suite de tests pour
+# profiler. Desactive par defaut : le gain ne justifie pas trois fois dix
+# minutes par conteneur. Passer -e python38_optimizations=true si besoin.
+python38_optimizations: false
+
+# Dependances de compilation. Chaque -dev absent ne fait PAS echouer la
+# construction : CPython desactive silencieusement le module correspondant et
+# l'absence ne se decouvre qu'a l'execution, d'ou la verification en fin de
+# role. libssl-dev et libsqlite3-dev sont les deux critiques pour Odoo.
+python38_build_packages:
+  - build-essential
+  - pkg-config
+  - wget
+  - ca-certificates
+  - libssl-dev
+  - zlib1g-dev
+  - libbz2-dev
+  - liblzma-dev
+  - libreadline-dev
+  - libsqlite3-dev
+  - libffi-dev
+  - libncurses-dev
+  - libgdbm-dev
+  - uuid-dev
+  - tk-dev
+
+# Modules dont l'absence casse Odoo de facon differee et illisible.
+# _ssl : toute requete HTTPS et la connexion chiffree a PostgreSQL.
+# _sqlite3, _ctypes, zlib, _lzma, _bz2 : imports d'Odoo et de ses dependances.
+python38_required_modules:
+  - ssl
+  - sqlite3
+  - ctypes
+  - zlib
+  - lzma
+  - bz2
+  - readline
+  - uuid

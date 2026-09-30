@@ -1,0 +1,52 @@
+---
+# ===========================================================================
+# Variables des hotes porteurs d'une brique GlusterFS.
+#
+# POURQUOI ICI ET NON DANS roles/odoo_filestore/defaults :
+#
+# Les defaults d'un role ne sont en portee QUE pendant l'execution de ce role.
+# Le preflight de playbooks/ansi_syncro.yaml passe par le role odoo_migration,
+# ou les defaults d'odoo_filestore n'existent pas : la valeur retombait alors
+# sur un "default()" de secours qui pointait encore sur la BRIQUE, et le
+# preflight validait donc le mauvais chemin -- le disque local au lieu du
+# volume partage.
+#
+# C'est le meme piege que celui deja documente pour sauvegarde_dir dans
+# group_vars/backup_host/vars.yml et pour odoo_python dans
+# group_vars/odoo_containers/vars.yml.
+#
+# Ces valeurs sont donc definies ICI et NULLE PART AILLEURS.
+# ===========================================================================
+
+# Point de montage du volume GlusterFS "odoo14" SUR L'HOTE.
+#
+# Depuis le 30/09/2026 les conteneurs montent le volume eux-memes, par leur
+# propre /etc/fstab : ce point de montage hote ne sert plus a les alimenter. Il
+# reste necessaire a l'HOTE DE SAUVEGARDE, qui doit lire le filestore pour
+# l'archiver (cf. sauvegarde_filestore_src, qui doit valoir la meme chose).
+#
+# /mnt/odoo et non /mnt/odoo14 : c'est le chemin que declare deja le /etc/fstab
+# des hotes. /mnt/odoo14 n'existe sur aucun d'eux.
+#
+# C'est un POINT DE MONTAGE, et surtout PAS une brique :
+#
+#   /mnt/odoo                 <- point de montage du volume  <<< CE QU'ON LIT
+#   /bricks/odoo14            <- le volume logique local, en XFS
+#   /bricks/odoo14/odoo       <- la BRIQUE : ne JAMAIS y ecrire directement
+#   /bricks/odoo14/prod       <- reliquat LOCAL d'essais, hors du volume
+#
+# Ecrire dans une brique servie par gluster court-circuite la replication et
+# corrompt l'index interne .glusterfs. La LIRE court-circuite la couche de
+# coherence, et /bricks/odoo14/prod ne contient meme pas ce qu'on croit : son
+# contenu differe d'un hote a l'autre. "gluster volume info odoo14" est la
+# seule source sur l'emplacement des briques.
+filestore_host_src: /mnt/odoo
+
+# Type de systeme de fichiers attendu a cet endroit.
+#
+# LE GARDE-FOU CENTRAL. Verifier qu'un repertoire existe ne dit RIEN : un
+# volume non monte laisse un repertoire vide a la meme place, et Odoo y ecrit
+# sans se plaindre. C'est ce qui a fait diverger les trois filestores a 37, 38
+# et 39 fichiers le 25/09/2026, avec une interface web cassee sur deux noeuds
+# et pas une erreur dans les journaux.
+filestore_fstype_attendu: fuse.glusterfs

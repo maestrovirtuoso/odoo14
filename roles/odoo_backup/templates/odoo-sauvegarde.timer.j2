@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Declenchement quotidien de la sauvegarde Odoo
+
+[Timer]
+OnCalendar={{ sauvegarde_horaire }}
+RandomizedDelaySec={{ sauvegarde_delai_aleatoire }}
+# Rattrape le declenchement manque si l'hote etait eteint a l'heure prevue.
+# Sans cela, une machine arretee la nuit ne serait jamais sauvegardee.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

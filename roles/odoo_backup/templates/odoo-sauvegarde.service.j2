@@ -1,0 +1,16 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Sauvegarde Odoo (base partagee + filestore)
+# Sans le filestore monte, tar archiverait un repertoire vide et la sauvegarde
+# paraitrait reussie. RequiresMountsFor fait echouer l'unite plutot que de
+# produire une archive trompeuse.
+RequiresMountsFor={{ sauvegarde_filestore_src }} {{ sauvegarde_dir }}
+After=network-online.target glusterd.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/odoo-sauvegarde.sh
+# Une sauvegarde ne doit pas disputer le disque a la production.
+Nice=10
+IOSchedulingClass=idle

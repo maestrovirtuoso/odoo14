@@ -19,15 +19,19 @@
     - lxc-net
   failed_when: false
 
+# On utilise ansible.builtin.dnf plutot que le module generique "package" :
+# lui seul expose lock_timeout. Sans cela, si le timer dnf-makecache tient le
+# verrou RPM, la tache attend indefiniment au lieu d'echouer.
 - name: Supprimer les paquets LXC (Rocky / RHEL)
-  ansible.builtin.package:
+  ansible.builtin.dnf:
     name:
       - lxc
       - lxc-templates
       - python3-lxc
       - bridge-utils
     state: absent
-  when: ansible_os_family in ["RedHat", "Rocky", "AlmaLinux", "CentOS"]
+    lock_timeout: "{{ dnf_lock_timeout }}"
+  when: ansible_os_family in ["RedHat", "Rocky", ]
 
 - name: Supprimer les paquets LXC (Debian / Ubuntu)
   ansible.builtin.apt:
@@ -54,22 +58,23 @@
     - /etc/sysconfig/lxc-net
 
 - name: Supprimer le depot EPEL (seulement si -e remove_epel=true)
-  ansible.builtin.package:
+  ansible.builtin.dnf:
     name: epel-release
     state: absent
+    lock_timeout: "{{ dnf_lock_timeout }}"
   when:
     - remove_epel is defined and remove_epel
-    - ansible_os_family in ["RedHat", "Rocky", "AlmaLinux", "CentOS"]
+    - ansible_os_family in ["RedHat", "Rocky", ]
 
 - name: Remettre SELINUX=enforcing dans la config
   ansible.builtin.replace:
     path: /etc/selinux/config
     regexp: '^SELINUX=permissive'
     replace: 'SELINUX=enforcing'
-  when: ansible_os_family in ["RedHat", "Rocky", "AlmaLinux", "CentOS"]
+  when: ansible_os_family in ["RedHat", "Rocky", ]
 
 - name: Reactiver SELinux immediatement
   ansible.builtin.command: setenforce 1
   changed_when: true
   failed_when: false
-  when: ansible_os_family in ["RedHat", "Rocky", "AlmaLinux", "CentOS"]
+  when: ansible_os_family in ["RedHat", "Rocky",]

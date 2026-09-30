@@ -1,26 +1,71 @@
 ---
-# Variables communes aux 3 conteneurs Odoo.
-# Les secrets sont dans vault.yml (a chiffrer : ansible-vault encrypt group_vars/odoo_containers/vault.yml)
+# Variables des conteneurs Odoo.
+# Le serveur PostgreSQL n'est PAS installe ici : la base est celle du
+# conteneur db_containers. Les parametres de connexion (odoo_db_host,
+# odoo_db_user, odoo_shared_db, mots de passe) vivent dans group_vars/all.
 
-odoo_version: "14.0"
+# Surchargeable par l'environnement (cf. .env / .env.example) :
+#   PROSYS_ODOO_VERSION
+odoo_version: "{{ lookup('env', 'PROSYS_ODOO_VERSION') | default('14.0', true) }}"
 odoo_nightly_repo: "https://nightly.odoo.com/{{ odoo_version }}/nightly/deb/ ./"
 odoo_nightly_key_url: "https://nightly.odoo.com/odoo.key"
 
-# Compte / base
+# Compte systeme et chemins
 odoo_system_user: odoo
-odoo_db_user: odoo
-odoo_admin_password: "{{ vault_odoo_admin_password }}"
-odoo_db_password: "{{ vault_odoo_db_password }}"
 odoo_list_db: false
 odoo_config_path: /etc/odoo/odoo.conf
 odoo_log_path: /var/log/odoo/odoo.log
 odoo_addons_path: /usr/lib/python3/dist-packages/odoo/addons
-odoo_filestore: /var/lib/odoo/.local/share/Odoo/filestore
 
-# PostgreSQL (version livree par Debian 11 bullseye)
-pg_version: "13"
-pg_conf_dir: "/etc/postgresql/{{ pg_version }}/main"
-pg_data_dir: "/var/lib/postgresql/{{ pg_version }}/main"
+# Racine des donnees, dont decoule le filestore ({{ data_dir }}/filestore/<db>).
+odoo_data_dir: /var/lib/odoo
 
-# Base Odoo locale creee sur CHAQUE noeud ("" pour n'en creer aucune).
-odoo_initial_db: prod
+# DEUX chemins distincts, longtemps confondus sous un seul nom.
+#
+# odoo_filestore        le POINT DE MONTAGE du volume GlusterFS partage.
+#                       C'est ce que le depot appelle ainsi partout ailleurs :
+#                       odoo_sessions et odoo_migration font "findmnt" dessus.
+#
+# odoo_filestore_reel   le repertoire ou Odoo ecrit vraiment. Odoo 14 le
+#                       construit EN DUR : {data_dir}/filestore/{base}. Ce
+#                       n'est pas un choix, c'est une contrainte de son code.
+#
+# Choix du 30/09/2026 : le volume est monte sur {{ odoo_data_dir }}, donc sur
+# le data_dir entier. odoo_filestore_reel est alors un simple repertoire A
+# L'INTERIEUR du volume -- pas un point de montage.
+#
+# CE QUE CE CHOIX IMPLIQUE, et qui a tenu les trois instances arretees du
+# 29/09 16h18 au 30/09 : la racine du volume contenait "prod/" alors qu'Odoo
+# ne regarde que "filestore/prod". Il faut donc que "filestore/" existe DANS
+# le volume et contienne prod -- une fois pour les trois noeuds, le volume
+# etant commun.
+#
+# Le gain de ce choix : data_dir/sessions est sur le volume par construction,
+# donc partage sans bind ni montage supplementaire (voir roles/odoo_sessions).
+odoo_filestore: "{{ odoo_data_dir }}"
+odoo_filestore_reel: "{{ odoo_data_dir }}/filestore"
+
+# Environnement virtuel Python 3.8 dans lequel Odoo s'execute (voir
+# roles/python38 : Odoo 14 ne fonctionne pas sur le Python 3.11 de bookworm).
+#
+# Defini ICI, au niveau du groupe, et non dans roles/odoo14/defaults : le role
+# odoo_dbinit tourne dans une play distincte, ou les defaults d'odoo14 ne sont
+# pas en portee. Sans cela, l'init de la base retomberait sur le "odoo" du
+# PATH, donc potentiellement sur l'interpreteur 3.11, et rejouerait l'echec
+# safe_eval sans que rien ne l'indique.
+odoo_venv_path: /opt/odoo14-venv
+odoo_python: "{{ odoo_venv_path }}/bin/python"
+
+# NE PAS definir odoo_max_cron_threads ici.
+# odoo_containers est enfant de lxc_containers, donc d'une profondeur
+# superieure a odoo_primary qui est un groupe racine : un groupe plus profond
+# l'emporte, et la valeur posee ici ecraserait silencieusement le 1 du
+# primaire. Les taches planifiees seraient alors desactivees PARTOUT, sans
+# aucune erreur. La valeur par defaut 0 vit dans roles/odoo14/defaults, que
+# group_vars/odoo_primary surcharge sans ambiguite.
+
+# Connexions PostgreSQL par instance. A tenir coherent avec
+# pg_max_connections cote serveur : 3 noeuds x (workers + cron) x db_maxconn
+# ne doit pas depasser max_connections, sinon "too many clients" sous charge.
+odoo_workers: 2
+odoo_db_maxconn: 16

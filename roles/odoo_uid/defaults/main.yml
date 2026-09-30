@@ -1,0 +1,41 @@
+---
+# ===========================================================================
+# Valeurs par defaut du role odoo_uid.
+# ===========================================================================
+
+# UID et GID vises pour le compte systeme odoo, IDENTIQUES sur les trois
+# conteneurs.
+#
+# Pourquoi c'est indispensable : GlusterFS stocke des NUMEROS, pas des noms.
+# Le compte odoo n'est cree par aucune tache de ce depot, il vient du postinst
+# du paquet Debian, via "adduser --system" qui prend le premier UID libre en
+# descendant depuis 999. Rien ne garantit donc qu'il soit le meme d'un
+# conteneur a l'autre. S'il vaut 998 sur odoo1 et 999 sur odoo2, une piece
+# jointe ecrite par odoo1 sera illisible depuis odoo2.
+#
+# Valeurs RELEVEES sur les trois conteneurs le 2026-09-24 :
+#   ansible odoo_containers -k -m command -a 'id odoo'
+#   odoo1 | odoo2 | odoo3 -> uid=105(odoo) gid=112(odoo)
+#
+# Elles concordaient deja : le paquet Debian a attribue les memes numeros sur
+# les trois conteneurs, batis a partir de la meme image bookworm dans le meme
+# ordre d'installation. C'est une COINCIDENCE HEUREUSE, pas une garantie : un
+# conteneur reconstruit plus tard, ou avec un paquet installe dans un autre
+# ordre, prendrait d'autres numeros. Les figer ici transforme cette chance en
+# invariant, et le role devient alors un simple controle sans effet.
+#
+# L'UID et le GID different l'un de l'autre : adduser les alloue dans deux
+# plages distinctes. Ne pas "corriger" cela en les alignant, ce serait une
+# renumerotation inutile.
+odoo_uid: 105
+odoo_gid: 112
+
+# Arborescences a reprendre apres un changement d'UID.
+#
+# usermod -u reprend les fichiers du repertoire personnel, et RIEN d'autre :
+# tout ce qui est hors de /var/lib/odoo resterait sur l'ancien numero, donc
+# illisible par le compte qui vient d'etre renumerote.
+odoo_owned_paths:
+  - /var/lib/odoo
+  - /var/log/odoo
+  - /etc/odoo
