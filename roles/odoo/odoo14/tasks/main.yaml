@@ -129,7 +129,7 @@
     msg: >-
       {{ 'versions figees : ' ~ odoo_requirements_lock
          if _odoo_lock.stat.exists
-         else 'requirements.txt amont (aucun fichier fige dans roles/odoo14/files/)' }}
+         else 'requirements.txt amont (aucun fichier fige dans roles/odoo/odoo14/files/)' }}
 
 # pip et setuptools restent ceux que livre CPython 3.8 (pip 21, setuptools 56)
 # et ce n'est PAS un oubli : les versions recentes de setuptools ont retire
@@ -173,8 +173,8 @@
     mode: "0755"
     content: |
       #!/bin/sh
-      # Fichier gere par Ansible (roles/odoo14) - toute modification sera perdue.
-      # Odoo 14 sous CPython 3.8 : voir roles/python38 et roles/odoo14.
+      # Fichier gere par Ansible (roles/odoo/odoo14) - toute modification sera perdue.
+      # Odoo 14 sous CPython 3.8 : voir roles/socle/python38 et roles/odoo/odoo14.
       exec {{ odoo_venv_path }}/bin/python /usr/bin/odoo "$@"
 
 - name: Creer le repertoire du fragment systemd
@@ -192,7 +192,7 @@
     dest: /etc/systemd/system/odoo.service.d/venv.conf
     mode: "0644"
     content: |
-      # Fichier gere par Ansible (roles/odoo14) - toute modification sera perdue.
+      # Fichier gere par Ansible (roles/odoo/odoo14) - toute modification sera perdue.
       [Service]
       ExecStart=
       ExecStart={{ odoo_venv_path }}/bin/python /usr/bin/odoo --config {{ odoo_config_path }} --logfile {{ odoo_log_path }}
@@ -310,7 +310,7 @@
     dest: /etc/systemd/system/odoo.service.d/filestore.conf
     mode: "0644"
     content: |
-      # Fichier gere par Ansible (roles/odoo14) - toute modification sera perdue.
+      # Fichier gere par Ansible (roles/odoo/odoo14) - toute modification sera perdue.
       [Unit]
       AssertPathIsMountPoint={{ odoo_filestore }}
   when: odoo_exiger_filestore_partage | bool

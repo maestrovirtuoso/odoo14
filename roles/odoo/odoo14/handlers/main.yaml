@@ -1,5 +1,5 @@
 ---
-# Les handlers postgresql ont ete deplaces dans roles/pg_server : ce
+# Les handlers postgresql ont ete deplaces dans roles/odoo/pg_server : ce
 # conteneur n'heberge plus de serveur, et notifier un service inexistant
 # ferait echouer la play.
 - name: restart odoo

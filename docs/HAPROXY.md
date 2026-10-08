@@ -35,9 +35,9 @@ Fichiers du projet :
 
 | Fichier | Rôle |
 |---|---|
-| [roles/odoo_lb/templates/haproxy.cfg.j2](../roles/odoo_lb/templates/haproxy.cfg.j2) | le modèle de configuration |
-| [roles/odoo_lb/tasks/main.yaml](../roles/odoo_lb/tasks/main.yaml) | installation, réglages système, dépôt du fichier |
-| [roles/odoo_lb/tasks/verif.yaml](../roles/odoo_lb/tasks/verif.yaml) | vérifie que ça marche réellement |
+| [roles/exploitation/odoo_lb/templates/haproxy.cfg.j2](../roles/exploitation/odoo_lb/templates/haproxy.cfg.j2) | le modèle de configuration |
+| [roles/exploitation/odoo_lb/tasks/main.yaml](../roles/exploitation/odoo_lb/tasks/main.yaml) | installation, réglages système, dépôt du fichier |
+| [roles/exploitation/odoo_lb/tasks/verif.yaml](../roles/exploitation/odoo_lb/tasks/verif.yaml) | vérifie que ça marche réellement |
 | [group_vars/lb_hosts/vars.yml](../group_vars/lb_hosts/vars.yml) | VIP, port, identifiants des statistiques |
 | [playbooks/ansi_repartiteur.yaml](../playbooks/ansi_repartiteur.yaml) | orchestration complète |
 
@@ -244,7 +244,7 @@ utilisateur renvoyé par HAProxy vers un autre nœud (parce que le premier est
 tombé, ou par simple répartition) y est **déconnecté** : sa session n'existe pas
 là-bas, malgré le cookie `SRV`.
 
-Le rôle [odoo_sessions](../roles/odoo_sessions) résout ça **avant** que HAProxy
+Le rôle [odoo_sessions](../roles/odoo/odoo_sessions) résout ça **avant** que HAProxy
 ne soit posé — l'ordre est contraignant dans
 [ansi_repartiteur.yaml](../playbooks/ansi_repartiteur.yaml). Le volume GlusterFS
 étant monté sur le `data_dir` entier des conteneurs, `data_dir/sessions` s'y
@@ -262,13 +262,147 @@ par un autre nœud.
 HAProxy **route** les requêtes. Il ne décide pas quelle machine reçoit le
 trafic des utilisateurs — c'est `keepalived`, un programme distinct, qui fait
 **voyager la VIP** vers l'hôte vivant de plus haute priorité (protocole VRRP).
-Détail complet dans
-[ARCHITECTURE.md §13bis](ARCHITECTURE.md#13bis-le-répartiteur-de-charge) et le
-modèle [keepalived.conf.j2](../roles/odoo_lb/templates/keepalived.conf.j2).
 
 Les deux tournent **ensemble**, sur les mêmes trois hôtes : keepalived décide
 qui reçoit le trafic, HAProxy décide vers quel Odoo le faire suivre une fois
 qu'il est arrivé.
+
+### Rien ne choisit « quel HAProxy »
+
+Les trois HAProxy tournent en permanence, avec la même configuration. Aucun
+n'est élu, aucun n'est en veille. Ce qui bascule, c'est l'**adresse** — et
+HAProxy n'écoute que sur elle :
+
+```haproxy
+bind 192.168.96.160:80
+```
+
+Un HAProxy reçoit donc du trafic uniquement parce que la VIP est présente sur
+sa machine à cet instant. Les deux autres écoutent sur une adresse que leur
+hôte ne porte pas : vivants, allumés, injoignables. Personne ne leur parle, et
+ils n'ont rien à refuser.
+
+HAProxy n'est pas *sélectionné*, il est *atteint* — ou pas.
+
+### L'ordre de `[lb_hosts]` désigne le maître, et rien d'autre
+
+Un seul paramètre décide : la priorité VRRP, dérivée du **rang de l'hôte dans
+le groupe**.
+
+```jinja
+priority {{ lb_vrrp_priorite_max - (groups['lb_hosts'].index(inventory_hostname) * lb_vrrp_pas) }}
+```
+
+Avec `lb_vrrp_priorite_max: 150` et `lb_vrrp_pas: 10`
+(`roles/exploitation/odoo_lb/defaults/main.yml`), appliqués aux trois lignes du
+groupe `[lb_hosts]` d'`inventory.yaml` :
+
+| Ligne d'`inventory.yaml` | Rang | Priorité | Rôle |
+|---|---|---|---|
+| `192.168.96.129` | 0 | **150** | maître nominal |
+| `192.168.96.140` | 1 | 140 | 1ᵉʳ secours |
+| `192.168.96.128` | 2 | 130 | 2ᵈ secours |
+
+**Permuter ces trois lignes déplace le maître au prochain déploiement.** Aucun
+`host_vars` ne dit « celui-là est maître », aucune priorité n'est écrite en
+dur : l'ordre du fichier d'inventaire *est* la configuration. C'est commode —
+un seul endroit à changer — et c'est un piège si on l'ignore, parce qu'un
+fichier d'inventaire se réordonne sans y penser.
+
+Deux précisions pour le lire sans se tromper :
+
+- `ansible-inventory --list` affiche ce groupe **trié**, pas dans son ordre
+  réel. Pour connaître les priorités, lire `inventory.yaml` directement.
+- `groups['lb_hosts']` désigne l'inventaire **entier**, pas les hôtes du play :
+  `--limit` ne change donc aucune priorité. Les mêmes trois nombres sortent,
+  quel que soit le périmètre d'exécution.
+
+### Comment l'élection se déroule
+
+Les trois nœuds sont en `state BACKUP` : personne ne se déclare maître. C'est
+voulu — un `state MASTER` ferait prendre la VIP au démarrage **avant que
+HAProxy soit prêt**, donc avant qu'il y ait quoi que ce soit à servir.
+
+Chaque seconde (`advert_int 1`), chaque nœud annonce sa priorité aux deux
+autres. La plus haute prend la VIP ; les autres se taisent. Deux détails de
+transport comptent :
+
+| Choix | Pourquoi |
+|---|---|
+| **Unicast** (`unicast_peer`, rempli depuis `groups['lb_hosts']`) et non multicast | Sur un réseau virtualisé, l'hyperviseur filtre souvent le multicast sans rien signaler. |
+| **Protocole IP 112**, ni TCP ni UDP | Ne s'ouvre pas avec `port:` dans firewalld, d'où la règle `rule protocol value="vrrp" accept`. Bloqué, chaque nœud se croit seul survivant et prend la VIP : la même adresse sur trois machines. |
+
+### Ce qui fait partir la VIP
+
+La priorité n'est pas figée : un script la fait chuter.
+
+```
+vrrp_script chk_haproxy {
+    script "/usr/bin/pgrep -x haproxy"
+    interval 2
+    fall 2
+}
+```
+
+Si HAProxy meurt sur le porteur, `pgrep` échoue ; après 2 échecs à 2 s
+d'intervalle — **~4 s** — la priorité tombe, le nœud n'est plus le plus haut,
+la VIP part.
+
+Sans ce script, keepalived ne surveillerait que la machine. Un hôte vivant dont
+HAProxy est mort garderait la VIP et recevrait du trafic que **personne ne
+sert**. keepalived vérifie que l'hôte répond, le script que le service répond ;
+il faut les deux.
+
+Il n'y a pas de `nopreempt` : quand le maître nominal revient avec ses 150, il
+**reprend** la VIP. D'où les 8 s d'attente après la remise en marche de HAProxy
+dans `tasks/bascule.yaml` — « laisser la VIP revenir au maître nominal ».
+
+### Savoir qui porte la VIP, maintenant
+
+La commande que le dépôt utilise lui-même, dans `verif.yaml` comme dans
+`bascule.yaml` :
+
+```bash
+ansible lb_hosts -m shell -a 'ip -o addr show to 192.168.96.160'
+```
+
+Celle qui renvoie une ligne porte la VIP ; les deux autres renvoient du vide.
+
+Le contrôle complet, avec son diagnostic rédigé :
+
+```bash
+ansible-playbook playbooks/ansi_repartiteur.yaml --tags verif
+```
+
+Il affirme **exactement un** porteur et nomme les deux échecs possibles :
+aucun = keepalived arrêté ou VRRP filtré ; plusieurs = les nœuds ne se voient
+pas, et la même adresse existe en plusieurs exemplaires sur le LAN — le service
+devient alors intermittent plutôt que franchement mort, donc difficile à
+imputer.
+
+Pour voir la transition elle-même, `journalctl -u keepalived` trace chaque
+passage `BACKUP → MASTER`.
+
+### Pourquoi un HAProxy de secours est injoignable
+
+Puisque HAProxy ne se lie qu'à la VIP, un nœud qui ne la porte pas n'est
+accessible par **aucune** adresse : ni par la VIP (c'est le porteur qui
+répond), ni par son IP propre (il n'y écoute pas). La page de statistiques d'un
+hôte en attente est donc hors d'atteinte par le réseau.
+
+C'est la raison pour laquelle les commandes du §8 passent par la **socket
+d'administration locale**, qui répond sur les trois hôtes indépendamment de la
+VIP :
+
+```bash
+ansible lb_hosts -m shell -a \
+  'echo "show stat" | socat stdio /var/lib/haproxy/stats | cut -d, -f1,2,18'
+```
+
+Architecture d'ensemble dans
+[ARCHITECTURE.md §13bis](ARCHITECTURE.md#13bis-le-répartiteur-de-charge) ; le
+modèle est
+[keepalived.conf.j2](../roles/exploitation/odoo_lb/templates/keepalived.conf.j2).
 
 ### Le réglage sans lequel HAProxy ne démarre pas sur deux hôtes sur trois
 
@@ -284,7 +418,7 @@ donné — les deux hôtes de secours ne la portent pas.
 sysctl net.ipv4.ip_nonlocal_bind=1
 ```
 
-Posé par [tasks/main.yaml](../roles/odoo_lb/tasks/main.yaml), ce réglage
+Posé par [tasks/main.yaml](../roles/exploitation/odoo_lb/tasks/main.yaml), ce réglage
 autorise HAProxy à se lier à une adresse absente. **Sans lui, HAProxy ne
 démarre tout simplement pas** sur les hôtes de secours — et ça ne se voit qu'au
 moment où ils devraient prendre le relais, c'est-à-dire pendant une panne.

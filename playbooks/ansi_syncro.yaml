@@ -47,7 +47,7 @@
 #   - volume gluster "odoo14" DEMARRE et monte sur /mnt/odoo14 des 3 hotes :
 #       mount -t glusterfs localhost:/odoo14 /mnt/odoo14
 #   - deploiement nominal deja joue (playbooks/ansi_odoo.yaml) ;
-#   - UID cible pose dans roles/odoo_uid/defaults/main.yml.
+#   - UID cible pose dans roles/odoo/odoo_uid/defaults/main.yml.
 #
 # Etat des lieux SEUL, sans rien modifier ni couper le service :
 #   ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass --tags preflight
@@ -177,7 +177,7 @@
 #
 # ETAPE INDISPENSABLE, et facile a manquer : le bind MASQUE les pieces jointes
 # anterieures au parametre ir_attachment.location. Detail dans
-# roles/odoo_migration/tasks/fusion.yaml.
+# roles/exploitation/odoo_migration/tasks/fusion.yaml.
 #
 # Rejouable seule, sans couper le service (elle ne fait qu'ajouter) :
 #   ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass --tags fusion

@@ -1,5 +1,11 @@
 # ProSys — Odoo 14 sur cluster LXC
 
+> **Documentation actuelle :** ce README contient encore des éléments de
+> l'ancienne architecture. Pour l'état déployé, consulter
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), la carte des modules dans
+> [docs/STRUCTURE-PROJET.md](docs/STRUCTURE-PROJET.md) et le guide des
+> workflows dans [docs/EXPLICATION-DES-PLAYBOOKS.md](docs/EXPLICATION-DES-PLAYBOOKS.md).
+
 Déploiement Ansible d'**Odoo 14** dans un conteneur LXC sur chacun des trois
 nœuds Rocky 8 du cluster. Trois instances **autonomes** : chaque nœud a sa
 propre base PostgreSQL locale et son propre filestore.
@@ -44,24 +50,24 @@ conservé car toute évolution vers la HA en aura besoin.
 ## Structure
 
 ```
-playbooks/
-  ansi_odoo.yaml         Déploiement complet (2 plays)
-  nettoyage_odoo.yaml    Remise à plat des conteneurs
-  ansi2-snapchot.yaml    Création des conteneurs LXC
-  nettoyage.yaml         Destruction des conteneurs LXC
-roles/
-  install/               Paquets LXC + création des conteneurs Debian 11
-  odoo_net/              Hôtes : sous-réseaux, routage, firewalld, bootstrap SSH
-  odoo14/                Conteneurs : PostgreSQL + Odoo 14 + base locale
-  odoo_cleanup/          Conteneurs : réparation APT, reset optionnel
-  cleanup/               Hôtes : désinstallation LXC
-group_vars/odoo_containers/   Versions, chemins, secrets
-host_vars/192.168.96.*.yml    Sous-réseau et IP conteneur par nœud
-docs/                         Documentation
+inventory.yaml           Inventaire des hôtes, groupes et conteneurs
+common/group_vars/       Variables liées à la création des conteneurs
+group_vars/              Variables de groupe et Vault
+host_vars/               Paramètres propres aux hôtes
+playbooks/               Orchestration des workflows
+roles/                   Modules Ansible, rangés par domaine :
+roles/socle/             - préparer le système, hôtes comme conteneurs
+roles/lxc/               - créer, exposer et désinstaller les conteneurs
+roles/odoo/              - base, application, filestore, sessions
+roles/exploitation/      - répartiteur, sauvegarde, migration, remise à plat
+docs/                    Architecture, procédures et guide des modules
 ```
 
-📖 **[docs/EXPLICATION-DES-FICHIERS.md](docs/EXPLICATION-DES-FICHIERS.md) — rôle détaillé de chaque fichier**,
-et pourquoi il est écrit ainsi.
+📖 **[roles/README.md](roles/README.md)** est la carte des rôles : cible,
+points d'entrée et index inverse playbook → rôle.
+
+📖 **[docs/STRUCTURE-PROJET.md](docs/STRUCTURE-PROJET.md)** relie chaque
+playbook à ses rôles et décrit la responsabilité de chaque module.
 
 ## Prérequis
 
@@ -189,7 +195,7 @@ déploiement.
 | **NetworkManager s'approprie `lxcbr0`** et le détruit faute de profil | `lxc-net` dit « success », le bridge n'existe pas, `lxc-start` échoue sur `Failed to attach veth` | `/etc/NetworkManager/conf.d/99-lxc-unmanaged.conf` + vérification explicite du bridge |
 | **`firewall-cmd --reload` purge les règles iptables de `lxc-net`** | Le conteneur perd son accès sortant, `apt` échoue | NAT redéclaré en règle **directe permanente** firewalld, réappliquée à chaque reload |
 | **Debian 11 est en fin de vie** (août 2026) | `Release` expiré, pool `bullseye-security` purgé, aucune archive sécurité | `Acquire::Check-Valid-Until "false"` + sources limitées à `main` + `updates` |
-| **Paquets résiduels en versions « security »** | `held broken packages` sur `perl`/`perl-base`, `gnupg`/`gpgv` | `roles/odoo14/files/apt-realign` rétrograde tout paquet dépassant la version téléchargeable, **en une seule transaction** |
+| **Paquets résiduels en versions « security »** | `held broken packages` sur `perl`/`perl-base`, `gnupg`/`gpgv` | `roles/socle/base_debian/files/apt-realign` rétrograde tout paquet dépassant la version téléchargeable, **en une seule transaction** |
 | **`pkg.candidate` est trompeur** pour un paquet absent de tout dépôt | python-apt renvoie la version installée : la comparaison montre une égalité et le paquet est manqué | Comparaison sur `v.downloadable` |
 | **Le `.deb` Odoo ne dépend que de `postgresql-client`** | `service postgresql` n'existe pas | Serveur installé explicitement, **avant** Odoo |
 | **`postgresql_user` sans `role_attr_flags` réinitialise les attributs** | Le rôle `odoo` perd `CREATEDB` : `permission denied to create database` | `role_attr_flags: "LOGIN,CREATEDB"` déclaré explicitement |

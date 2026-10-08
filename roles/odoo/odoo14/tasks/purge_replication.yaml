@@ -8,7 +8,7 @@
 # ODOO. Elles sont idempotentes.
 #
 # La partie PostgreSQL de cette purge (replication.conf, standby.signal,
-# .pgpass) vit desormais dans roles/pg_server/tasks/purge_replication.yaml :
+# .pgpass) vit desormais dans roles/odoo/pg_server/tasks/purge_replication.yaml :
 # ces chemins n'existent plus dans un conteneur Odoo, qui n'heberge plus de
 # serveur, et la tache y notifiait un handler "restart postgresql" disparu.
 # ---------------------------------------------------------------------------

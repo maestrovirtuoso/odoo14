@@ -14,7 +14,7 @@
 #
 # Ce n'est pas theorique ici : community.general.make n'expose le parametre
 # "jobs" qu'a partir d'une version posterieure a celle installee, ce qui a
-# fait echouer la compilation de Python 3.8 dans roles/python38 jusqu'a ce
+# fait echouer la compilation de Python 3.8 dans roles/socle/python38 jusqu'a ce
 # qu'on appelle make directement.
 #
 # CONTRAINTE FORTE : ce poste de controle est en ansible 2.10.8, et
@@ -30,16 +30,16 @@
 # ===========================================================================
 
 collections:
-  # Modules lxc_container (roles/install) et make.
+  # Modules lxc_container (roles/lxc/install) et make.
   - name: community.general
     version: "1.3.6"
 
-  # Modules postgresql_user, postgresql_db, postgresql_query (roles/pg_server,
-  # roles/odoo_dbinit).
+  # Modules postgresql_user, postgresql_db, postgresql_query (roles/odoo/pg_server,
+  # roles/odoo/odoo_dbinit).
   - name: community.postgresql
     version: "1.1.1"
 
-  # Module mount (roles/install, deport du stockage LXC vers /srv).
+  # Module mount (roles/lxc/install, deport du stockage LXC vers /srv).
   # NE PAS monter sans passer ansible en >= 2.11 : cette version declare
   # "requires_ansible: >=2.9,<2.11".
   - name: ansible.posix

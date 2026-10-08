@@ -2,7 +2,7 @@
 # ===========================================================================
 # Variables du repartiteur de charge.
 #
-# POURQUOI ICI ET NON DANS roles/odoo_lb/defaults : le preflight de
+# POURQUOI ICI ET NON DANS roles/exploitation/odoo_lb/defaults : le preflight de
 # playbooks/ansi_repartiteur.yaml les lit depuis des plays "tasks:", ou les
 # defaults d'un role ne sont pas en portee. Le depot s'est deja fait prendre
 # trois fois par ce piege -- voir group_vars/backup_host/vars.yml et

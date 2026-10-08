@@ -10,7 +10,7 @@
 # Consequence a garder en tete : aucune regle de pare-feu de l'hote ne
 # protege ni n'expose le conteneur. Le controle d'acces se fait dans le
 # conteneur (pour la base : listen_addresses et pg_hba.conf, voir
-# roles/pg_server).
+# roles/odoo/pg_server).
 #
 # Ce role remplace odoo_net, dont la moitie du contenu (bridge lxcbr0,
 # ip_forward, routes inter-noeuds, masquerade, redirection de port) n'a plus
@@ -215,7 +215,7 @@
 
         apt-get update || true
 
-        # Meme cause que roles/odoo14/files/apt-realign, mais ici python3-apt
+        # Meme cause que roles/socle/base_debian/files/apt-realign, mais ici python3-apt
         # n'existe pas encore : version shell.
         # Cette fonction repondait au parc Debian 11, dont l'image embarquait
         # des paquets en version "security" absente des depots encore servis,

@@ -278,7 +278,7 @@ satisfaite, et **les trois instances sont restées arrêtées du 29/09 16h18 au
 
 Le garde-fou n'a pas été retiré — il a fait exactement son travail, il a refusé de
 servir plutôt que d'écrire sur le disque local. Il vit désormais dans
-`roles/odoo14`, dérivé de `odoo_filestore`, donc incapable de diverger du montage.
+`roles/odoo/odoo14`, dérivé de `odoo_filestore`, donc incapable de diverger du montage.
 
 ---
 
@@ -341,7 +341,7 @@ Odoo doit utiliser `{{ odoo_python }}` en **chemin absolu**, jamais le `odoo` du
    de `lxc_containers`, donc il l'emporte sur `odoo_primary` qui est racine. Poser
    `odoo_max_cron_threads` dans `group_vars/odoo_containers` désactiverait le cron
    **partout**, silencieusement. La valeur par défaut vit donc dans
-   `roles/odoo14/defaults` — précédence la plus basse — et `odoo_primary` gagne
+   `roles/odoo/odoo14/defaults` — précédence la plus basse — et `odoo_primary` gagne
    proprement.
 
 3. **Les defaults d'un rôle ne sont en portée que pendant ce rôle.** Un playbook
@@ -456,7 +456,6 @@ Détail en §13bis, et dans
 | `pg_server` | `odoodb` | PostgreSQL 15, `pg_hba`, rôle SQL, base |
 | `odoo_dbinit` | `odoo_primary` | init du registre, stockage des pièces jointes |
 | `cleanup`, `odoo_cleanup` | — | démontage |
-| ~~`odoo_net`~~ | — | **code mort**, remplacé par `lxc_lan` |
 
 ---
 
@@ -700,8 +699,8 @@ en `.part`, et la rotation n'a lieu **qu'après** un succès.
 | `odoo_workers` / `odoo_db_maxconn` | `2` / `16` | `group_vars/odoo_containers` |
 | `odoo_max_cron_threads` | `1` sur odoo1, `0` ailleurs | `group_vars/odoo_primary` |
 | `sauvegarde_dir` | `/srv/sauvegardes` | `group_vars/backup_host` |
-| `odoo_uid` / `odoo_gid` | `105` / `112` | `roles/odoo_uid/defaults` |
-| `gluster_volume` | `odoo14` | `roles/odoo_filestore/defaults` |
+| `odoo_uid` / `odoo_gid` | `105` / `112` | `roles/odoo/odoo_uid/defaults` |
+| `gluster_volume` | `odoo14` | `roles/odoo/odoo_filestore/defaults` |
 | `filestore_host_src` / `sauvegarde_filestore_src` | `/mnt/odoo` — montage **hôte**, pour la sauvegarde | `group_vars/gluster_bricks`, `group_vars/backup_host` |
 | `lb_vip` / `lb_port` / `lb_vrrp_id` | `192.168.96.160` / `80` / `51` | `group_vars/lb_hosts` |
 | `odoo_http_port` / `odoo_longpolling_port` | `8069` / `8072` | `group_vars/all` |
@@ -815,7 +814,8 @@ un document vide, sans aucune erreur.
    la configuration n'a pas changé : `changed_when: _lxc_stop.rc == 0` est
    inconditionnel. C'est une coupure de service gratuite à chaque
    `ansible-playbook`. À convertir en `notify:` / handler.
-2. **`roles/odoo_net/`** — code mort à supprimer.
+2. ~~**`roles/odoo_net/`** — code mort.~~ Supprimé lors du rangement des rôles
+   par domaine (voir `roles/README.md`) ; `lxc_lan` le remplace.
 3. **`gluster_servers`** — nom trompeur, désigne les 4 hôtes physiques.
 4. **Purges one-shot rejouées à chaque passage** (~30 items sans effet) :
    `undo_routed`, `purge_replication`, suppression des unités de synchro filestore.

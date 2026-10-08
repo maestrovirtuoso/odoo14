@@ -66,7 +66,7 @@ odoo_db_maxconn: 16
 # valide le bytecode des expressions contre une liste blanche d'opcodes qui
 # s'arrete a Python 3.10, et rejette l'opcode RESUME que 3.11 place en tete
 # de toute expression. Aucune version de bibliotheque ne corrige cela (voir
-# roles/python38). Odoo tourne donc dans ce venv, bati sur l'interpreteur 3.8
+# roles/socle/python38). Odoo tourne donc dans ce venv, bati sur l'interpreteur 3.8
 # compile par le role python38.
 #
 # Le paquet .deb reste installe : il fournit l'utilisateur systeme odoo,

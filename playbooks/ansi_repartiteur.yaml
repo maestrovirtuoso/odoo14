@@ -52,7 +52,7 @@
 #   - filestore GlusterFS monte dans les conteneurs sur /var/lib/odoo/filestore
 #     (verifie par odoo_sessions, qui refuse sinon) ;
 #   - proxy_mode = True et workers = 2 dans odoo.conf -- deja poses par
-#     roles/odoo14/templates/odoo.conf.j2. proxy_mode fait qu'Odoo croit
+#     roles/odoo/odoo14/templates/odoo.conf.j2. proxy_mode fait qu'Odoo croit
 #     l'en-tete X-Forwarded-For pose par HAProxy ; sans lui, toutes les
 #     requetes sembleraient venir du repartiteur. workers > 0 est ce qui ouvre
 #     le port 8072 du bus de notifications.

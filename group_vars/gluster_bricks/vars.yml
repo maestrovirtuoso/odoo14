@@ -2,7 +2,7 @@
 # ===========================================================================
 # Variables des hotes porteurs d'une brique GlusterFS.
 #
-# POURQUOI ICI ET NON DANS roles/odoo_filestore/defaults :
+# POURQUOI ICI ET NON DANS roles/odoo/odoo_filestore/defaults :
 #
 # Les defaults d'un role ne sont en portee QUE pendant l'execution de ce role.
 # Le preflight de playbooks/ansi_syncro.yaml passe par le role odoo_migration,

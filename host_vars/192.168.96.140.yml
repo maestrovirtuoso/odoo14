@@ -2,7 +2,7 @@
 # Node3 - conteneur Odoo
 #
 # Les conteneurs sont exposes directement sur le LAN par une carte physique
-# dediee (lxc.net.0.type = phys, cf. roles/lxc_lan). Il n'y a donc plus ni
+# dediee (lxc.net.0.type = phys, cf. roles/lxc/lxc_lan). Il n'y a donc plus ni
 # bridge lxcbr0, ni sous-reseau 10.0.x.0/24, ni routage inter-noeuds, ni
 # redirection de port sur l'hote : le conteneur possede la carte et ses
 # paquets ne traversent pas le pare-feu de l'hote.

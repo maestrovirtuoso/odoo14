@@ -238,7 +238,7 @@ rend `True`.
 
 Mesuré : 36 pièces jointes en base, **14 migrées, 22 ignorées en silence**.
 
-Le contournement, dans `roles/odoo_dbinit` — ne pas le « simplifier » :
+Le contournement, dans `roles/odoo/odoo_dbinit` — ne pas le « simplifier » :
 
 ```python
 tous = ['|', ('res_field', '=', False), ('res_field', '!=', False)]
@@ -435,7 +435,8 @@ journée de diagnostic le 25/09/2026.
    quand la configuration n'a pas changé : `changed_when: _lxc_stop.rc == 0`
    est inconditionnel. C'est une coupure de service gratuite à chaque
    `ansible-playbook ansi_odoo.yaml`. À convertir en `notify:` / handler.
-2. **`roles/odoo_net/`** — code mort, remplacé par `lxc_lan`.
+2. ~~**`roles/odoo_net/`** — code mort.~~ Supprimé lors du rangement des rôles
+   par domaine (voir `roles/README.md`) ; `lxc_lan` le remplace.
 3. **`gluster_servers`** — nom trompeur : il désigne les 4 hôtes physiques,
    pas les nœuds Gluster. Ceux-ci sont dans `gluster_bricks`.
 4. **Purges one-shot rejouées à chaque passage** (~30 items sans effet) :
