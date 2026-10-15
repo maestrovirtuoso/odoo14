@@ -1,5 +1,5 @@
 ---
-# Node1 - conteneur Odoo (primaire : init de la base et taches planifiees)
+# Hote 192.168.36.23 - conteneur Odoo
 #
 # Les conteneurs sont exposes directement sur le LAN par une carte physique
 # dediee (lxc.net.0.type = phys, cf. roles/lxc_lan). Il n'y a donc plus ni
@@ -13,4 +13,4 @@
 lxc_container_name: devodoo14
 
 # IP LAN du conteneur.
-ct_ip: 192.168.96.151
+ct_ip: 192.168.96.153

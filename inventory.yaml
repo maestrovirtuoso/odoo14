@@ -2,10 +2,10 @@
 # Hotes physiques (VM Gluster, Rocky 8). Chacun heberge un conteneur LXC.
 # ---------------------------------------------------------------------------
 [gluster_servers]
-192.168.96.128 ansible_user=root
-192.168.96.129 ansible_user=root
-192.168.96.140 ansible_user=root
-192.168.96.141 ansible_user=root
+192.168.36.21 ansible_user=root
+192.168.36.22 ansible_user=root
+192.168.36.23 ansible_user=root
+#192.168.96.141 ansible_user=root
 
 [gluster_servers:vars]
 # Carte physique dediee, donnee au conteneur par le role lxc_lan
@@ -36,9 +36,9 @@ nic=ens224
 # tache Gluster avant ce groupe-ci.
 # ---------------------------------------------------------------------------
 [gluster_bricks]
-192.168.96.128
-192.168.96.129
-192.168.96.140
+192.168.36.21
+192.168.36.22
+192.168.36.23
 
 # ---------------------------------------------------------------------------
 # Hote porteur des sauvegardes (role odoo_backup).
@@ -55,7 +55,7 @@ nic=ens224
 # archiverait trois fois la meme chose.
 # ---------------------------------------------------------------------------
 [backup_host]
-192.168.96.128
+192.168.36.21
 
 # ---------------------------------------------------------------------------
 # Hotes portant le repartiteur de charge (HAProxy + keepalived).
@@ -71,9 +71,9 @@ nic=ens224
 # cet ordre en cas de panne.
 # ---------------------------------------------------------------------------
 [lb_hosts]
-192.168.96.129
-192.168.96.140
-192.168.96.128
+192.168.36.22
+192.168.36.23
+192.168.36.21
 
 # ---------------------------------------------------------------------------
 # Conteneurs LXC. Ils sont exposes DIRECTEMENT sur le LAN par une carte
@@ -83,9 +83,9 @@ nic=ens224
 # agissent sur l'hote a partir du conteneur).
 # ---------------------------------------------------------------------------
 [odoo_containers]
-odoo1 ansible_host=192.168.96.151 lxc_host=192.168.96.128
-odoo2 ansible_host=192.168.96.152 lxc_host=192.168.96.129
-odoo3 ansible_host=192.168.96.153 lxc_host=192.168.96.140
+odoo1 ansible_host=192.168.96.151 lxc_host=192.168.36.21
+odoo2 ansible_host=192.168.96.152 lxc_host=192.168.36.22
+odoo3 ansible_host=192.168.96.153 lxc_host=192.168.36.23
 
 # Noeud qui initialise la base partagee et porte les taches planifiees.
 # Il doit rester UNIQUE : trois "odoo -i base" concurrents sur la meme base
@@ -96,7 +96,7 @@ odoo1
 # Conteneur PostgreSQL dedie : la base de TOUTES les instances Odoo.
 # Aucun paquet Odoo n'y est installe.
 [db_containers]
-odoodb ansible_host=192.168.96.150 lxc_host=192.168.96.141
+#odoodb ansible_host=192.168.96.150 lxc_host=192.168.96.141
 
 [lxc_containers:children]
 odoo_containers

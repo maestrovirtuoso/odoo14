@@ -23,7 +23,7 @@
 #   ansible-playbook playbooks/reseau-lxc.yaml -k --check --diff
 #
 # Un seul hote :
-#   ansible-playbook playbooks/reseau-lxc.yaml -k --limit 192.168.96.128
+#   ansible-playbook playbooks/reseau-lxc.yaml -k --limit 192.168.36.21
 #
 # AVERTISSEMENT : ce playbook REDEMARRE les conteneurs et retire la carte
 # {{ nic }} de l'hote. Verifier avant qu'elle ne porte pas votre session SSH :

@@ -1,5 +1,5 @@
 ---
-# Node2 - conteneur Odoo
+# Hote 192.168.36.22 - conteneur Odoo
 #
 # Les conteneurs sont exposes directement sur le LAN par une carte physique
 # dediee (lxc.net.0.type = phys, cf. roles/lxc_lan). Il n'y a donc plus ni
