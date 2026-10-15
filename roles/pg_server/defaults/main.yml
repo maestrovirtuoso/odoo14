@@ -20,3 +20,13 @@ pg_shared_buffers: 256MB
 
 # Clients autorises (liste d'IP). Vide = personne, hors boucle locale.
 odoo_client_ips: []
+
+# Streaming physique, active pour db_containers par les group_vars.
+pg_replication_enabled: false
+pg_replication_client_ips: []
+pg_replication_user: replicator
+pg_wal_level: replica
+pg_max_wal_senders: 10
+pg_max_replication_slots: 10
+pg_wal_keep_size: 1GB
+pg_max_slot_wal_keep_size: 4GB

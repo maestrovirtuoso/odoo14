@@ -1,0 +1,10 @@
+---
+# Point d'entree commun : Patroni par defaut, replication manuelle en option.
+# Une seule implementation peut gerer PostgreSQL lors d'une execution.
+- name: Deployer le cluster Patroni et etcd
+  ansible.builtin.import_playbook: ansi_postgresql_ha.yaml
+  when: pg_ha_enabled | default(true) | bool
+
+- name: Deployer la replication manuelle sans Patroni
+  ansible.builtin.import_playbook: ansi_replication_manuelle.yaml
+  when: not (pg_ha_enabled | default(true) | bool)

@@ -1,0 +1,234 @@
+---
+- name: Verifier que la preparation du primaire a ete jouee
+  ansible.builtin.assert:
+    that:
+      - hostvars[_pg_replication_primary].pg_replication_primary_system_identifier is defined
+    fail_msg: >-
+      Jouer ce role sur db_containers avec le primaire inclus. Un --limit
+      excluant db_primary ne permet pas de valider son identite ni ses slots.
+
+- name: Preparer les sources et les paquets Debian des repliques
+  ansible.builtin.include_role:
+    name: base_debian
+  vars:
+    apt_validate_packages:
+      - postgresql-15
+      - postgresql-client-15
+      - python3-psycopg2
+
+- name: Installer le serveur et les outils PostgreSQL 15
+  ansible.builtin.apt:
+    name:
+      - postgresql-15
+      - postgresql-client-15
+      - python3-psycopg2
+    state: present
+
+- name: Installer l'outil de controle et d'amorcage prudent
+  ansible.builtin.file:
+    path: "{{ pg_replication_helper_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deposer l'outil de controle et d'amorcage prudent
+  ansible.builtin.copy:
+    src: pg_replica.py
+    dest: "{{ pg_replication_helper_dir }}/pg_replica.py"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Tenter de demarrer le cluster existant pour le controler
+  ansible.builtin.command:
+    argv: [pg_ctlcluster, "{{ pg_version }}", main, start]
+  register: _pg_existing_start
+  changed_when: _pg_existing_start.rc == 0
+  failed_when: false
+
+- name: Examiner le cluster existant sans changer ses donnees
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - "{{ pg_replication_helper_dir }}/pg_replica.py"
+      - inspect
+      - --data-dir
+      - "{{ pg_data_dir }}"
+      - --config-dir
+      - "{{ pg_conf_dir }}"
+      - --version
+      - "{{ pg_version }}"
+      - --port
+      - "{{ pg_port | string }}"
+      - --primary-host
+      - "{{ _pg_replication_host }}"
+      - --primary-user
+      - "{{ pg_replication_user }}"
+      - --primary-system-id
+      - "{{ hostvars[_pg_replication_primary].pg_replication_primary_system_identifier }}"
+  register: _pg_replica_inspect
+  changed_when: false
+
+- name: Retenir le diagnostic du cluster existant
+  ansible.builtin.set_fact:
+    _pg_replica_state: "{{ _pg_replica_inspect.stdout | from_json }}"
+
+- name: Proteger les donnees avant l'amorcage d'une replique
+  ansible.builtin.assert:
+    that:
+      - >-
+        _pg_replica_state.matches_primary | bool
+        or _pg_replica_state.fresh_cluster | bool
+        or _pg_replica_state.resume_pending | bool
+        or pg_replica_allow_reseed | bool
+    fail_msg: >-
+      {{ inventory_hostname }} contient un cluster independant, des donnees,
+      ou un cluster dont l'etat n'a pas pu etre valide. Rien n'est remplace.
+      Sauvegarder et examiner ses donnees avant d'autoriser explicitement
+      pg_replica_allow_reseed=true. L'ancien PGDATA sera alors archive.
+
+- name: Deposer le mot de passe de replication hors du repertoire de donnees
+  ansible.builtin.template:
+    src: pgpass.j2
+    dest: "{{ pg_replication_passfile }}"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+  no_log: true
+
+- name: Retenir une connexion sans mot de passe dans la ligne de commande
+  ansible.builtin.set_fact:
+    _pg_replication_conninfo: >-
+      host={{ _pg_replication_host }} port={{ pg_port }}
+      user={{ pg_replication_user }} application_name={{ inventory_hostname }}
+      passfile={{ pg_replication_passfile }} connect_timeout=10
+
+- name: Cloner puis archiver l'ancien PGDATA avant la permutation
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/python3
+      - "{{ pg_replication_helper_dir }}/pg_replica.py"
+      - bootstrap
+      - --data-dir
+      - "{{ pg_data_dir }}"
+      - --config-dir
+      - "{{ pg_conf_dir }}"
+      - --version
+      - "{{ pg_version }}"
+      - --port
+      - "{{ pg_port | string }}"
+      - --primary-host
+      - "{{ _pg_replication_host }}"
+      - --primary-user
+      - "{{ pg_replication_user }}"
+      - --primary-system-id
+      - "{{ hostvars[_pg_replication_primary].pg_replication_primary_system_identifier }}"
+      - --stage-dir
+      - "{{ pg_replication_stage_dir }}"
+      - --archive-dir
+      - "{{ pg_replication_archive_dir }}"
+      - --conninfo
+      - "{{ _pg_replication_conninfo }}"
+      - --slot
+      - "{{ _pg_replication_slot }}"
+      - --allow-reseed
+      - "{{ pg_replica_allow_reseed | bool | ternary('yes', 'no') }}"
+  register: _pg_replica_bootstrap
+  when: not (_pg_replica_state.matches_primary | bool)
+  changed_when: "'BOOTSTRAP_CHANGED' in _pg_replica_bootstrap.stdout"
+
+- name: Verifier l'inclusion du repertoire de configuration
+  ansible.builtin.lineinfile:
+    path: "{{ pg_conf_dir }}/postgresql.conf"
+    regexp: "^#?\\s*include_dir\\s*="
+    line: "include_dir = 'conf.d'"
+  register: _pg_replica_include
+
+- name: Configurer l'ecoute et la lecture seule de la replique
+  ansible.builtin.template:
+    src: replica.conf.j2
+    dest: "{{ pg_conf_dir }}/conf.d/99-prosys-replica.conf"
+    owner: postgres
+    group: postgres
+    mode: "0644"
+  register: _pg_replica_config
+
+- name: Garder l'authentification peer locale et limiter les acces reseau
+  ansible.builtin.template:
+    src: pg_hba.conf.j2
+    dest: "{{ pg_conf_dir }}/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: "0640"
+  register: _pg_replica_hba
+
+- name: Maintenir le signal standby sans promouvoir le serveur
+  ansible.builtin.file:
+    path: "{{ pg_data_dir }}/standby.signal"
+    state: touch
+    owner: postgres
+    group: postgres
+    mode: "0600"
+    access_time: preserve
+    modification_time: preserve
+
+- name: Retirer les surcharges copiees qui contredisent la configuration propre a la replique
+  ansible.builtin.lineinfile:
+    path: "{{ pg_data_dir }}/postgresql.auto.conf"
+    regexp: '^(listen_addresses|port|hot_standby|max_connections|max_worker_processes|max_wal_senders|max_prepared_transactions|max_locks_per_transaction)\s*='
+    state: absent
+  register: _pg_replica_auto_settings
+
+- name: Maintenir les parametres d'amont sans remettre les donnees a zero
+  ansible.builtin.lineinfile:
+    path: "{{ pg_data_dir }}/postgresql.auto.conf"
+    regexp: "^{{ item.key }}\\s*="
+    line: "{{ item.key }} = '{{ item.value | replace(\"'\", \"''\") }}'"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+  loop:
+    - {key: primary_conninfo, value: "{{ _pg_replication_conninfo }}"}
+    - {key: primary_slot_name, value: "{{ _pg_replication_slot }}"}
+  register: _pg_replica_upstream
+  no_log: true
+
+- name: Appliquer la configuration et demarrer uniquement le cluster replique
+  ansible.builtin.service:
+    name: "postgresql@{{ pg_version }}-main"
+    state: >-
+      {{ 'restarted' if (_pg_replica_include.changed or _pg_replica_config.changed
+          or _pg_replica_hba.changed or _pg_replica_upstream.changed
+          or _pg_replica_auto_settings.changed) else 'started' }}
+    enabled: true
+
+- name: Confirmer le recovery et le streaming depuis le primaire choisi
+  community.postgresql.postgresql_query:
+    db: postgres
+    port: "{{ pg_port }}"
+    query: >-
+      SELECT pg_is_in_recovery() AS in_recovery,
+             (SELECT system_identifier::text FROM pg_control_system()) AS system_identifier,
+             EXISTS (SELECT 1 FROM pg_stat_wal_receiver
+                     WHERE status = 'streaming' AND sender_host = %s
+                       AND sender_port = %s) AS receiver_ok
+    positional_args:
+      - "{{ _pg_replication_host }}"
+      - "{{ pg_port | int }}"
+  become: true
+  become_user: postgres
+  register: _pg_replica_streaming
+  changed_when: false
+  until:
+    - _pg_replica_streaming.query_result[0].in_recovery | bool
+    - _pg_replica_streaming.query_result[0].receiver_ok | bool
+    - _pg_replica_streaming.query_result[0].system_identifier == hostvars[_pg_replication_primary].pg_replication_primary_system_identifier
+  retries: "{{ pg_replication_verify_retries }}"
+  delay: "{{ pg_replication_verify_delay }}"
+
+- name: Terminer une transaction de permutation interrompue puis verifiee
+  ansible.builtin.file:
+    path: "{{ pg_data_dir }}.replication-bootstrap.json"
+    state: absent
+  when: _pg_replica_state.resume_pending | bool

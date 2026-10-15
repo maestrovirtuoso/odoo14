@@ -13,3 +13,15 @@ shared_buffers = {{ pg_shared_buffers }}
 # Doit etre effectif AVANT la creation du role odoo : un mot de passe pose
 # sous md5 serait rejete par un pg_hba en scram-sha-256.
 password_encryption = '{{ pg_password_encryption }}'
+
+{% if pg_replication_enabled | bool %}
+# Primaire et futurs standbys utilisent les memes capacites WAL.
+wal_level = '{{ pg_wal_level }}'
+max_wal_senders = {{ pg_max_wal_senders }}
+max_replication_slots = {{ pg_max_replication_slots }}
+wal_keep_size = '{{ pg_wal_keep_size }}'
+max_slot_wal_keep_size = '{{ pg_max_slot_wal_keep_size }}'
+hot_standby = on
+# Replication asynchrone : un replica indisponible ne bloque pas les ecritures.
+synchronous_standby_names = ''
+{% endif %}

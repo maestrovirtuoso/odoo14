@@ -1,0 +1,36 @@
+---
+# Execute sur TOUS les db_containers, strategie linear. Aucun role SQL n'est
+# deduit de db_primary : ce groupe ne fixe que le premier bootstrap.
+- name: Exiger une observation des trois noeuds avant de choisir le primaire
+  ansible.builtin.assert:
+    that: groups['db_containers'] | difference(ansible_play_hosts_all) | length == 0
+    fail_msg: "Interroger tous les db_containers, sans --limit partiel, pour identifier un primaire unique."
+  run_once: true
+
+- name: Identifier le primaire en lecture et ecriture via Patroni
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ pg_ha_rest_port | default(8008) }}/primary"
+    status_code: [200, 503]
+    return_content: false
+    timeout: 5
+    use_proxy: false
+  register: _pg_ha_primary_api
+  changed_when: false
+
+- name: Retenir la liste des primaires declares par Patroni
+  ansible.builtin.set_fact:
+    _pg_ha_leaders: "{{ groups['db_containers'] | map('extract', hostvars) | selectattr('_pg_ha_primary_api.status', 'equalto', 200) | map(attribute='inventory_hostname') | list }}"
+  run_once: true
+
+- name: Exiger un seul primaire avant toute ecriture SQL
+  ansible.builtin.assert:
+    that: _pg_ha_leaders | length == 1
+    fail_msg: "Patroni ne declare pas un primaire unique. Verifier son quorum avant de continuer."
+  run_once: true
+
+- name: Ajouter le primaire elu au groupe temporaire des taches SQL
+  ansible.builtin.add_host:
+    name: "{{ _pg_ha_leaders[0] }}"
+    groups: pg_ha_current_primary
+  changed_when: false
+  run_once: true

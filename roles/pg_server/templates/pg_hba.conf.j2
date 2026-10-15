@@ -20,6 +20,13 @@ local   all             all                                     peer
 host    all             all             127.0.0.1/32            {{ pg_password_encryption }}
 host    all             all             ::1/128                 {{ pg_password_encryption }}
 
+{% if pg_replication_enabled | bool %}
+# Le compte de replication n'accede qu'au protocole de replication physique.
+{% for ip in pg_replication_client_ips %}
+host    replication     {{ pg_replication_user }}             {{ ip }}/32    {{ pg_password_encryption }}
+{% endfor %}
+{% endif %}
+
 {% if odoo_client_ips | length == 0 %}
 # Aucun client declare : la base n'accepte que la boucle locale.
 {% else %}

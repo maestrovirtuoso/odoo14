@@ -1,4 +1,9 @@
 ---
+- name: Refuser une bascule quand le repartiteur est desactive
+  ansible.builtin.assert:
+    that: lb_enabled | bool
+    fail_msg: Le repartiteur est desactive dans le projet (lb_enabled=false).
+
 # ===========================================================================
 # EPREUVE DE BASCULE  -  a la demande uniquement :
 #

@@ -9,6 +9,13 @@
 vault_odoo_admin_password: "change-me-admin"
 vault_odoo_db_password: "change-me-odoo-db"
 
+# Compte dedie au streaming PostgreSQL du primaire vers les deux replicas.
+vault_pg_replication_password: "change-me-postgresql-replication"
+
+# Patroni : compte SQL postgres et authentification de l'API d'administration.
+vault_pg_patroni_superuser_password: "change-me-patroni-superuser"
+vault_pg_patroni_rest_password: "change-me-patroni-rest"
+
 # Page de statistiques de HAProxy (http://<VIP>/haproxy-stats).
 #
 # Elle expose l'etat des backends et permet de mettre un serveur hors rotation

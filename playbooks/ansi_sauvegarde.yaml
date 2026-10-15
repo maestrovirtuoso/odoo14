@@ -10,7 +10,7 @@
 # documents introuvables -- et RIEN ne le signalerait au demarrage.
 #
 # PERIMETRE :
-#   - la BASE est unique et partagee (prod sur 192.168.96.150). Un seul dump
+#   - la BASE est unique et partagee (prod sur le primaire 192.168.96.156). Un seul dump
 #     la sauvegarde INTEGRALEMENT ;
 #   - le FILESTORE est un volume GlusterFS replica 3 monte sur /mnt/odoo14,
 #     commun aux trois instances. Une seule archive le capture entierement :

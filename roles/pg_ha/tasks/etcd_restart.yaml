@@ -1,0 +1,27 @@
+---
+- name: Redemarrer un membre etcd dont la configuration a change
+  ansible.builtin.systemd:
+    name: "{{ pg_ha_etcd_service }}"
+    state: restarted
+    daemon_reload: true
+  delegate_to: "{{ pg_ha_etcd_restart_node }}"
+  when:
+    - hostvars[pg_ha_etcd_restart_node]._pg_ha_etcd_active.rc == 0
+    - hostvars[pg_ha_etcd_restart_node]._pg_ha_etcd_config.changed or hostvars[pg_ha_etcd_restart_node]._pg_ha_etcd_unit.changed
+
+- name: Confirmer le retour du membre etcd avant le suivant
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/etcdctl
+      - "--endpoints=http://{{ hostvars[pg_ha_etcd_restart_node].ansible_host }}:{{ pg_ha_etcd_client_port }}"
+      - --command-timeout=10s
+      - endpoint
+      - health
+  environment:
+    ETCDCTL_API: '3'
+  delegate_to: "{{ pg_ha_etcd_restart_node }}"
+  changed_when: false
+  register: _pg_ha_one_etcd_health
+  until: _pg_ha_one_etcd_health.rc == 0
+  retries: 12
+  delay: 3

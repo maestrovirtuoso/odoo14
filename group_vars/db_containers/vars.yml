@@ -1,11 +1,21 @@
 ---
-# Variables du conteneur PostgreSQL dedie (groupe db_containers).
-# Aucun paquet Odoo n'est installe ici : ce conteneur ne sert que la base.
+# Variables du primaire et des replicas PostgreSQL (groupe db_containers).
+# Aucun paquet Odoo n'est installe dans ces conteneurs.
 pg_conf_dir: "/etc/postgresql/{{ pg_version }}/main"
 pg_data_dir: "/var/lib/postgresql/{{ pg_version }}/main"
+pg_port: "{{ odoo_db_port }}"
 
 # Ecoute sur l'IP LAN du conteneur et sur la boucle locale, jamais sur "*".
 # En mode carte physique (lxc.net.0.type = phys) le pare-feu de l'hote n'est
 # PAS dans le chemin des paquets : listen_addresses et pg_hba.conf sont le
 # seul controle d'acces. Voir roles/pg_server/templates/pg_hba.conf.j2.
-pg_listen_addresses: "{{ odoo_db_host }},localhost"
+pg_listen_addresses: "{{ ansible_host }},localhost"
+
+pg_replication_enabled: true
+pg_replication_user: replicator
+pg_replication_password: "{{ vault_pg_replication_password }}"
+pg_replication_client_ips: "{{ groups['db_replicas'] | map('extract', hostvars, 'ansible_host') | list }}"
+
+# Une base existante sur un futur replica ne doit pas etre remplacee sans
+# demande explicite. Le role conserve son ancien datadir lors du clonage.
+pg_replica_allow_reseed: false

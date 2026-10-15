@@ -1,4 +1,8 @@
 ---
+# DESACTIVE PAR DEFAUT : lb_enabled=false dans group_vars/all/vars.yml.
+# Sans activation explicite, le play de repartition arrete et desactive
+# keepalived et HAProxy deja presents. Les sessions, tests VIP et epreuves
+# de bascule sont ignores. Pour reactiver : -e lb_enabled=true.
 # ===========================================================================
 # Repartiteur de charge devant les trois instances Odoo 14.
 #
@@ -86,6 +90,7 @@
       ansible.builtin.import_role:
         name: odoo_lb
         tasks_from: preflight
+      when: lb_enabled | bool
 
 # ---------------------------------------------------------------------------
 # 1/4 - Sessions partagees, AVANT le repartiteur.
@@ -101,7 +106,8 @@
   # redemarrer ensemble couperait le service au lieu de le degrader.
   throttle: 1
   roles:
-    - odoo_sessions
+    - role: odoo_sessions
+      when: lb_enabled | bool
 
 # ---------------------------------------------------------------------------
 # 2/4 - HAProxy et keepalived sur les trois hotes.
@@ -110,7 +116,7 @@
 # ansible_default_ipv4 pour l'interface qui portera la VIP et pour les
 # unicast_peer. Sans les faits, le template echoue sur "undefined".
 # ---------------------------------------------------------------------------
-- name: "2/4 - Poser le repartiteur de charge"
+- name: "2/4 - Appliquer l'etat active ou desactive du repartiteur"
   hosts: lb_hosts
   gather_facts: true
   tags: [repartiteur]
@@ -129,6 +135,7 @@
       ansible.builtin.import_role:
         name: odoo_lb
         tasks_from: verif
+      when: lb_enabled | bool
 
 # ---------------------------------------------------------------------------
 # 4/4 - Epreuve de bascule, A LA DEMANDE.
@@ -146,3 +153,4 @@
       ansible.builtin.import_role:
         name: odoo_lb
         tasks_from: bascule
+      when: lb_enabled | bool

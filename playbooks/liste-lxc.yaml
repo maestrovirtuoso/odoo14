@@ -1,0 +1,20 @@
+---
+# Lecture seule : noms, etats et adresses des conteneurs LXC existants.
+#
+# Lancement depuis la racine du depot :
+#   ansible-playbook -i inventory.yaml playbooks/liste-lxc.yaml
+# Ajouter --ask-vault-pass si group_vars/all/vault.yml est chiffre.
+# raw permet l'inspection sans Python ni collection sur les hotes distants.
+- name: "LXC : afficher les conteneurs existants"
+  hosts: lxc_inspection
+  gather_facts: false
+  become: false
+  tasks:
+    - name: Lire la liste des conteneurs et leurs adresses
+      ansible.builtin.raw: lxc-ls --fancy
+      register: lxc_listing
+      changed_when: false
+
+    - name: Afficher les conteneurs par serveur
+      ansible.builtin.debug:
+        msg: "{{ lxc_listing.stdout_lines | default(['Aucun conteneur LXC trouve.'], true) }}"

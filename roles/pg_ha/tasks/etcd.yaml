@@ -1,0 +1,156 @@
+---
+- name: Refuser un service etcd independant deja actif
+  ansible.builtin.command: systemctl is-active etcd.service
+  register: _pg_ha_default_etcd
+  changed_when: false
+  failed_when: _pg_ha_default_etcd.rc == 0
+
+- name: Desactiver le service etcd du paquet laisse inactif
+  ansible.builtin.systemd:
+    name: etcd.service
+    enabled: false
+
+- name: Examiner l'etat du membre etcd du projet
+  ansible.builtin.stat:
+    path: "{{ pg_ha_etcd_data_dir }}/member"
+  register: _pg_ha_etcd_member
+
+- name: Examiner la marque d'appartenance etcd
+  ansible.builtin.stat:
+    path: "/etc/etcd/{{ pg_ha_scope }}.managed.json"
+  register: _pg_ha_etcd_marker
+
+- name: Refuser un stockage etcd preexistant non identifie
+  ansible.builtin.assert:
+    that:
+      - not _pg_ha_etcd_member.stat.exists or _pg_ha_etcd_marker.stat.exists
+      - not (_pg_ha_state.managed | bool) or _pg_ha_etcd_member.stat.exists
+    fail_msg: >-
+      L'etat etcd est absent d'un noeud Patroni gere ou n'appartient pas a ce
+      deploiement. Restaurer/planifier le membre etcd sans supprimer son etat.
+
+- name: Lire la marque du membre etcd existant
+  ansible.builtin.slurp:
+    src: "/etc/etcd/{{ pg_ha_scope }}.managed.json"
+  register: _pg_ha_existing_etcd_marker
+  when: _pg_ha_etcd_marker.stat.exists
+
+- name: Valider l'identite du membre etcd existant
+  ansible.builtin.assert:
+    that:
+      - (_pg_ha_existing_etcd_marker.content | b64decode | from_json).scope == pg_ha_scope
+      - (_pg_ha_existing_etcd_marker.content | b64decode | from_json).name == inventory_hostname
+      - (_pg_ha_existing_etcd_marker.content | b64decode | from_json).data_dir == pg_ha_etcd_data_dir
+      - (_pg_ha_existing_etcd_marker.content | b64decode | from_json).token == pg_ha_etcd_token
+    fail_msg: L'identite du stockage etcd differe de cette configuration ; aucune reinitialisation n'est faite.
+  when: _pg_ha_etcd_marker.stat.exists
+
+- name: Creer les repertoires etcd du projet
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: etcd
+    mode: "{{ item.mode }}"
+  loop:
+    - {path: /etc/etcd, owner: root, mode: '0750'}
+    - {path: "{{ pg_ha_etcd_data_dir }}", owner: etcd, mode: '0700'}
+
+- name: Marquer le stockage etcd sans le reinitialiser
+  ansible.builtin.copy:
+    dest: "/etc/etcd/{{ pg_ha_scope }}.managed.json"
+    content: "{{ {'scope': pg_ha_scope, 'name': inventory_hostname, 'data_dir': pg_ha_etcd_data_dir, 'token': pg_ha_etcd_token} | to_nice_json }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+    force: false
+
+- name: Configurer les trois pairs etcd statiques
+  ansible.builtin.template:
+    src: etcd.yml.j2
+    dest: "/etc/etcd/{{ pg_ha_scope }}.yml"
+    owner: root
+    group: etcd
+    mode: "0640"
+  register: _pg_ha_etcd_config
+
+- name: Installer le service etcd du projet
+  ansible.builtin.template:
+    src: etcd.service.j2
+    dest: "/etc/systemd/system/{{ pg_ha_etcd_service }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  register: _pg_ha_etcd_unit
+
+- name: Examiner le service etcd avant son demarrage
+  ansible.builtin.command: "systemctl is-active {{ pg_ha_etcd_service }}.service"
+  register: _pg_ha_etcd_active
+  changed_when: false
+  failed_when: false
+
+# Les trois membres doivent demarrer en parallele : le premier seul ne peut
+# pas atteindre le quorum d'un cluster de trois membres.
+- name: Demarrer ensemble les trois membres etcd
+  ansible.builtin.systemd:
+    name: "{{ pg_ha_etcd_service }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Appliquer les changements etcd existants un membre apres l'autre
+  ansible.builtin.include_tasks: etcd_restart.yaml
+  loop: "{{ groups['db_containers'] }}"
+  loop_control:
+    loop_var: pg_ha_etcd_restart_node
+  run_once: true
+
+- name: Verifier le quorum depuis chacun des trois membres
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/etcdctl
+      - "--endpoints=http://{{ ansible_host }}:{{ pg_ha_etcd_client_port }}"
+      - --dial-timeout=5s
+      - --command-timeout=10s
+      - endpoint
+      - health
+  environment:
+    ETCDCTL_API: '3'
+  changed_when: false
+  register: _pg_ha_etcd_health
+  until: _pg_ha_etcd_health.rc == 0
+  retries: 12
+  delay: 3
+
+- name: Lire l'etat d'initialisation Patroni dans le DCS
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/etcdctl
+      - "--endpoints=http://{{ ansible_host }}:{{ pg_ha_etcd_client_port }}"
+      - --write-out=json
+      - get
+      - "{{ pg_ha_namespace }}/{{ pg_ha_scope }}/initialize"
+  environment:
+    ETCDCTL_API: '3'
+  changed_when: false
+  register: _pg_ha_dcs_initialization
+
+- name: Retenir si le cluster Patroni existe deja
+  ansible.builtin.set_fact:
+    _pg_ha_dcs_initialized: "{{ (_pg_ha_dcs_initialization.stdout | from_json).get('count', 0) | int > 0 }}"
+
+- name: Refuser de recreer implicitement un DCS perdu
+  ansible.builtin.assert:
+    that:
+      - _pg_ha_dcs_initialized | bool or _pg_ha_state.phase != 'active'
+    fail_msg: >-
+      Le marqueur Patroni existe mais la cle initialize a disparu du DCS.
+      Restaurer l'etat etcd ; aucune nouvelle election initiale n'est lancee.
+
+- name: Verifier l'identite des donnees adoptees contre le DCS existant
+  ansible.builtin.assert:
+    that:
+      - >-
+        not (_pg_ha_dcs_initialized | bool) or _pg_ha_state.empty | bool
+        or _pg_ha_state.system_identifier == ((_pg_ha_dcs_initialization.stdout | from_json).kvs[0].value | b64decode)
+    fail_msg: "Le cluster PostgreSQL local ne correspond pas au system_identifier initialise dans etcd."

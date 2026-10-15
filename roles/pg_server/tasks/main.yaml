@@ -8,6 +8,11 @@
 # L'ORDRE DES TACHES EST CONTRAIGNANT, voir les commentaires : la
 # configuration doit etre en vigueur avant que le role SQL ne soit cree.
 # ===========================================================================
+- name: Reserver pg_server au mode de replication manuel
+  ansible.builtin.assert:
+    that: not (pg_ha_enabled | default(false) | bool)
+    fail_msg: "Patroni gere PostgreSQL. Utiliser ansi_postgresql_ha.yaml, sans pg_server."
+
 - name: Afficher la cible
   ansible.builtin.debug:
     msg: "{{ inventory_hostname }} ({{ ansible_host }}) - serveur PostgreSQL {{ pg_version }} partage"
@@ -25,6 +30,22 @@
     name: postgresql
     state: started
     enabled: true
+
+- name: Lire le mode du primaire sans modifier les donnees
+  community.postgresql.postgresql_query:
+    db: postgres
+    query: "SELECT pg_is_in_recovery() AS in_recovery"
+  register: _pg_primary_mode
+  become: true
+  become_user: postgres
+  changed_when: false
+
+- name: Refuser de configurer un standby comme primaire implicitement
+  ansible.builtin.assert:
+    that: not (_pg_primary_mode.query_result[0].in_recovery | bool)
+    fail_msg: >-
+      {{ inventory_hostname }} est en recovery. Choisir le primaire reel ou
+      effectuer une bascule explicite avant de relancer ce role.
 
 # ---------------------------------------------------------------------------
 # Configuration du serveur
@@ -66,9 +87,6 @@
 # de pg_hba, alors que la regle serait correcte.
 - name: Appliquer la configuration avant de creer le role SQL
   ansible.builtin.meta: flush_handlers
-
-- name: Effacer les reliquats de l'ancienne architecture repliquee
-  ansible.builtin.import_tasks: purge_replication.yaml
 
 # ---------------------------------------------------------------------------
 # Role SQL et base partagee

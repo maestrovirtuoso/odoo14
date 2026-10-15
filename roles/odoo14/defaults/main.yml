@@ -58,6 +58,7 @@ odoo_max_cron_threads: 0
 
 odoo_workers: 2
 odoo_db_maxconn: 16
+odoo_proxy_mode: false
 
 # ---------------------------------------------------------------------------
 # Environnement virtuel Python 3.8

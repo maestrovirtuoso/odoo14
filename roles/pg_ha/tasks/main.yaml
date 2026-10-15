@@ -1,0 +1,148 @@
+---
+- name: Valider le deploiement coordonne des trois noeuds PostgreSQL 15
+  ansible.builtin.assert:
+    that:
+      - groups['db_containers'] | length == 3
+      - groups['db_primary'] | length == 1
+      - groups['db_replicas'] | length == 2
+      - (groups['db_primary'] + groups['db_replicas']) | unique | length == 3
+      - (ansible_play_hosts_all | sort) == (groups['db_containers'] | sort)
+      - ansible_play_batch | length == 3
+      - ansible_forks | default(5) | int >= 3
+      - pg_version | string == '15'
+      - pg_ha_scope is match('^[a-z][a-z0-9_-]*$')
+      - inventory_hostname is match('^[a-zA-Z0-9_-]+$')
+      - pg_ha_loop_wait | int + pg_ha_retry_timeout | int * 2 <= pg_ha_ttl | int
+    fail_msg: Jouer pg_ha sur les trois db_containers ensemble, sans --limit ni serial.
+
+- name: Valider les trois secrets du vault
+  ansible.builtin.assert:
+    that:
+      - pg_replication_password | length > 0
+      - pg_ha_superuser_password | length > 0
+      - pg_ha_rest_password | length > 0
+  no_log: true
+
+- name: Examiner les donnees avant d'installer les paquets
+  ansible.builtin.stat:
+    path: "{{ pg_data_dir }}"
+  register: _pg_ha_data_before_install
+
+- name: Preparer les sources Debian pour PostgreSQL et Patroni
+  ansible.builtin.include_role:
+    name: base_debian
+  vars:
+    apt_validate_packages:
+      - postgresql-15
+      - patroni
+      - etcd-server
+      - etcd-client
+      - python3-etcd
+      - python3-psycopg2
+
+- name: Installer les paquets sans demarrer leurs services par defaut
+  ansible.builtin.apt:
+    name:
+      - postgresql-15
+      - postgresql-client-15
+      - patroni
+      - etcd-server
+      - etcd-client
+      - python3-etcd
+      - python3-psycopg2
+    state: present
+    policy_rc_d: 101
+
+- name: Creer le repertoire de l'outil de controle
+  ansible.builtin.file:
+    path: "{{ pg_ha_helper_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deposer le garde-fou d'adoption sans suppression de donnees
+  ansible.builtin.copy:
+    src: guard.py
+    dest: "{{ pg_ha_helper_dir }}/guard.py"
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Retenir les arguments de controle communs
+  ansible.builtin.set_fact:
+    _pg_ha_guard_args:
+      - --data-dir
+      - "{{ pg_data_dir }}"
+      - --config-dir
+      - "{{ pg_conf_dir }}"
+      - --marker
+      - "{{ pg_ha_managed_marker }}"
+      - --archive-dir
+      - "{{ pg_ha_archive_dir }}"
+      - --config-archive-dir
+      - "{{ pg_ha_config_archive_dir }}"
+      - --scope
+      - "{{ pg_ha_scope }}"
+      - --name
+      - "{{ inventory_hostname }}"
+      - --version
+      - "{{ pg_version }}"
+      - --port
+      - "{{ pg_port | string }}"
+      - --new-install
+      - "{{ (not _pg_ha_data_before_install.stat.exists) | ternary('yes', 'no') }}"
+      - --allow-adopt
+      - "{{ pg_ha_allow_adopt | bool | ternary('yes', 'no') }}"
+
+- name: Examiner le cluster sans arreter PostgreSQL
+  ansible.builtin.command:
+    argv: "{{ ['/usr/bin/python3', pg_ha_helper_dir ~ '/guard.py', 'inspect'] + _pg_ha_guard_args }}"
+  register: _pg_ha_inspection
+  changed_when: false
+
+- name: Retenir le diagnostic d'adoption
+  ansible.builtin.set_fact:
+    _pg_ha_state: "{{ _pg_ha_inspection.stdout | from_json }}"
+
+- name: Refuser les donnees existantes tant que leur adoption n'est pas demandee
+  ansible.builtin.assert:
+    that:
+      - _pg_ha_state.managed | bool or _pg_ha_state.empty | bool or pg_ha_allow_adopt | bool
+      - >-
+        _pg_ha_state.managed | bool or _pg_ha_state.empty | bool
+        or (_pg_ha_state.online | bool and _pg_ha_state.system_identifier is not none)
+      - >-
+        _pg_ha_state.managed | bool or _pg_ha_state.empty | bool
+        or (inventory_hostname in groups['db_primary'] and not (_pg_ha_state.in_recovery | bool))
+        or (inventory_hostname in groups['db_replicas'] and _pg_ha_state.in_recovery | bool
+            and _pg_ha_state.system_identifier == hostvars[groups['db_primary'][0]]._pg_ha_state.system_identifier)
+    fail_msg: >-
+      {{ inventory_hostname }} contient des donnees PostgreSQL non gerees par
+      Patroni. Aucun service n'est arrete et aucune donnee n'est remplacee.
+      Planifier une sauvegarde puis l'adoption explicite avec
+      pg_ha_allow_adopt=true. Le primaire existant doit etre accessible et
+      les standbys non vides doivent appartenir a son cluster.
+
+- name: Refuser d'ecraser une ancienne archive du transfert a Patroni
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: ["{{ pg_ha_archive_dir }}", "{{ pg_ha_config_archive_dir }}"]
+  register: _pg_ha_archives
+
+- name: Les archives existantes doivent appartenir a un transfert deja marque
+  ansible.builtin.assert:
+    that:
+      - _pg_ha_state.managed | bool or not item.stat.exists
+    fail_msg: "Une archive before-patroni existe deja : la conserver/deplacer avant un nouveau transfert."
+  loop: "{{ _pg_ha_archives.results }}"
+
+- name: Configurer et demarrer le quorum etcd
+  ansible.builtin.include_tasks: etcd.yaml
+
+- name: Conserver les slots physiques existants pendant une adoption
+  ansible.builtin.set_fact:
+    _pg_ha_preserved_slots: "{{ hostvars[groups['db_primary'][0]]._pg_ha_state.physical_slots | default([]) }}"
+
+- name: Confier PostgreSQL a Patroni puis verifier sa disponibilite
+  ansible.builtin.include_tasks: patroni.yaml

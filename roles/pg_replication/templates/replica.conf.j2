@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+# La replique ecoute sa propre adresse, jamais l'IP du primaire.
+listen_addresses = '{{ ansible_host }},localhost'
+port = {{ pg_port }}
+hot_standby = on
+# PostgreSQL exige ces capacites au moins egales a celles du primaire.
+{% set primary = hostvars[_pg_replication_primary].pg_replication_primary_settings %}
+max_connections = {{ primary.max_connections }}
+max_worker_processes = {{ primary.max_worker_processes }}
+max_wal_senders = {{ primary.max_wal_senders }}
+max_prepared_transactions = {{ primary.max_prepared_transactions }}
+max_locks_per_transaction = {{ primary.max_locks_per_transaction }}

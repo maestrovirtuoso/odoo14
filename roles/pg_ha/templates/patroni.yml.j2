@@ -1,0 +1,93 @@
+# {{ ansible_managed }}
+scope: {{ pg_ha_scope | to_json }}
+namespace: {{ pg_ha_namespace | to_json }}
+name: {{ inventory_hostname | to_json }}
+
+restapi:
+  listen: {{ (ansible_host ~ ':' ~ pg_ha_rest_port) | to_json }}
+  connect_address: {{ (ansible_host ~ ':' ~ pg_ha_rest_port) | to_json }}
+  authentication:
+    username: {{ pg_ha_rest_username | to_json }}
+    password: {{ pg_ha_rest_password | to_json }}
+
+etcd3:
+  hosts:
+{% for node in groups['db_containers'] %}
+    - {{ (hostvars[node].ansible_host ~ ':' ~ pg_ha_etcd_client_port) | to_json }}
+{% endfor %}
+
+bootstrap:
+  dcs:
+    ttl: {{ pg_ha_ttl }}
+    loop_wait: {{ pg_ha_loop_wait }}
+    retry_timeout: {{ pg_ha_retry_timeout }}
+    maximum_lag_on_failover: {{ pg_ha_maximum_lag_on_failover }}
+    check_timeline: true
+{% if _pg_ha_preserved_slots | default([]) | length > 0 %}
+    # Conserver les slots de l'ancienne replication pendant l'adoption.
+    slots:
+{% for slot in _pg_ha_preserved_slots %}
+      {{ slot | to_json }}:
+        type: physical
+{% endfor %}
+{% endif %}
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        wal_level: replica
+        hot_standby: 'on'
+        wal_log_hints: 'on'
+        max_connections: {{ pg_ha_max_connections }}
+        max_wal_senders: {{ pg_ha_max_wal_senders }}
+        max_replication_slots: {{ pg_ha_max_replication_slots }}
+        wal_keep_size: {{ pg_ha_wal_keep_size | to_json }}
+        max_slot_wal_keep_size: {{ pg_ha_max_slot_wal_keep_size | to_json }}
+        password_encryption: scram-sha-256
+        synchronous_standby_names: ''
+  initdb:
+    - encoding: UTF8
+    - locale: C.UTF-8
+    - data-checksums
+
+postgresql:
+  listen: {{ (ansible_host ~ ',127.0.0.1:' ~ pg_port) | to_json }}
+  connect_address: {{ (ansible_host ~ ':' ~ pg_port) | to_json }}
+  data_dir: {{ pg_data_dir | to_json }}
+  config_dir: {{ pg_ha_pg_config_dir | to_json }}
+  bin_dir: {{ ('/usr/lib/postgresql/' ~ pg_version ~ '/bin') | to_json }}
+  pgpass: {{ ('/var/lib/postgresql/.pgpass-' ~ pg_ha_scope) | to_json }}
+  use_unix_socket: true
+  authentication:
+    superuser:
+      username: postgres
+      password: {{ pg_ha_superuser_password | to_json }}
+    replication:
+      username: {{ pg_replication_user | to_json }}
+      password: {{ pg_replication_password | to_json }}
+  use_pg_rewind: true
+  remove_data_directory_on_rewind_failure: false
+  remove_data_directory_on_diverged_timelines: false
+  parameters:
+    unix_socket_directories: /var/run/postgresql
+  pg_hba:
+    - local all postgres peer
+    - local all all peer
+    - host all all 127.0.0.1/32 scram-sha-256
+    - host all all ::1/128 scram-sha-256
+{% for node in groups['db_containers'] %}
+    - host replication {{ pg_replication_user }} {{ hostvars[node].ansible_host }}/32 scram-sha-256
+    - host postgres postgres {{ hostvars[node].ansible_host }}/32 scram-sha-256
+{% endfor %}
+{% for ip in odoo_client_ips | default([]) %}
+    - host {{ odoo_shared_db }},postgres {{ odoo_db_user }} {{ ip }}/32 scram-sha-256
+{% endfor %}
+{% for ip in pg_backup_client_ips | default([]) %}
+    - host {{ odoo_shared_db }} {{ odoo_db_user }} {{ ip }}/32 scram-sha-256
+{% endfor %}
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false

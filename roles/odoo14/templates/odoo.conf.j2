@@ -40,7 +40,7 @@ data_dir = {{ odoo_data_dir }}
 
 logfile = {{ odoo_log_path }}
 log_level = info
-proxy_mode = True
+proxy_mode = {{ odoo_proxy_mode | bool | ternary('True', 'False') }}
 workers = {{ odoo_workers }}
 
 # Taches planifiees : actives sur le SEUL noeud primaire (groupe

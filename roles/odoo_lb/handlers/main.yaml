@@ -3,8 +3,10 @@
   ansible.builtin.systemd:
     name: haproxy
     state: restarted
+  when: lb_enabled | bool
 
 - name: redemarrer keepalived
   ansible.builtin.systemd:
     name: keepalived
     state: restarted
+  when: lb_enabled | bool

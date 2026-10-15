@@ -29,6 +29,30 @@
 # l'hote definitivement : on perdrait l'acces SSH, donc tout moyen de
 # revenir en arriere par Ansible. Ce controle doit passer AVANT toute
 # modification de configuration.
+- name: Les parametres reseau du conteneur sont renseignes
+  ansible.builtin.assert:
+    that:
+      - ct_ip is defined
+      - ct_gateway | length > 0
+      - ct_dns_servers | length > 0
+    fail_msg: Renseigner ct_ip et la passerelle reelle ct_gateway dans host_vars pour ce conteneur.
+
+- name: Verifier le sous-reseau de la passerelle avant de modifier le reseau
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_python.executable }}"
+      - -c
+      - |
+        import ipaddress
+        import sys
+        network = ipaddress.ip_interface(sys.argv[1]).network
+        gateway = ipaddress.ip_address(sys.argv[2])
+        if gateway not in network:
+            sys.exit('Passerelle %s hors du reseau %s : definir ct_gateway dans host_vars.' % (gateway, network))
+      - "{{ ct_ip }}/{{ ct_prefix }}"
+      - "{{ ct_gateway }}"
+  changed_when: false
+
 - name: Refuser de deporter la carte qui porte la route par defaut
   ansible.builtin.assert:
     that: ansible_default_ipv4.interface != nic
@@ -90,8 +114,8 @@
     - { k: link, v: "{{ nic }}" }
     - { k: name, v: eth0 }
     - { k: flags, v: up }
-    - { k: "ipv4.address", v: "{{ ct_ip }}/24" }
-    - { k: "ipv4.gateway", v: "{{ ansible_default_ipv4.gateway }}" }
+    - { k: "ipv4.address", v: "{{ ct_ip }}/{{ ct_prefix }}" }
+    - { k: "ipv4.gateway", v: "{{ ct_gateway }}" }
 
 - name: IP statique dans le conteneur (systemd-networkd, sans DHCP)
   ansible.builtin.copy:
@@ -102,9 +126,9 @@
       Name=eth0
 
       [Network]
-      Address={{ ct_ip }}/24
-      Gateway={{ ansible_default_ipv4.gateway }}
-      DNS={{ ansible_default_ipv4.gateway }}
+      Address={{ ct_ip }}/{{ ct_prefix }}
+      Gateway={{ ct_gateway }}
+      DNS={{ ct_dns_servers | join(' ') }}
 
 # ---------------------------------------------------------------------------
 # 2. Demarrage du conteneur

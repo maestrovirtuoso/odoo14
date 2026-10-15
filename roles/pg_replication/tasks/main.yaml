@@ -1,0 +1,38 @@
+---
+- name: Reserver pg_replication au mode manuel
+  ansible.builtin.assert:
+    that: not (pg_ha_enabled | default(false) | bool)
+    fail_msg: "Patroni gere les replicas. Ne pas appliquer le role de replication manuelle."
+
+- name: Valider les groupes du primaire et des repliques
+  ansible.builtin.assert:
+    that:
+      - groups['db_primary'] | default([]) | length == 1
+      - groups['db_replicas'] | default([]) | length == 2
+      - groups['db_primary'] | intersect(groups['db_replicas']) | length == 0
+      - inventory_hostname in groups['db_primary'] + groups['db_replicas']
+      - pg_version | string == '15'
+      - pg_replication_user is match('^[a-z_][a-z0-9_]*$')
+    fail_msg: "La replication exige un primaire PostgreSQL 15 et deux repliques distinctes."
+
+- name: Verifier que le secret de replication est renseigne
+  ansible.builtin.assert:
+    that:
+      - pg_replication_password | length > 0
+      - "'\n' not in pg_replication_password"
+      - "'\r' not in pg_replication_password"
+  no_log: true
+
+- name: Retenir les parametres communs de replication
+  ansible.builtin.set_fact:
+    _pg_replication_primary: "{{ groups['db_primary'][0] }}"
+    _pg_replication_host: "{{ hostvars[groups['db_primary'][0]].ansible_host }}"
+    _pg_replication_slot: "{{ pg_replication_slot_prefix }}{{ inventory_hostname | lower | regex_replace('[^a-z0-9_]', '_') }}"
+
+- name: Preparer le primaire avant les repliques
+  ansible.builtin.include_tasks: primary.yaml
+  when: inventory_hostname in groups['db_primary']
+
+- name: Configurer les repliques en lecture seule
+  ansible.builtin.include_tasks: replica.yaml
+  when: inventory_hostname in groups['db_replicas']

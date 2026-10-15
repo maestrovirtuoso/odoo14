@@ -1,0 +1,31 @@
+---
+pg_ha_scope: odoo14
+pg_ha_namespace: /service
+pg_ha_allow_adopt: false
+pg_ha_rest_port: 8008
+pg_ha_rest_username: patroni
+pg_ha_rest_password: "{{ vault_pg_patroni_rest_password }}"
+pg_ha_superuser_password: "{{ vault_pg_patroni_superuser_password }}"
+pg_ha_config_file: /etc/patroni/odoo14.yml
+pg_ha_pg_config_dir: /etc/patroni/postgresql
+pg_ha_managed_marker: /var/lib/postgresql/.odoo14-patroni-managed.json
+pg_ha_archive_dir: "{{ pg_data_dir }}.before-patroni"
+pg_ha_config_archive_dir: "{{ pg_conf_dir }}.before-patroni"
+pg_ha_etcd_data_dir: /var/lib/etcd-odoo14
+pg_ha_etcd_client_port: 2379
+pg_ha_etcd_peer_port: 2380
+pg_ha_etcd_token: odoo14-etcd-v1
+pg_ha_etcd_service: odoo14-etcd
+pg_ha_patroni_service: odoo14-patroni
+pg_ha_helper_dir: /usr/local/libexec/odoo-pg-ha
+pg_ha_ttl: 30
+pg_ha_loop_wait: 10
+pg_ha_retry_timeout: 10
+pg_ha_maximum_lag_on_failover: 1048576
+pg_ha_max_connections: 200
+pg_ha_max_wal_senders: 10
+pg_ha_max_replication_slots: 10
+pg_ha_wal_keep_size: 1GB
+pg_ha_max_slot_wal_keep_size: 4GB
+pg_ha_verify_retries: 60
+pg_ha_verify_delay: 3

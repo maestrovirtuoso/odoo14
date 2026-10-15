@@ -1,4 +1,9 @@
 ---
+- name: Le repartiteur est active pour les controles VIP
+  ansible.builtin.assert:
+    that: lb_enabled | bool
+    fail_msg: Le repartiteur est desactive dans le projet (lb_enabled=false).
+
 # ===========================================================================
 # Etat des lieux AVANT de poser le repartiteur. Ne modifie rien.
 #

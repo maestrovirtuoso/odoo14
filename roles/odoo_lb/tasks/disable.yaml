@@ -1,0 +1,15 @@
+---
+- name: Relever les services existants sans installer de paquet
+  ansible.builtin.service_facts:
+
+- name: Arreter et desactiver keepalived puis HAProxy s'ils existent
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - keepalived
+    - haproxy
+  when:
+    - not (lb_enabled | bool)
+    - (item + '.service') in ansible_facts.services or item in ansible_facts.services

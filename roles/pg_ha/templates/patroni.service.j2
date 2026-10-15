@@ -1,0 +1,19 @@
+[Unit]
+Description=Patroni PostgreSQL HA for {{ pg_ha_scope }}
+Wants=network-online.target {{ pg_ha_etcd_service }}.service
+After=network-online.target {{ pg_ha_etcd_service }}.service
+Conflicts=postgresql@{{ pg_version }}-main.service
+
+[Service]
+Type=simple
+User=postgres
+Group=postgres
+ExecStart=/usr/bin/patroni {{ pg_ha_config_file }}
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+TimeoutStopSec=120
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,71 @@
+---
+- name: Verifier l'identite et les capacites du primaire
+  community.postgresql.postgresql_query:
+    db: postgres
+    port: "{{ pg_port }}"
+    query: >-
+      SELECT pg_is_in_recovery() AS in_recovery,
+             system_identifier::text AS system_identifier,
+             current_setting('wal_level') AS wal_level,
+             current_setting('max_wal_senders')::int AS wal_senders,
+             current_setting('max_replication_slots')::int AS replication_slots,
+             current_setting('max_connections')::int AS max_connections,
+             current_setting('max_worker_processes')::int AS max_worker_processes,
+             current_setting('max_wal_senders')::int AS max_wal_senders,
+             current_setting('max_prepared_transactions')::int AS max_prepared_transactions,
+             current_setting('max_locks_per_transaction')::int AS max_locks_per_transaction,
+             (SELECT count(*) FROM pg_tablespace
+              WHERE spcname NOT IN ('pg_default', 'pg_global')) AS external_tablespaces
+      FROM pg_control_system()
+  become: true
+  become_user: postgres
+  register: _pg_primary_state
+  changed_when: false
+
+- name: Refuser un primaire en recovery ou une sauvegarde avec tablespaces externes
+  ansible.builtin.assert:
+    that:
+      - not (_pg_primary_state.query_result[0].in_recovery | bool)
+      - _pg_primary_state.query_result[0].wal_level in ['replica', 'logical']
+      - _pg_primary_state.query_result[0].wal_senders | int >= groups['db_replicas'] | length + 2
+      - _pg_primary_state.query_result[0].replication_slots | int >= groups['db_replicas'] | length
+      - _pg_primary_state.query_result[0].external_tablespaces | int == 0
+    fail_msg: >-
+      Le primaire doit etre hors recovery, avec WAL de replication et assez
+      de slots/wal_senders. Les tablespaces externes demandent un plan de
+      mapping explicite et ne sont pas clones automatiquement par ce role.
+
+- name: Retenir l'identifiant du cluster primaire
+  ansible.builtin.set_fact:
+    pg_replication_primary_system_identifier: "{{ _pg_primary_state.query_result[0].system_identifier }}"
+    pg_replication_primary_settings: "{{ _pg_primary_state.query_result[0] }}"
+
+- name: Creer le compte de streaming avec le secret du vault
+  community.postgresql.postgresql_user:
+    db: postgres
+    port: "{{ pg_port }}"
+    name: "{{ pg_replication_user }}"
+    password: "{{ pg_replication_password }}"
+    role_attr_flags: LOGIN,REPLICATION,NOSUPERUSER,NOCREATEDB,NOCREATEROLE
+    state: present
+  become: true
+  become_user: postgres
+  no_log: true
+
+- name: Creer un slot physique persistant par replique
+  community.postgresql.postgresql_slot:
+    db: postgres
+    port: "{{ pg_port }}"
+    name: "{{ pg_replication_slot_prefix }}{{ item | lower | regex_replace('[^a-z0-9_]', '_') }}"
+    slot_type: physical
+    immediately_reserve: true
+    state: present
+  loop: "{{ groups['db_replicas'] }}"
+  become: true
+  become_user: postgres
+
+- name: Verifier l'ecoute reseau du primaire
+  ansible.builtin.wait_for:
+    host: "{{ _pg_replication_host }}"
+    port: "{{ pg_port }}"
+    timeout: 30

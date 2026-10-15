@@ -1,0 +1,61 @@
+---
+# Configuration du primaire puis de ses replicas physiques PostgreSQL.
+# N'effectue aucune migration depuis l'ancien serveur 192.168.96.150.
+# Alternative explicite sans Patroni : pg_ha_enabled=false dans vars.yml.
+# Lancement : ansible-playbook playbooks/ansi_replication.yaml --ask-vault-pass
+- name: "PostgreSQL : valider la topologie et le secret de replication"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  any_errors_fatal: true
+  tags: [postgresql, replication]
+  tasks:
+    - name: Refuser le controle manuel quand Patroni est active
+      ansible.builtin.assert:
+        that:
+          - not (pg_ha_enabled | default(false) | bool)
+        fail_msg: Utiliser ansi_postgresql_ha.yaml pour un cluster gere par Patroni.
+
+    - name: Un primaire unique et des replicas sont declares
+      ansible.builtin.assert:
+        that:
+          - groups['db_primary'] | default([]) | length == 1
+          - groups['db_replicas'] | default([]) | length > 0
+          - (groups['db_primary'] | default([]) | intersect(groups['db_replicas'] | default([]))) | length == 0
+          - ((groups['db_primary'] | default([])) + (groups['db_replicas'] | default([]))) | difference(groups['db_containers'] | default([])) | length == 0
+          - (groups['db_containers'] | default([])) | difference((groups['db_primary'] | default([])) + (groups['db_replicas'] | default([]))) | length == 0
+        fail_msg: Declarer un db_primary unique et des db_replicas distincts dans db_containers.
+
+    - name: Les adresses PostgreSQL sont distinctes et Odoo vise le primaire
+      ansible.builtin.assert:
+        that:
+          - (groups['db_containers'] | map('extract', hostvars, 'ansible_host') | list | unique | length) == (groups['db_containers'] | length)
+          - odoo_db_host == hostvars[groups['db_primary'][0]]['ansible_host']
+        fail_msg: Verifier les adresses PostgreSQL et odoo_db_host dans l'inventaire.
+
+    - name: Renseigner vault_pg_replication_password dans le vault
+      ansible.builtin.assert:
+        that:
+          - vault_pg_replication_password is defined
+          - vault_pg_replication_password | default('') | length > 0
+          - vault_pg_replication_password | default('') != 'change-me-postgresql-replication'
+        fail_msg: Renseigner vault_pg_replication_password avec ansible-vault edit avant le deploiement.
+      no_log: true
+
+- name: "PostgreSQL : configurer le primaire utilise par Odoo"
+  hosts: db_primary
+  gather_facts: true
+  any_errors_fatal: true
+  tags: [postgresql, replication]
+  roles:
+    - pg_server
+
+- name: "PostgreSQL : repliquer le primaire vers les standbys"
+  hosts: db_containers
+  gather_facts: true
+  strategy: linear
+  any_errors_fatal: true
+  tags: [postgresql, replication]
+  roles:
+    - pg_replication

@@ -1,0 +1,1 @@
+{{ _pg_replication_host }}:{{ pg_port }}:replication:{{ pg_replication_user }}:{{ pg_replication_password | replace('\\', '\\\\') | replace(':', '\\:') }}

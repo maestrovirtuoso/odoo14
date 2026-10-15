@@ -1,0 +1,11 @@
+---
+# Les adresses et le mot de passe sont fournis par les group_vars du projet.
+pg_replica_allow_reseed: false
+pg_replication_user: replicator
+pg_replication_slot_prefix: prosys_
+pg_replication_passfile: "/var/lib/postgresql/.pgpass-replication-{{ pg_version }}"
+pg_replication_stage_dir: "{{ pg_data_dir }}.replication-staging"
+pg_replication_archive_dir: "{{ pg_data_dir }}.before-replication"
+pg_replication_helper_dir: /usr/local/libexec/odoo-pg-replication
+pg_replication_verify_retries: 30
+pg_replication_verify_delay: 2

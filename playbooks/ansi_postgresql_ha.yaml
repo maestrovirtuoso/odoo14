@@ -1,0 +1,93 @@
+---
+# ansible-playbook playbooks/ansi_postgresql_ha.yaml --ask-vault-pass
+# Ne migre pas les donnees d'un ancien serveur vers les nouvelles adresses.
+- name: "PostgreSQL HA : verifier la topologie et les secrets"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  any_errors_fatal: true
+  tags: [postgresql, replication, patroni]
+  tasks:
+    - name: Exiger trois noeuds distincts et un primaire initial
+      ansible.builtin.assert:
+        that:
+          - pg_ha_enabled | default(true) | bool
+          - groups['db_containers'] | default([]) | length == 3
+          - groups['db_primary'] | default([]) | length == 1
+          - groups['db_replicas'] | default([]) | length == 2
+          - (groups['db_primary'] | intersect(groups['db_replicas'])) | length == 0
+          - (groups['db_primary'] + groups['db_replicas']) | difference(groups['db_containers']) | length == 0
+          - groups['db_containers'] | difference(groups['db_primary'] + groups['db_replicas']) | length == 0
+          - (groups['db_containers'] | map('extract', hostvars, 'ansible_host') | list | unique | length) == 3
+          - odoo_db_host in (groups['db_containers'] | map('extract', hostvars, 'ansible_host') | list)
+        fail_msg: "Declarer trois PostgreSQL distincts, un primaire initial, deux replicas et une adresse Odoo du cluster."
+
+    - name: Exiger les trois secrets PostgreSQL et Patroni
+      ansible.builtin.assert:
+        that:
+          - vault_pg_replication_password | default('') | length > 0
+          - vault_pg_replication_password | default('') != 'change-me-postgresql-replication'
+          - vault_pg_patroni_superuser_password | default('') | length > 0
+          - vault_pg_patroni_superuser_password | default('') != 'change-me-patroni-superuser'
+          - vault_pg_patroni_rest_password | default('') | length > 0
+          - vault_pg_patroni_rest_password | default('') != 'change-me-patroni-rest'
+          - vault_odoo_db_password | default('') | length > 0
+          - vault_odoo_db_password | default('') != 'change-me-odoo-db'
+        fail_msg: "Renseigner les secrets du vault avant de deployer Patroni."
+      no_log: true
+
+- name: "PostgreSQL HA : installer Patroni et le quorum etcd"
+  hosts: db_containers
+  gather_facts: true
+  strategy: linear
+  any_errors_fatal: true
+  tags: [postgresql, replication, patroni]
+  roles:
+    - pg_ha
+  post_tasks:
+    - name: Trouver le primaire reel apres convergence du cluster
+      ansible.builtin.import_tasks: tasks/pg_ha_leader.yaml
+
+- name: "PostgreSQL HA : preparer la base Odoo sur le primaire elu"
+  hosts: pg_ha_current_primary
+  gather_facts: false
+  any_errors_fatal: true
+  tags: [postgresql, replication, patroni]
+  tasks:
+    - name: Recontroler le mode SQL avant de provisionner Odoo
+      community.postgresql.postgresql_query:
+        db: postgres
+        port: "{{ odoo_db_port }}"
+        query: SELECT pg_is_in_recovery() AS in_recovery
+      become: true
+      become_user: postgres
+      register: _pg_ha_sql_mode
+      changed_when: false
+
+    - name: Refuser toute ecriture sur un replica
+      ansible.builtin.assert:
+        that: not (_pg_ha_sql_mode.query_result[0].in_recovery | bool)
+        fail_msg: "Le role SQL a change. Relancer apres convergence de Patroni."
+
+    - name: Creer le compte Odoo sans privilege d'administration
+      community.postgresql.postgresql_user:
+        port: "{{ odoo_db_port }}"
+        name: "{{ odoo_db_user }}"
+        password: "{{ odoo_db_password }}"
+        role_attr_flags: LOGIN,NOSUPERUSER,NOCREATEDB,NOCREATEROLE
+        state: present
+      become: true
+      become_user: postgres
+      no_log: true
+
+    - name: Creer la base partagee appartenant au compte Odoo
+      community.postgresql.postgresql_db:
+        port: "{{ odoo_db_port }}"
+        name: "{{ odoo_shared_db }}"
+        owner: "{{ odoo_db_user }}"
+        encoding: UTF-8
+        template: template0
+        state: present
+      become: true
+      become_user: postgres

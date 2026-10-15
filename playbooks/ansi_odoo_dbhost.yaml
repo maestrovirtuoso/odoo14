@@ -1,0 +1,43 @@
+---
+# Apres bascule Patroni : modifier odoo_db_host dans group_vars/all/vars.yml,
+# puis lancer ce playbook. Ne reinstalle rien et n'initialise aucune base.
+- name: "Odoo : appliquer l'adresse du nouveau primaire PostgreSQL"
+  hosts: odoo_containers
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+  tasks:
+    - name: Controler que la nouvelle adresse accepte le compte Odoo en ecriture
+      community.postgresql.postgresql_query:
+        login_host: "{{ odoo_db_host }}"
+        port: "{{ odoo_db_port }}"
+        login_user: "{{ odoo_db_user }}"
+        login_password: "{{ odoo_db_password }}"
+        db: "{{ odoo_shared_db }}"
+        query: SELECT pg_is_in_recovery() AS in_recovery
+      register: _odoo_new_pg
+      changed_when: false
+      no_log: true
+
+    - name: Refuser de diriger Odoo vers un replica
+      ansible.builtin.assert:
+        that: not (_odoo_new_pg.query_result[0].in_recovery | bool)
+        fail_msg: "odoo_db_host designe un replica. Renseigner l'adresse du primaire elu par Patroni."
+
+    - name: Modifier uniquement l'adresse PostgreSQL dans la configuration existante
+      ansible.builtin.lineinfile:
+        path: "{{ odoo_config_path }}"
+        regexp: '^\s*db_host\s*='
+        line: "db_host = {{ odoo_db_host }}"
+        create: false
+      diff: false
+      notify: Redemarrer Odoo avec la nouvelle adresse SQL
+
+    - name: Appliquer la connexion avant de passer a l'instance suivante
+      ansible.builtin.meta: flush_handlers
+
+  handlers:
+    - name: Redemarrer Odoo avec la nouvelle adresse SQL
+      ansible.builtin.service:
+        name: odoo
+        state: restarted

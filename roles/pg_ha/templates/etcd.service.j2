@@ -1,0 +1,17 @@
+[Unit]
+Description=etcd quorum for PostgreSQL {{ pg_ha_scope }}
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=notify
+User=etcd
+Group=etcd
+ExecStart=/usr/bin/etcd --config-file=/etc/etcd/{{ pg_ha_scope }}.yml
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=120
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

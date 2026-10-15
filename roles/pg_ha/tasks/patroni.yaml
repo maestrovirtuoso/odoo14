@@ -1,0 +1,206 @@
+---
+- name: Refuser une instance Patroni du paquet deja active hors du projet
+  ansible.builtin.command: systemctl is-active patroni.service
+  register: _pg_ha_default_patroni
+  changed_when: false
+  failed_when: _pg_ha_default_patroni.rc == 0
+
+- name: Preparer les comptes avant l'adoption d'un primaire existant
+  community.postgresql.postgresql_user:
+    db: postgres
+    port: "{{ pg_port }}"
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    role_attr_flags: "{{ item.attributes }}"
+    state: present
+  loop:
+    - name: postgres
+      password: "{{ pg_ha_superuser_password }}"
+      attributes: LOGIN,SUPERUSER
+    - name: "{{ pg_replication_user }}"
+      password: "{{ pg_replication_password }}"
+      attributes: LOGIN,REPLICATION,NOSUPERUSER,NOCREATEDB,NOCREATEROLE
+  become: true
+  become_user: postgres
+  environment:
+    PGOPTIONS: -c password_encryption=scram-sha-256
+  no_log: true
+  when:
+    - inventory_hostname in groups['db_primary']
+    - not (_pg_ha_state.managed | bool)
+    - not (_pg_ha_state.empty | bool)
+
+- name: Retenir le WAL des comptes avant de transferer les services
+  community.postgresql.postgresql_query:
+    db: postgres
+    port: "{{ pg_port }}"
+    query: SELECT pg_current_wal_lsn()::text AS lsn
+  become: true
+  become_user: postgres
+  register: _pg_ha_adoption_wal
+  changed_when: false
+  when:
+    - inventory_hostname in groups['db_primary']
+    - not (_pg_ha_state.managed | bool)
+    - not (_pg_ha_state.empty | bool)
+
+- name: Attendre la propagation des comptes sur les standbys a adopter
+  community.postgresql.postgresql_query:
+    db: postgres
+    port: "{{ pg_port }}"
+    query: SELECT pg_last_wal_replay_lsn() >= %s::pg_lsn AS caught_up
+    positional_args:
+      - "{{ hostvars[groups['db_primary'][0]]._pg_ha_adoption_wal.query_result[0].lsn }}"
+  become: true
+  become_user: postgres
+  register: _pg_ha_adoption_replayed
+  changed_when: false
+  until: _pg_ha_adoption_replayed.query_result[0].caught_up | bool
+  retries: 30
+  delay: 2
+  when:
+    - inventory_hostname in groups['db_replicas']
+    - not (_pg_ha_state.managed | bool)
+    - not (_pg_ha_state.empty | bool)
+
+- name: Bloquer le demarrage manuel de PostgreSQL avant le transfert controle
+  ansible.builtin.systemd:
+    name: "postgresql@{{ pg_version }}-main.service"
+    enabled: false
+    masked: true
+  when: not (_pg_ha_state.managed | bool)
+
+- name: Desactiver le demarrage global manuel PostgreSQL
+  ansible.builtin.systemd:
+    name: postgresql.service
+    enabled: false
+
+- name: Transferer les donnees sans suppression et archiver la configuration Debian
+  ansible.builtin.command:
+    argv: "{{ ['/usr/bin/python3', pg_ha_helper_dir ~ '/guard.py', 'prepare'] + _pg_ha_guard_args }}"
+  register: _pg_ha_prepared
+  changed_when: "'HANDOFF_CHANGED' in _pg_ha_prepared.stdout"
+
+- name: Creer les repertoires de configuration Patroni
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0700"
+  loop:
+    - "{{ pg_ha_config_file | dirname }}"
+    - "{{ pg_ha_pg_config_dir }}"
+
+- name: Poser une configuration PostgreSQL initiale pour l'adoption
+  ansible.builtin.copy:
+    dest: "{{ pg_ha_pg_config_dir }}/postgresql.conf"
+    content: "# La configuration effective est geree par Patroni.\n"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+    force: false
+
+- name: Poser le HBA local avant tout premier demarrage Patroni
+  ansible.builtin.template:
+    src: pg_hba.conf.j2
+    dest: "{{ pg_ha_pg_config_dir }}/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+
+- name: Configurer Patroni et ses trois secrets
+  ansible.builtin.template:
+    src: patroni.yml.j2
+    dest: "{{ pg_ha_config_file }}"
+    owner: postgres
+    group: postgres
+    mode: "0600"
+  register: _pg_ha_patroni_config
+  no_log: true
+
+- name: Installer le service Patroni du projet
+  ansible.builtin.template:
+    src: patroni.service.j2
+    dest: "/etc/systemd/system/{{ pg_ha_patroni_service }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  register: _pg_ha_patroni_unit
+
+- name: Examiner le service Patroni avant son demarrage
+  ansible.builtin.command: "systemctl is-active {{ pg_ha_patroni_service }}.service"
+  register: _pg_ha_patroni_active
+  changed_when: false
+  failed_when: false
+
+- name: Demarrer le primaire prevu uniquement pour la premiere initialisation
+  ansible.builtin.systemd:
+    name: "{{ pg_ha_patroni_service }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  when:
+    - inventory_hostname in groups['db_primary']
+    - not (_pg_ha_dcs_initialized | bool)
+
+- name: Confirmer le premier primaire avant de lancer les nouveaux standbys
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ pg_ha_rest_port }}/primary"
+    url_username: "{{ pg_ha_rest_username }}"
+    url_password: "{{ pg_ha_rest_password }}"
+    force_basic_auth: true
+    status_code: 200
+    timeout: 5
+  register: _pg_ha_initial_primary
+  until: _pg_ha_initial_primary.status == 200
+  retries: "{{ pg_ha_verify_retries }}"
+  delay: "{{ pg_ha_verify_delay }}"
+  no_log: true
+  when:
+    - inventory_hostname in groups['db_primary']
+    - not (_pg_ha_dcs_initialized | bool)
+
+- name: Marquer le premier primaire apres l'initialisation effective du DCS
+  ansible.builtin.command:
+    argv: "{{ ['/usr/bin/python3', pg_ha_helper_dir ~ '/guard.py', 'activate'] + _pg_ha_guard_args }}"
+  register: _pg_ha_initial_activated
+  changed_when: "'ACTIVATION_CHANGED' in _pg_ha_initial_activated.stdout"
+  when:
+    - inventory_hostname in groups['db_primary']
+    - not (_pg_ha_dcs_initialized | bool)
+
+- name: Demarrer les trois noeuds sous le controle de Patroni
+  ansible.builtin.systemd:
+    name: "{{ pg_ha_patroni_service }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Recharger les changements locaux sans forcer une election
+  ansible.builtin.systemd:
+    name: "{{ pg_ha_patroni_service }}"
+    state: reloaded
+  when:
+    - _pg_ha_patroni_active.rc == 0
+    - _pg_ha_patroni_config.changed or _pg_ha_patroni_unit.changed
+
+- name: Verifier que chaque PostgreSQL est demarre sous Patroni
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ pg_ha_rest_port }}/health"
+    url_username: "{{ pg_ha_rest_username }}"
+    url_password: "{{ pg_ha_rest_password }}"
+    force_basic_auth: true
+    status_code: 200
+    timeout: 5
+  register: _pg_ha_health
+  until: _pg_ha_health.status == 200
+  retries: "{{ pg_ha_verify_retries }}"
+  delay: "{{ pg_ha_verify_delay }}"
+  no_log: true
+
+- name: Marquer l'activation de chaque membre apres sa verification
+  ansible.builtin.command:
+    argv: "{{ ['/usr/bin/python3', pg_ha_helper_dir ~ '/guard.py', 'activate'] + _pg_ha_guard_args }}"
+  register: _pg_ha_activated
+  changed_when: "'ACTIVATION_CHANGED' in _pg_ha_activated.stdout"

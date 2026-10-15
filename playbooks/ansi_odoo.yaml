@@ -3,15 +3,12 @@
 # Deploiement d'Odoo 14 sur une base PostgreSQL PARTAGEE.
 #
 # Architecture :
-#   - un conteneur PostgreSQL dedie (192.168.96.150, hote .141), sans Odoo ;
+#   - trois PostgreSQL 15 (192.168.33.156 a .158) avec Patroni et etcd ;
+#     odoodb1 est le primaire initial, les deux autres sont des replicas ;
 #   - trois conteneurs Odoo (.151 .152 .153) sans serveur PostgreSQL local ;
 #   - une base unique "prod" ;
-#   - un filestore LOCAL a chaque noeud depuis le 25/09/2026 : le montage
-#     GlusterFS a ete retire, chaque hote bind son propre volume logique
-#     /bricks/odoo14 dans son conteneur (role odoo_filestore). Il n'est donc
-#     ni partage ni replique -- voir la mise en garde de ansi_syncro.yaml sur
-#     ir_attachment.location ;
-#   - pas de repartiteur de charge : chaque utilisateur vise une IP.
+#   - un filestore GlusterFS partage, dont le montage manuel est un prerequis ;
+#   - acces HTTP direct aux trois instances Odoo sur leur port 8069.
 #
 # L'ORDRE DES PLAYS EST CONTRAIGNANT :
 #   1. l'horloge puis le reseau : une horloge fausse fait echouer apt dans les
@@ -25,10 +22,11 @@
 #
 # Prerequis :
 #   - conteneurs deja crees (playbooks/ansi2-snapchot.yaml)
-#   - authentification par CLE vers les 4 hotes :
-#       for h in 128 129 140 141; do ssh-copy-id root@192.168.96.$h; done
+#   - authentification par CLE vers les 6 hotes de gluster_servers ;
 #   - ansible-galaxy collection install -r requirements.yml
-#   - group_vars/all/vault.yml renseigne puis chiffre
+#   - group_vars/all/vault.yml renseigne puis chiffre, dont le secret
+#     vault_pg_replication_password, vault_pg_patroni_superuser_password,
+#     vault_pg_patroni_rest_password
 #
 # Lancement :
 #   ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass
@@ -97,6 +95,17 @@
       loop_control:
         label: "{{ item.name }} {{ item.version }}"
 
+- name: "Hotes : desactiver HAProxy et keepalived pour l'acces direct"
+  hosts: lb_hosts
+  gather_facts: false
+  tags: [repartiteur]
+  tasks:
+    - name: Arreter les anciens services sans les reinstaller
+      ansible.builtin.import_role:
+        name: odoo_lb
+        tasks_from: disable
+      when: not (lb_enabled | bool)
+
 - name: "1/5 - Hotes : horloge puis reseau"
   hosts: gluster_servers
   gather_facts: true
@@ -114,11 +123,7 @@
       tags: [horloge]
     - lxc_lan
 
-- name: "2/5 - Base PostgreSQL partagee"
-  hosts: db_containers
-  gather_facts: true
-  roles:
-    - pg_server
+- import_playbook: ansi_replication.yaml
 
 - name: "3/5 - Odoo 14 installe et configure (service laisse arrete)"
   hosts: odoo_containers

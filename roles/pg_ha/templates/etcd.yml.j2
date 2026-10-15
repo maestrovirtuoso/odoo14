@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+name: {{ inventory_hostname | to_json }}
+data-dir: {{ pg_ha_etcd_data_dir | to_json }}
+listen-client-urls: {{ ('http://' ~ ansible_host ~ ':' ~ pg_ha_etcd_client_port) | to_json }}
+advertise-client-urls: {{ ('http://' ~ ansible_host ~ ':' ~ pg_ha_etcd_client_port) | to_json }}
+listen-peer-urls: {{ ('http://' ~ ansible_host ~ ':' ~ pg_ha_etcd_peer_port) | to_json }}
+initial-advertise-peer-urls: {{ ('http://' ~ ansible_host ~ ':' ~ pg_ha_etcd_peer_port) | to_json }}
+initial-cluster: "{% for node in groups['db_containers'] %}{{ node }}=http://{{ hostvars[node].ansible_host }}:{{ pg_ha_etcd_peer_port }}{% if not loop.last %},{% endif %}{% endfor %}"
+initial-cluster-token: {{ pg_ha_etcd_token | to_json }}
+initial-cluster-state: new
+enable-v2: false

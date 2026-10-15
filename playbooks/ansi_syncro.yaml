@@ -98,10 +98,51 @@
 # ---------------------------------------------------------------------------
 # 1/8 - Sauvegardes. Tout ce qui suit est reversible tant qu'elles existent.
 # ---------------------------------------------------------------------------
-- name: "1/8 - Sauvegarder la base partagee"
+- name: "1/8 - Identifier le primaire SQL avant la sauvegarde"
   hosts: db_containers
   gather_facts: false
+  strategy: linear
+  any_errors_fatal: true
+  tags: [preflight]
   tasks:
+    - name: Identifier le primaire courant du cluster Patroni
+      ansible.builtin.import_tasks: tasks/pg_ha_leader.yaml
+      when: pg_ha_enabled | default(true) | bool
+
+    - name: Retenir le primaire en mode manuel
+      ansible.builtin.add_host:
+        name: "{{ groups['db_primary'][0] }}"
+        groups: pg_ha_current_primary
+      run_once: true
+      changed_when: false
+      when: not (pg_ha_enabled | default(true) | bool)
+
+    - name: Verifier que les operations Odoo visent le primaire courant
+      ansible.builtin.assert:
+        that: odoo_db_host == hostvars[groups['pg_ha_current_primary'][0]].ansible_host
+        fail_msg: "Mettre odoo_db_host a jour et jouer ansi_odoo_dbhost.yaml avant de migrer les pieces jointes."
+      run_once: true
+
+- name: "1/8 - Sauvegarder la base partagee sur le primaire courant"
+  hosts: pg_ha_current_primary
+  gather_facts: false
+  any_errors_fatal: true
+  tasks:
+    - name: Verifier que PostgreSQL accepte les ecritures
+      community.postgresql.postgresql_query:
+        db: postgres
+        port: "{{ odoo_db_port }}"
+        query: SELECT pg_is_in_recovery() AS in_recovery
+      become: true
+      become_user: postgres
+      register: _migration_pg_mode
+      changed_when: false
+
+    - name: Refuser un snapshot depuis un replica
+      ansible.builtin.assert:
+        that: not (_migration_pg_mode.query_result[0].in_recovery | bool)
+        fail_msg: "Le role PostgreSQL a change ; relancer apres convergence de Patroni."
+
     - name: Dump de la base avant migration
       ansible.builtin.import_role:
         name: odoo_migration

@@ -8,6 +8,7 @@ group_vars/all/vault.yml
 
 # Artefacts Ansible
 *.retry
+__pycache__/
 collections/
 ansible.log
 

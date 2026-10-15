@@ -1,9 +1,15 @@
 ---
 # Carte physique dediee, donnee au conteneur. Surchargeable par hote.
-nic: ens224
+nic: enp5s0
 
 # Nom du conteneur LXC : defini par hote dans host_vars/<ip>.yml.
 lxc_container_name: devodoo14
+
+# Reseau du conteneur : le LAN dedie peut differer du reseau de gestion.
+# Surcharger ct_gateway dans host_vars avec la passerelle reelle si besoin.
+ct_prefix: 24
+ct_gateway: "{{ ansible_default_ipv4.gateway | default('') }}"
+ct_dns_servers: "{{ [ct_gateway] }}"
 
 # Retirer activement l'ancien modele routé (lxcbr0 + DNAT + routes). Laisse
 # en place, il redirige le port 8069 de l'hote vers une IP 10.0.x.10 qui
