@@ -205,3 +205,8 @@ déploiement.
   signatures `ssh-rsa` par défaut ; Debian 11 embarque 8.4, donc cela passe. Une
   bascule vers Debian 12 imposerait une clé Ed25519.
 - Aucune sauvegarde n'est configurée. Chaque base ne vit que sur son nœud.
+- nic: >-
+  {{ ansible_facts.interfaces
+     | select('match', '^enp')
+     | reject('equalto', ansible_facts.default_ipv4.interface)
+     | list | first }}
