@@ -253,6 +253,8 @@
 - name: Installer openssh-server + cle du controleur dans le conteneur
   ansible.builtin.command:
     argv:
+      - timeout
+      - "600"
       - lxc-attach
       - -n
       - "{{ lxc_container_name }}"
@@ -279,7 +281,7 @@
         } > /etc/apt/sources.list
 
         # Ni traductions des index, ni mise a jour inutile.
-        printf 'Acquire::Languages "none";\n' > /etc/apt/apt.conf.d/99-no-languages
+        printf 'Acquire::Languages "none";\nAcquire::http::Timeout "20";\nAcquire::Retries "0";\nDPkg::Lock::Timeout "60";\n' > /etc/apt/apt.conf.d/99-no-languages
         {% if lxc_apt_proxy | length > 0 %}
         # Cache apt (apt-cacher-ng...) : evite de retelecharger les memes
         # paquets pour chaque conteneur.
@@ -352,6 +354,12 @@
         done
 
         if [ -n "$missing" ]; then
+          # Echec rapide si le reseau/DNS du conteneur ne marche pas, plutot
+          # que de laisser apt attendre.
+          echo "--- reseau ---"
+          getent hosts deb.debian.org || echo "DNS KO (resolv.conf ci-dessous)"
+          cat /etc/resolv.conf
+          ip -4 r
           # Un seul apt-get update par tentative, et seulement si quelque chose
           # manque. realign_apt (couteux) n'est lance qu'apres un premier echec :
           # sous Debian 12 l'installation passe normalement du premier coup.
