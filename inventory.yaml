@@ -15,14 +15,15 @@
 [gluster_servers:vars]
 # Les hotes n'ont qu'une carte sur leur reseau, et elle porte leur route par
 # defaut : la ceder au conteneur (mode phys) couperait l'hote. Les conteneurs
-# sont donc poses en MACVLAN sur cette carte, que l'hote garde.
+# sont donc poses en IPVLAN sur cette carte, que l'hote garde.
 # Consequence : un hote ne joint pas son propre conteneur (cf. roles/lxc_lan).
-lxc_net_type=macvlan
+lxc_net_type=ipvlan
 #
-# Le reseau filtre la MAC/IP du macvlan (le conteneur n'obtient pas de reponse
-# de sa passerelle) : la sortie Internet passe par NAT derriere l'hote, via une
-# 2e interface sur lxcbr0 (cf. roles/lxc_lan, lxc_egress_nat).
-lxc_egress_nat=true
+# Le reseau jette les MAC inconnues (le macvlan n'obtenait aucune reponse de
+# sa passerelle). L'ipvlan, qui partage la MAC de l'hote, passe : valide par
+# un test en netns sur enp5s0. Le NAT par l'hote (lxc_egress_nat) reste
+# disponible dans roles/lxc_lan mais n'est plus necessaire.
+lxc_egress_nat=false
 #
 # L'ancien modele routé du lab (10.0.x.0/24) n'existe pas sur ces hotes. Ne
 # pas laisser lxc_lan y supprimer des routes 10.0.x.0/24 : 10.0.3.0/24 est

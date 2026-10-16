@@ -6,6 +6,8 @@ nic: ens224
 #   phys    : la carte {{ nic }} est CEDEE au conteneur et disparait de
 #             l'hote. Exige une carte dediee, distincte de celle qui porte la
 #             route par defaut de l'hote.
+#   ipvlan  : comme macvlan, mais avec la MAC de l'hote (reseaux qui
+#             filtrent les MAC inconnues).
 #   macvlan : le conteneur obtient une interface virtuelle, avec sa propre
 #             MAC, posee sur {{ nic }}. L'hote GARDE sa carte : c'est le seul
 #             mode possible quand l'hote n'a qu'une carte sur ce reseau.
@@ -16,6 +18,10 @@ lxc_net_type: phys
 # Mode macvlan. "bridge" laisse communiquer entre eux les conteneurs d'un
 # meme hote ; il ne change rien a la limite hote <-> conteneur.
 lxc_macvlan_mode: bridge
+
+# Mode ipvlan. "l2" : le conteneur est sur le meme segment Ethernet que
+# l'hote, avec la MAC de l'hote. Meme limite hote <-> conteneur que macvlan.
+lxc_ipvlan_mode: l2
 
 # Adressage du conteneur. ct_ip est obligatoire et defini par hote
 # (host_vars/<ip>.yml). La passerelle et les DNS se rabattent sur la

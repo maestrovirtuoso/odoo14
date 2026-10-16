@@ -5,6 +5,9 @@
 # Expose le conteneur LXC directement sur le LAN, selon lxc_net_type :
 #   - phys    : le conteneur recoit une CARTE PHYSIQUE dediee. Il possede
 #               alors la carte : elle disparait de l'hote ;
+#   - ipvlan  : comme macvlan, mais le conteneur PARTAGE la MAC de l'hote.
+#               Seul choix quand le reseau (cloud, port security) jette les
+#               MAC inconnues ; l'IP du conteneur doit alors etre acceptee ;
 #   - macvlan : le conteneur recoit une interface virtuelle posee sur la
 #               carte de l'hote, qui la garde. Seul choix possible quand
 #               l'hote n'a qu'une carte sur ce reseau ; l'hote ne joint
@@ -36,13 +39,13 @@
 - name: Le mode reseau et l'adressage du conteneur sont decrits
   ansible.builtin.assert:
     that:
-      - lxc_net_type in ['phys', 'macvlan']
+      - lxc_net_type in ['phys', 'macvlan', 'ipvlan']
       - ct_ip is defined
       - ct_ip | length > 0
       - ct_prefix | int > 0
       - ct_prefix | int <= 32
     fail_msg: >-
-      lxc_net_type doit valoir phys ou macvlan (valeur : {{ lxc_net_type }}),
+      lxc_net_type doit valoir phys, macvlan ou ipvlan (valeur : {{ lxc_net_type }}),
       et ct_ip / ct_prefix doivent etre renseignes dans
       host_vars/{{ inventory_hostname }}.yml.
 
@@ -178,7 +181,14 @@
     path: "/var/lib/lxc/{{ lxc_container_name }}/config"
     regexp: '^lxc\.net\.0\.macvlan\.'
     state: absent
-  when: lxc_net_type == 'phys'
+  when: lxc_net_type != 'macvlan'
+
+- name: Retirer le mode ipvlan d'une configuration repassee en autre chose
+  ansible.builtin.lineinfile:
+    path: "/var/lib/lxc/{{ lxc_container_name }}/config"
+    regexp: '^lxc\.net\.0\.ipvlan\.'
+    state: absent
+  when: lxc_net_type != 'ipvlan'
 
 - name: Configurer l'interface reseau du conteneur ({{ lxc_net_type }})
   ansible.builtin.lineinfile:
@@ -196,7 +206,9 @@
        + ([] if lxc_egress_nat | bool else
           [{'k': 'ipv4.gateway', 'v': ct_gateway}])
        + ([{'k': 'macvlan.mode', 'v': lxc_macvlan_mode}]
-          if lxc_net_type == 'macvlan' else []) }}
+          if lxc_net_type == 'macvlan' else [])
+       + ([{'k': 'ipvlan.mode', 'v': lxc_ipvlan_mode}]
+          if lxc_net_type == 'ipvlan' else []) }}
 
 # Avec la sortie NAT, la passerelle par defaut est celle de eth1 : eth0 n'en
 # porte plus (la passerelle LAN ne repond pas a la MAC du macvlan).
@@ -379,7 +391,7 @@
         } > /etc/apt/sources.list
 
         # Ni traductions des index, ni mise a jour inutile.
-        printf 'Acquire::Languages "none";\nAcquire::http::Timeout "20";\nAcquire::Retries "0";\nDPkg::Lock::Timeout "60";\n' > /etc/apt/apt.conf.d/99-no-languages
+        printf 'Acquire::Languages "none";\nAcquire::ForceIPv4 "true";\nAcquire::http::Timeout "20";\nAcquire::Retries "0";\nDPkg::Lock::Timeout "60";\n' > /etc/apt/apt.conf.d/99-no-languages
         {% if lxc_apt_proxy | length > 0 %}
         # Cache apt (apt-cacher-ng...) : evite de retelecharger les memes
         # paquets pour chaque conteneur.
@@ -459,15 +471,23 @@
           cat /etc/resolv.conf
           ip -4 r
           # Un seul apt-get update par tentative, et seulement si quelque chose
-          # manque. realign_apt (couteux) n'est lance qu'apres un premier echec :
-          # sous Debian 12 l'installation passe normalement du premier coup.
+          # manque. realign_apt (couteux) n'est lance qu'apres un premier echec
+          # d'installation avec des index a jour : sous Debian 12 l'installation
+          # passe normalement du premier coup.
           installed=0
           for i in 1 2 3; do
             echo "--- tentative apt $i (manquants:$missing) ---"
-            if apt-get update && apt-get install -y $missing; then
-              installed=1; break
+            if apt-get update; then
+              if apt-get install -y $missing; then
+                installed=1; break
+              fi
+              # Seulement avec des index frais : realign_apt s'appuie sur
+              # apt-cache madison, et avec des index perimes (reseau/DNS en
+              # panne) il retrograderait des paquets sains (libssl3, tzdata...).
+              [ "$i" = "1" ] && realign_apt
+            else
+              echo "apt-get update a echoue : pas de realignement, reseau ?"
             fi
-            [ "$i" = "1" ] && realign_apt
             sleep 5
           done
           if [ "$installed" != "1" ]; then
