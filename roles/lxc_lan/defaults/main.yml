@@ -26,6 +26,11 @@ ct_gateway: "{{ ansible_default_ipv4.gateway }}"
 ct_dns_servers:
   - "{{ ct_gateway }}"
 
+# Cache apt pour le bootstrap du conteneur, ex. "http://192.168.33.1:3142"
+# (apt-cacher-ng). Vide = depots Debian directs. Doit etre joignable DEPUIS
+# le conteneur ; en macvlan, pas depuis son propre hote.
+lxc_apt_proxy: ""
+
 # Nom du conteneur LXC : defini par hote dans host_vars/<ip>.yml.
 lxc_container_name: devodoo14
 

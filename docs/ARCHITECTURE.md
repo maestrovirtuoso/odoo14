@@ -1,5 +1,10 @@
 # Architecture ProSys — Odoo 14 en grappe
 
+La configuration actuelle du dépôt est décrite dans
+[ARCHITECTURE-ACTUELLE.md](ARCHITECTURE-ACTUELLE.md), avec le diagramme et
+les adresses du 16 octobre 2026. Les sections ci-dessous conservent la
+description historique ; leur adressage et leur modèle réseau ont évolué.
+
 État au **25 septembre 2026**.
 
 Document de référence pour reprendre le dépôt sans en connaître l'histoire. Il

@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1530" viewBox="0 0 1400 1530" role="img" aria-labelledby="title desc">
+<title id="title">Architecture actuelle du projet Odoo 14</title>
+<desc id="desc">Trois Odoo sur 192.168.36.151 à 153 utilisent PostgreSQL primaire 192.168.33.156, qui réplique vers 192.168.33.157 et 158. Stockage GlusterFS externe 192.168.36.8:/sre et sauvegardes sur 192.168.36.21. Bascule manuelle.</desc>
+<defs>
+  <marker id="blue" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto-start-reverse"><path d="M0 0L9 4.5L0 9Z" fill="#2e73b7"/></marker>
+  <marker id="green" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#238767"/></marker>
+  <marker id="purple" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#9465b5"/></marker>
+  <marker id="gray" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#7c8999"/></marker>
+</defs>
+<style>text{font-family:DejaVu Sans,sans-serif} .title{font-size:32px;font-weight:bold;fill:#17314b} .sub{font-size:17px;fill:#566b80} .label{font-size:14px;fill:#5b6c7d} .heading{font-size:21px;font-weight:bold} .body{font-size:17px} .small{font-size:15px} .eyebrow{font-size:14px;font-weight:bold;letter-spacing:1.2px;fill:#62778a} .mono{font-family:DejaVu Sans Mono,monospace;font-size:18px} </style>
+<rect width="1400" height="1530" fill="#f7f9fc"/>
+
+<text x="64" y="59" class="title" fill="#223d56" text-anchor="start">Architecture du projet Odoo 14</text>
+<text x="64" y="94" class="sub" fill="#223d56" text-anchor="start">Configuration du dépôt · 16 octobre 2026 · 6 hôtes LXC · 6 conteneurs Debian 12</text>
+<rect x="64" y="130" width="350" height="111" rx="16" fill="#edf1f7" stroke="#cdd7e2" />
+<text x="86" y="161" class="heading" fill="#223d56" text-anchor="start">Poste de contrôle Ansible</text>
+<text x="86" y="190" class="body" fill="#223d56" text-anchor="start">Ubuntu 22.04 / Debian 12</text>
+<text x="86" y="219" class="small" fill="#223d56" text-anchor="start">SSH 22 vers les 6 hôtes et les 6 LXC</text>
+<rect x="528" y="130" width="344" height="111" rx="16" fill="#173d60" stroke="none" />
+<text x="700" y="170" class="heading" fill="#ffffff" text-anchor="middle">Utilisateurs</text>
+<text x="700" y="205" class="body" fill="#d6e8f8" text-anchor="middle">Accès direct à une IP Odoo</text>
+<text x="992" y="159" class="eyebrow" fill="#223d56" text-anchor="start">ACCÈS DIRECT</text>
+<text x="992" y="191" class="body" fill="#223d56" text-anchor="start">HTTP : 8069 · bus : 8072</text>
+<text x="992" y="219" class="small" fill="#223d56" text-anchor="start">Sans HAProxy ni keepalived</text>
+<rect x="48" y="304" width="1304" height="254" rx="20" fill="#edf3fa" stroke="#d7e1ed" />
+<text x="280" y="332" class="eyebrow" fill="#223d56" text-anchor="start">APPLICATIONS  ·  192.168.36.0/24</text>
+<rect x="48" y="744" width="1304" height="289" rx="20" fill="#edf5f1" stroke="#d3e4dc" />
+<text x="72" y="773" class="eyebrow" fill="#223d56" text-anchor="start">POSTGRESQL 15  ·  RÉSEAU 192.168.33.0/24</text>
+<path d="M64 187 H31 V317 H47" fill="none" stroke="#7c8999" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#gray)" stroke-dasharray="5 6"/>
+<path d="M31 317 V757 H47" fill="none" stroke="#7c8999" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#gray)" stroke-dasharray="5 6"/>
+<path d="M700 241 V284 H236 V354" fill="none" stroke="#2e73b7" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#blue)"/>
+<path d="M700 284 V354" fill="none" stroke="#2e73b7" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#blue)"/>
+<path d="M700 284 H1164 V354" fill="none" stroke="#2e73b7" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#blue)"/>
+<path d="M280 534 V592" fill="none" stroke="#9465b5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="7 6"/>
+<path d="M744 534 V592" fill="none" stroke="#9465b5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="7 6"/>
+<path d="M1208 534 V592" fill="none" stroke="#9465b5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="7 6"/>
+<path d="M1208 592 H15 V1100 H364 V1140" fill="none" stroke="#9465b5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#purple)" stroke-dasharray="7 6"/>
+<rect x="790" y="577" width="320" height="30" rx="6" fill="#f7f9fc" stroke="none" />
+<text x="950" y="598" class="small" fill="#8050a2" text-anchor="middle">Pièces jointes et sessions</text>
+<path d="M236 534 V644 H700" fill="none" stroke="#2e73b7" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M1164 534 V644 H700" fill="none" stroke="#2e73b7" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M700 534 V795" fill="none" stroke="#2e73b7" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#blue)"/>
+<rect x="366" y="662" width="668" height="61" rx="8" fill="#f7f9fc" stroke="none" />
+<text x="700" y="685" class="body" fill="#285a89" text-anchor="middle">SQL 5432/TCP · lectures et écritures sur le primaire</text>
+<text x="700" y="710" class="small" fill="#5b6c7d" text-anchor="middle">Routage requis : passerelles 192.168.36.254 et 192.168.33.254</text>
+<rect x="64" y="354" width="344" height="180" rx="16" fill="#ffffff" stroke="#b9d0e8" />
+<rect x="64" y="354" width="344" height="46" rx="14" fill="#dceafa" stroke="none" />
+<text x="84" y="384" class="heading" fill="#205a91" text-anchor="start">Odoo 14 · odoo1</text>
+<text x="84" y="430" class="mono" fill="#223d56" text-anchor="start">192.168.36.151:8069</text>
+<text x="84" y="462" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.36.21</text>
+<text x="84" y="490" class="small" fill="#223d56" text-anchor="start">LXC : devodoo14 · Debian 12</text>
+<text x="84" y="517" class="small" fill="#506a80" text-anchor="start">Initialisation et cron</text>
+<rect x="528" y="354" width="344" height="180" rx="16" fill="#ffffff" stroke="#b9d0e8" />
+<rect x="528" y="354" width="344" height="46" rx="14" fill="#dceafa" stroke="none" />
+<text x="548" y="384" class="heading" fill="#205a91" text-anchor="start">Odoo 14 · odoo2</text>
+<text x="548" y="430" class="mono" fill="#223d56" text-anchor="start">192.168.36.152:8069</text>
+<text x="548" y="462" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.36.22</text>
+<text x="548" y="490" class="small" fill="#223d56" text-anchor="start">LXC : devodoo14 · Debian 12</text>
+<text x="548" y="517" class="small" fill="#506a80" text-anchor="start">Application sur la base partagée</text>
+<rect x="992" y="354" width="344" height="180" rx="16" fill="#ffffff" stroke="#b9d0e8" />
+<rect x="992" y="354" width="344" height="46" rx="14" fill="#dceafa" stroke="none" />
+<text x="1012" y="384" class="heading" fill="#205a91" text-anchor="start">Odoo 14 · odoo3</text>
+<text x="1012" y="430" class="mono" fill="#223d56" text-anchor="start">192.168.36.153:8069</text>
+<text x="1012" y="462" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.36.23</text>
+<text x="1012" y="490" class="small" fill="#223d56" text-anchor="start">LXC : devodoo14 · Debian 12</text>
+<text x="1012" y="517" class="small" fill="#506a80" text-anchor="start">Application sur la base partagée</text>
+<path d="M528 889 H408" fill="none" stroke="#238767" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#green)"/>
+<path d="M872 889 H992" fill="none" stroke="#238767" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#green)"/>
+<text x="468" y="872" class="small" fill="#238767" text-anchor="middle">WAL</text>
+<text x="932" y="872" class="small" fill="#238767" text-anchor="middle">WAL</text>
+<rect x="64" y="795" width="344" height="190" rx="16" fill="#ffffff" stroke="#d8c291" />
+<rect x="64" y="795" width="344" height="46" rx="14" fill="#fff0d0" stroke="none" />
+<text x="84" y="825" class="heading" fill="#916718" text-anchor="start">odoodb2 · Réplique</text>
+<text x="84" y="871" class="mono" fill="#223d56" text-anchor="start">192.168.33.157:5432</text>
+<text x="84" y="903" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.33.22</text>
+<text x="84" y="931" class="small" fill="#223d56" text-anchor="start">LXC : devpg15 · Debian 12</text>
+<text x="84" y="962" class="small" fill="#506a80" text-anchor="start">Lecture seule · copie du primaire</text>
+<rect x="528" y="795" width="344" height="190" rx="16" fill="#ffffff" stroke="#80bca7" />
+<rect x="528" y="795" width="344" height="46" rx="14" fill="#d8efe4" stroke="none" />
+<text x="548" y="825" class="heading" fill="#216a50" text-anchor="start">odoodb1 · Primaire</text>
+<text x="548" y="871" class="mono" fill="#223d56" text-anchor="start">192.168.33.156:5432</text>
+<text x="548" y="903" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.33.21</text>
+<text x="548" y="931" class="small" fill="#223d56" text-anchor="start">LXC : devpg15 · Debian 12</text>
+<text x="548" y="962" class="small" fill="#506a80" text-anchor="start">Base partagée : prod par défaut</text>
+<rect x="992" y="795" width="344" height="190" rx="16" fill="#ffffff" stroke="#d8c291" />
+<rect x="992" y="795" width="344" height="46" rx="14" fill="#fff0d0" stroke="none" />
+<text x="1012" y="825" class="heading" fill="#916718" text-anchor="start">odoodb3 · Réplique</text>
+<text x="1012" y="871" class="mono" fill="#223d56" text-anchor="start">192.168.33.158:5432</text>
+<text x="1012" y="903" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.33.23</text>
+<text x="1012" y="931" class="small" fill="#223d56" text-anchor="start">LXC : devpg15 · Debian 12</text>
+<text x="1012" y="962" class="small" fill="#506a80" text-anchor="start">Lecture seule · copie du primaire</text>
+<text x="700" y="1015" class="small" fill="#456756" text-anchor="middle">Réplication WAL asynchrone en étoile · bascule PostgreSQL manuelle</text>
+<path d="M700 985 V1067 H1040 V1140" fill="none" stroke="#7c8999" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#gray)"/>
+<rect x="982" y="1080" width="116" height="29" rx="5" fill="#f7f9fc" stroke="none" />
+<text x="1040" y="1100" class="small" fill="#596d80" text-anchor="middle">pg_dump</text>
+<text x="64" y="1120" class="eyebrow" fill="#223d56" text-anchor="start">STOCKAGE PARTAGÉ EXTERNE</text>
+<text x="740" y="1120" class="eyebrow" fill="#223d56" text-anchor="start">SAUVEGARDES</text>
+<rect x="64" y="1140" width="600" height="195" rx="16" fill="#f1eafb" stroke="#d6c2e9" />
+<text x="88" y="1175" class="heading" fill="#714399" text-anchor="start">GlusterFS · volume sre</text>
+<text x="88" y="1209" class="mono" fill="#54336e" text-anchor="start">192.168.36.8:/sre</text>
+<text x="88" y="1242" class="body" fill="#223d56" text-anchor="start">Hôtes Odoo : /mnt/odoo</text>
+<text x="88" y="1273" class="body" fill="#223d56" text-anchor="start">Bind LXC → /var/lib/odoo</text>
+<text x="88" y="1306" class="small" fill="#223d56" text-anchor="start">Filestore et sessions · topologie des briques externe</text>
+<path d="M664 1236 H740" fill="none" stroke="#7c8999" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#gray)"/>
+<text x="702" y="1217" class="small" fill="#596d80" text-anchor="middle">archive</text>
+<rect x="740" y="1140" width="600" height="195" rx="16" fill="#edf1f7" stroke="#cdd7e2" />
+<text x="764" y="1175" class="heading" fill="#223d56" text-anchor="start">Hôte 192.168.36.21</text>
+<text x="764" y="1209" class="mono" fill="#223d56" text-anchor="start">/srv/sauvegardes</text>
+<text x="764" y="1242" class="body" fill="#223d56" text-anchor="start">Dump SQL + filestore hors sessions</text>
+<text x="764" y="1273" class="small" fill="#223d56" text-anchor="start">02:15 + délai aléatoire ≤ 10 min · rétention : 30 jours</text>
+<text x="764" y="1306" class="small" fill="#223d56" text-anchor="start">Rapatriement au contrôleur : optionnel, désactivé</text>
+<rect x="64" y="1360" width="1276" height="109" rx="12" fill="#ffffff" stroke="#d9e1ea" />
+<text x="88" y="1392" class="eyebrow" fill="#223d56" text-anchor="start">ÉTAT DU CODE</text>
+<text x="88" y="1420" class="body" fill="#223d56" text-anchor="start">Montage GlusterFS requis : son étape est commentée dans le playbook principal.</text>
+<text x="88" y="1449" class="small" fill="#607387" text-anchor="start">Réseau MACVLAN · Patroni et etcd non utilisés · état des serveurs non vérifié</text>
+<text x="64" y="1500" class="label" fill="#223d56" text-anchor="start">Sources : inventory.yaml · host_vars · group_vars · playbooks/ansi_odoo.yaml · rôles pg_server et odoo_backup</text>
+</svg>

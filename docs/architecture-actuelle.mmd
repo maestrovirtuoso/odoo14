@@ -1,0 +1,48 @@
+flowchart TB
+    U["Utilisateurs<br/>Accès direct aux applications"]
+    A["Poste de contrôle Ansible<br/>Ubuntu 22.04 ou Debian 12<br/>Administration SSH : 22/TCP"]
+
+    subgraph APPS["Applications — 192.168.36.0/24 — LXC Debian 12 sur hôtes Rocky 8"]
+        O1["Odoo 14 · odoo1<br/>192.168.36.151:8069<br/>Hôte : 192.168.36.21<br/>LXC : devodoo14<br/>Initialisation de la base et tâches cron"]
+        O2["Odoo 14 · odoo2<br/>192.168.36.152:8069<br/>Hôte : 192.168.36.22<br/>LXC : devodoo14"]
+        O3["Odoo 14 · odoo3<br/>192.168.36.153:8069<br/>Hôte : 192.168.36.23<br/>LXC : devodoo14"]
+    end
+
+    subgraph DB["PostgreSQL 15 — 192.168.33.0/24 — LXC Debian 12 sur hôtes Rocky 8"]
+        P[("odoodb1 · Primaire<br/>192.168.33.156:5432<br/>Hôte : 192.168.33.21<br/>LXC : devpg15<br/>Base partagée : prod par défaut")]
+        R2[("odoodb2 · Réplique<br/>192.168.33.157:5432<br/>Hôte : 192.168.33.22<br/>LXC : devpg15<br/>Lecture seule")]
+        R3[("odoodb3 · Réplique<br/>192.168.33.158:5432<br/>Hôte : 192.168.33.23<br/>LXC : devpg15<br/>Lecture seule")]
+        P -->|"Streaming WAL asynchrone"| R2
+        P -->|"Streaming WAL asynchrone"| R3
+    end
+
+    G[("GlusterFS externe<br/>192.168.36.8:/sre<br/>Hôtes Odoo : /mnt/odoo<br/>Conteneurs : /var/lib/odoo<br/>Pièces jointes et sessions partagées")]
+    B["Sauvegardes · hôte 192.168.36.21<br/>Destination : /srv/sauvegardes<br/>Dump PostgreSQL et archive du filestore<br/>02:15 + délai aléatoire ; rétention : 30 jours"]
+    N["Bascule PostgreSQL manuelle<br/>Pas de HAProxy, keepalived, Patroni ou etcd dans le parcours actuel"]
+
+    U -->|"HTTP : 8069 ; bus : 8072"| O1
+    U --> O2
+    U --> O3
+    O1 -->|"SQL : lectures et écritures"| P
+    O2 -->|"SQL : 5432/TCP"| P
+    O3 -->|"SQL : 5432/TCP"| P
+    O1 <-->|"Stockage partagé"| G
+    O2 <--> G
+    O3 <--> G
+    P -->|"pg_dump"| B
+    G -->|"Archive hors sessions"| B
+    B -. "Rapatriement optionnel, désactivé par défaut" .-> A
+    A -. "SSH vers les hôtes et les conteneurs" .-> APPS
+    A -. "SSH vers les hôtes et les conteneurs" .-> DB
+    P --- N
+
+    classDef app fill:#eaf3ff,stroke:#2870ba,color:#14314c
+    classDef primary fill:#e4f5ed,stroke:#248463,color:#143e30
+    classDef replica fill:#fff5dd,stroke:#c08c2a,color:#624817
+    classDef storage fill:#f0eaff,stroke:#8655bb,color:#483066
+    classDef admin fill:#edf1f5,stroke:#6a7c8e,color:#293f50
+    class O1,O2,O3 app
+    class P primary
+    class R2,R3 replica
+    class G storage
+    class A,B,N admin
