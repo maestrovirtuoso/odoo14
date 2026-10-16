@@ -8,7 +8,7 @@
 #   {{ gluster_server }}:/{{ gluster_volume }}   volume replique, hors projet
 #         |  mount -t glusterfs (fstab)        <- pose par CE role
 #         v
-#   /mnt/odoo                                  sur l'HOTE Rocky
+#   /mnt/odoo                                  sur l'HOTE Debian
 #         |  lxc.mount.entry (bind)
 #         v
 #   /var/lib/odoo                              dans le CONTENEUR Debian
@@ -45,12 +45,13 @@
 
 # --- 1. Monter le volume sur l'hote ----------------------------------------
 - name: Installer le client GlusterFS
-  # Paquet de la distribution Rocky 8 (client 6.x). Un client plus ancien que
-  # les serveurs fonctionne en general, mais le montage echoue si le volume
-  # utilise une option que le client ne connait pas : comparer avec
-  # "gluster --version" sur {{ gluster_server }} en cas d'echec.
-  ansible.builtin.dnf:
-    name: glusterfs-fuse
+  # Paquet de la distribution : glusterfs-client sous Debian 12 (client 10.x),
+  # glusterfs-fuse sous Rocky / RHEL. Un client plus ancien que les serveurs
+  # fonctionne en general, mais le montage echoue si le volume utilise une
+  # option que le client ne connait pas : comparer avec "gluster --version"
+  # sur {{ gluster_server }} en cas d'echec.
+  ansible.builtin.package:
+    name: "{{ 'glusterfs-client' if ansible_os_family == 'Debian' else 'glusterfs-fuse' }}"
     state: present
 
 - name: Le serveur GlusterFS repond

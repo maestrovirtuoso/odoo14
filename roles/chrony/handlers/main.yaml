@@ -1,5 +1,5 @@
 ---
 - name: redemarrer chronyd
   ansible.builtin.systemd:
-    name: chronyd
+    name: "{{ chrony_service }}"
     state: restarted

@@ -1,6 +1,6 @@
 ---
 # ===========================================================================
-# Role chrony  -  execute sur les HOTES Rocky 8
+# Role chrony  -  execute sur les HOTES (Debian 12)
 #
 # Garantit que les hotes sont a l'heure, et le RESTENT.
 #
@@ -12,7 +12,7 @@
 #
 # "chronyc tracking" affichait "active", stratum 2, et une Ref time CORRECTE :
 # chrony connaissait l'heure juste et refusait de l'appliquer. La cause est la
-# politique Rocky par defaut, "makestep 1.0 3", qui n'autorise le saut que lors
+# politique par defaut, "makestep 1.0 3", qui n'autorise le saut que lors
 # des 3 premieres mises a jour apres demarrage. Au-dela, chrony ne peut plus
 # que glisser.
 #
@@ -31,13 +31,13 @@
   # .141 n'avait aucun chronyd le 25/09/2026, et se trouvait a l'heure par
   # l'outil d'invite de l'hyperviseur. C'est l'hote de la base de donnees :
   # laisser son horloge dependre d'un mecanisme non declare n'est pas tenable.
-  ansible.builtin.dnf:
+  ansible.builtin.package:
     name: chrony
     state: present
 
 - name: Autoriser chrony a corriger un ecart a tout moment
   ansible.builtin.lineinfile:
-    path: /etc/chrony.conf
+    path: "{{ chrony_conf }}"
     regexp: '^\s*makestep\s'
     line: "{{ chrony_makestep }}"
     insertafter: '^#?\s*makestep'
@@ -45,7 +45,7 @@
 
 - name: Demarrer chronyd et le rendre persistant
   ansible.builtin.systemd:
-    name: chronyd
+    name: "{{ chrony_service }}"
     enabled: true
     state: started
 
@@ -87,7 +87,7 @@
     fail_msg: >-
       {{ inventory_hostname }} reste a
       {{ ((_horloge2.stdout | int - _controleur | int) / 3600) | round(2) }} h
-      du poste de controle malgre "chronyc makestep". Verifier que chronyd
+      du poste de controle malgre "chronyc makestep". Verifier que {{ chrony_service }}
       atteint bien une source :
       chronyc tracking ; chronyc sources -v
       Si le RTC de la VM est en heure locale : timedatectl set-local-rtc 0

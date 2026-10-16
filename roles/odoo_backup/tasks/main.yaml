@@ -26,16 +26,18 @@
 
 # --- 1. Client PostgreSQL ---------------------------------------------------
 # pg_dump refuse de sauvegarder un serveur PLUS RECENT que lui. Le client par
-# defaut de Rocky 8 est en 10 : il faut le flux {{ pg_version }}.
-- name: Activer le flux PostgreSQL {{ pg_version }} d'AppStream
+# defaut depend de la distribution : il faut la version {{ pg_version }}
+# (Debian 12 fournit postgresql-client-15).
+- name: Activer le flux PostgreSQL {{ pg_version }} d'AppStream (Rocky / RHEL)
   ansible.builtin.command: "dnf -y module enable postgresql:{{ pg_version }}"
   register: _dnf_module
   changed_when: "'Nothing to do' not in _dnf_module.stdout"
   failed_when: false
+  when: ansible_os_family in ["RedHat", "Rocky"]
 
 - name: Installer le client PostgreSQL
-  ansible.builtin.dnf:
-    name: postgresql
+  ansible.builtin.package:
+    name: "{{ ('postgresql-client-' ~ pg_version) if ansible_os_family == 'Debian' else 'postgresql' }}"
     state: present
 
 - name: Relever la version de pg_dump
@@ -50,12 +52,10 @@
     fail_msg: >-
       {{ _pgdump_version.stdout }} est plus ancien que PostgreSQL
       {{ pg_version }} : pg_dump refusera la sauvegarde avec "server version
-      ... ; pg_dump version ...". Le flux AppStream postgresql:{{ pg_version }}
-      n'est pas disponible sur cette version de Rocky. Ajouter le depot PGDG :
-      dnf install -y
-      https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm
-      && dnf -qy module disable postgresql
-      && dnf install -y postgresql{{ pg_version }}
+      ... ; pg_dump version ...". Sous Debian 12 le depot officiel ne fournit
+      que PostgreSQL 15 : pour une autre version, ajouter le depot PGDG
+      (apt.postgresql.org) puis installer postgresql-client-{{ pg_version }}.
+      Sous Rocky : flux AppStream postgresql:{{ pg_version }} ou depot PGDG.
     success_msg: "{{ _pgdump_version.stdout }}"
 
 # --- 2. Destination ---------------------------------------------------------

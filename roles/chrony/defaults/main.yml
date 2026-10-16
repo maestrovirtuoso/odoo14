@@ -3,12 +3,18 @@
 # Valeurs par defaut du role chrony.
 # ===========================================================================
 
+# Fichier de configuration et service de chrony selon la famille de systeme.
+# Debian 12 : /etc/chrony/chrony.conf et service "chrony".
+# Rocky / RHEL : /etc/chrony.conf et service "chronyd".
+chrony_conf: "{{ '/etc/chrony/chrony.conf' if ansible_os_family == 'Debian' else '/etc/chrony.conf' }}"
+chrony_service: "{{ 'chrony' if ansible_os_family == 'Debian' else 'chronyd' }}"
+
 # Ecart tolere avec le poste de controle, en secondes.
 chrony_ecart_max: 60
 
 # Autoriser chrony a SAUTER l'horloge a tout moment.
 #
-# La valeur Rocky par defaut est "makestep 1.0 3" : chrony n'a le droit de
+# La valeur par defaut est "makestep 1.0 3" : chrony n'a le droit de
 # sauter que lors des 3 PREMIERES mises a jour apres son demarrage. Passe ce
 # delai, il ne peut plus que glisser, a quelques dizaines de ppm -- rattraper
 # 14 h prendrait des mois.
