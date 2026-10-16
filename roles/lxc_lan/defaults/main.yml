@@ -31,6 +31,19 @@ ct_dns_servers:
 # le conteneur ; en macvlan, pas depuis son propre hote.
 lxc_apt_proxy: ""
 
+# Sortie Internet par NAT via l'hote. A activer quand le reseau du LAN filtre
+# la MAC/IP du macvlan (conteneur sans reponse de sa passerelle, MTU reduit
+# typique d'un cloud prive). Le conteneur recoit une 2e interface eth1 sur
+# {{ lxc_egress_bridge }}, masquerade derriere l'IP de l'hote, et c'est elle
+# qui porte la route par defaut. eth0 (macvlan) garde l'IP LAN.
+# Limite : le trafic du conteneur vers les autres machines sort aussi par
+# l'hote, qui apparait alors comme source (pg_hba, filtres...).
+lxc_egress_nat: false
+lxc_egress_bridge: lxcbr0
+lxc_egress_ip: 10.0.3.10
+lxc_egress_prefix: 24
+lxc_egress_gateway: 10.0.3.1
+
 # Nom du conteneur LXC : defini par hote dans host_vars/<ip>.yml.
 lxc_container_name: devodoo14
 

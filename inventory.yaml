@@ -19,6 +19,11 @@
 # Consequence : un hote ne joint pas son propre conteneur (cf. roles/lxc_lan).
 lxc_net_type=macvlan
 #
+# Le reseau filtre la MAC/IP du macvlan (le conteneur n'obtient pas de reponse
+# de sa passerelle) : la sortie Internet passe par NAT derriere l'hote, via une
+# 2e interface sur lxcbr0 (cf. roles/lxc_lan, lxc_egress_nat).
+lxc_egress_nat=true
+#
 # L'ancien modele routé du lab (10.0.x.0/24) n'existe pas sur ces hotes. Ne
 # pas laisser lxc_lan y supprimer des routes 10.0.x.0/24 : 10.0.3.0/24 est
 # celle de lxcbr0, qui peut encore servir tant que la migration n'est pas

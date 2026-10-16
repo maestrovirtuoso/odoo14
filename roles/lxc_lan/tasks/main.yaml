@@ -110,6 +110,49 @@
 - name: Appliquer la configuration NetworkManager avant de toucher au conteneur
   ansible.builtin.meta: flush_handlers
 
+# ---------------------------------------------------------------------------
+# 1b. Sortie Internet par NAT via l'hote (lxc_egress_nat)
+#
+# Quand le reseau du LAN filtre la MAC/IP du macvlan (cloud avec port
+# security), le conteneur ne joint meme pas sa passerelle. On lui ajoute une
+# 2e interface (eth1) sur lxcbr0, derriere l'IP de l'hote, que le reseau
+# connait : apt et le reste du trafic sortant passent par la. eth0 (macvlan)
+# garde l'identite LAN du conteneur.
+# ---------------------------------------------------------------------------
+- name: Activer le routage IPv4 sur l'hote (sortie NAT du conteneur)
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: true
+    state: present
+    reload: true
+  when: lxc_egress_nat | bool
+
+- name: Demarrer le bridge {{ lxc_egress_bridge }} (lxc-net)
+  ansible.builtin.systemd:
+    name: lxc-net
+    state: started
+    enabled: true
+  when: lxc_egress_nat | bool
+
+- name: Masquerade firewalld sur la zone de sortie de l'hote
+  ansible.posix.firewalld:
+    zone: public
+    masquerade: true
+    permanent: true
+    immediate: true
+    state: enabled
+  when: lxc_egress_nat | bool
+
+- name: Laisser passer le trafic du bridge {{ lxc_egress_bridge }} (zone trusted)
+  ansible.posix.firewalld:
+    zone: trusted
+    interface: "{{ lxc_egress_bridge }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  when: lxc_egress_nat | bool
+
 - name: Sauvegarder la configuration LXC d'origine (une seule fois)
   ansible.builtin.copy:
     src: "/var/lib/lxc/{{ lxc_container_name }}/config"
@@ -148,11 +191,42 @@
          {'k': 'link', 'v': nic},
          {'k': 'name', 'v': 'eth0'},
          {'k': 'flags', 'v': 'up'},
-         {'k': 'ipv4.address', 'v': ct_ip ~ '/' ~ ct_prefix},
-         {'k': 'ipv4.gateway', 'v': ct_gateway}
+         {'k': 'ipv4.address', 'v': ct_ip ~ '/' ~ ct_prefix}
        ]
+       + ([] if lxc_egress_nat | bool else
+          [{'k': 'ipv4.gateway', 'v': ct_gateway}])
        + ([{'k': 'macvlan.mode', 'v': lxc_macvlan_mode}]
           if lxc_net_type == 'macvlan' else []) }}
+
+# Avec la sortie NAT, la passerelle par defaut est celle de eth1 : eth0 n'en
+# porte plus (la passerelle LAN ne repond pas a la MAC du macvlan).
+- name: Retirer la passerelle LXC de eth0 (sortie NAT)
+  ansible.builtin.lineinfile:
+    path: "/var/lib/lxc/{{ lxc_container_name }}/config"
+    regexp: '^lxc\.net\.0\.ipv4\.gateway'
+    state: absent
+  when: lxc_egress_nat | bool
+
+- name: Interface de sortie NAT du conteneur (eth1 sur {{ lxc_egress_bridge }})
+  ansible.builtin.lineinfile:
+    path: "/var/lib/lxc/{{ lxc_container_name }}/config"
+    regexp: '^lxc\.net\.1\.{{ item.k | regex_escape }}\s*='
+    line: "lxc.net.1.{{ item.k }} = {{ item.v }}"
+  loop:
+    - {k: type, v: veth}
+    - {k: link, v: "{{ lxc_egress_bridge }}"}
+    - {k: name, v: eth1}
+    - {k: flags, v: up}
+    - {k: ipv4.address, v: "{{ lxc_egress_ip }}/{{ lxc_egress_prefix }}"}
+    - {k: ipv4.gateway, v: "{{ lxc_egress_gateway }}"}
+  when: lxc_egress_nat | bool
+
+- name: Retirer eth1 si la sortie NAT est desactivee
+  ansible.builtin.lineinfile:
+    path: "/var/lib/lxc/{{ lxc_container_name }}/config"
+    regexp: '^lxc\.net\.1\.'
+    state: absent
+  when: not (lxc_egress_nat | bool)
 
 - name: IP statique dans le conteneur (systemd-networkd, sans DHCP)
   ansible.builtin.copy:
@@ -164,10 +238,34 @@
 
       [Network]
       Address={{ ct_ip }}/{{ ct_prefix }}
+      {% if not (lxc_egress_nat | bool) %}
       Gateway={{ ct_gateway }}
+      {% endif %}
       {% for dns in ct_dns_servers %}
       DNS={{ dns }}
       {% endfor %}
+
+- name: IP statique de la sortie NAT dans le conteneur (eth1)
+  ansible.builtin.copy:
+    dest: "/var/lib/lxc/{{ lxc_container_name }}/rootfs/etc/systemd/network/eth1.network"
+    mode: "0644"
+    content: |
+      [Match]
+      Name=eth1
+
+      [Network]
+      Address={{ lxc_egress_ip }}/{{ lxc_egress_prefix }}
+      Gateway={{ lxc_egress_gateway }}
+      {% for dns in ct_dns_servers %}
+      DNS={{ dns }}
+      {% endfor %}
+  when: lxc_egress_nat | bool
+
+- name: Pas de eth1.network si la sortie NAT est desactivee
+  ansible.builtin.file:
+    path: "/var/lib/lxc/{{ lxc_container_name }}/rootfs/etc/systemd/network/eth1.network"
+    state: absent
+  when: not (lxc_egress_nat | bool)
 
 # ---------------------------------------------------------------------------
 # 2. Demarrage du conteneur
