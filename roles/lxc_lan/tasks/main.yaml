@@ -1,6 +1,6 @@
 ---
 # ===========================================================================
-# Role lxc_lan  -  execute sur les HOTES (gluster_servers, Rocky 8)
+# Role lxc_lan  -  execute sur les HOTES (gluster_servers, Debian 12)
 #
 # Expose le conteneur LXC directement sur le LAN, selon lxc_net_type :
 #   - phys    : le conteneur recoit une CARTE PHYSIQUE dediee. Il possede
@@ -138,23 +138,9 @@
     enabled: true
   when: lxc_egress_nat | bool
 
-- name: Masquerade firewalld sur la zone de sortie de l'hote
-  ansible.posix.firewalld:
-    zone: public
-    masquerade: true
-    permanent: true
-    immediate: true
-    state: enabled
-  when: lxc_egress_nat | bool
-
-- name: Laisser passer le trafic du bridge {{ lxc_egress_bridge }} (zone trusted)
-  ansible.posix.firewalld:
-    zone: trusted
-    interface: "{{ lxc_egress_bridge }}"
-    permanent: true
-    immediate: true
-    state: enabled
-  when: lxc_egress_nat | bool
+# Le masquerade de lxcbr0 est pose par lxc-net lui-meme (regle iptables
+# POSTROUTING sur 10.0.3.0/24). Aucun pare-feu supplementaire a configurer sur
+# Debian 12 tant qu'aucune politique DROP n'est active sur FORWARD.
 
 - name: Sauvegarder la configuration LXC d'origine (une seule fois)
   ansible.builtin.copy:

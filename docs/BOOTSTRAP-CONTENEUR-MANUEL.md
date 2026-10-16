@@ -34,7 +34,7 @@ filtre la MAC/IP du macvlan. On donne alors au conteneur une 2e interface
 (`eth1`) sur `lxcbr0`, masquerade derrière l'IP de l'hôte. `eth0` garde son IP
 LAN. Équivalent manuel de `lxc_egress_nat` (roles/lxc_lan).
 
-**Sur l'hôte LXC** (Rocky, hors du conteneur) :
+**Sur l'hôte LXC** (Debian 12, hors du conteneur) :
 
 ```bash
 sysctl -w net.ipv4.ip_forward=1
@@ -43,9 +43,10 @@ echo 'net.ipv4.ip_forward = 1' > /etc/sysctl.d/99-lxc-forward.conf
 systemctl enable --now lxc-net
 ip -4 addr show lxcbr0          # doit porter 10.0.3.1/24
 
-firewall-cmd --permanent --zone=public --add-masquerade
-firewall-cmd --permanent --zone=trusted --add-interface=lxcbr0
-firewall-cmd --reload
+# lxc-net pose lui-meme le masquerade de lxcbr0 ; verifier :
+iptables -t nat -S POSTROUTING | grep 10.0.3.0
+# Si la politique FORWARD est DROP (pare-feu actif), autoriser lxcbr0 :
+iptables -S FORWARD | head -1
 ```
 
 Arrêter le conteneur et modifier sa config :

@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------------------
-# Hotes physiques (Rocky 8). Chacun heberge un conteneur LXC.
+# Hotes physiques (Debian 12). Chacun heberge un conteneur LXC.
 #   192.168.36.21-23 : conteneurs Odoo, carte enp5s0
 #   192.168.33.21-23 : conteneurs PostgreSQL, carte enp1s0
 # Carte, IP, passerelle et DNS de chaque conteneur : host_vars/<ip>.yml.
