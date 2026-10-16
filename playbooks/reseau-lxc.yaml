@@ -2,34 +2,48 @@
 # ===========================================================================
 # Reseau des conteneurs LXC, joue SEUL.
 #
-# Expose chaque conteneur directement sur le LAN en lui donnant une carte
-# physique dediee (lxc.net.0.type = phys), puis amorce son acces SSH.
+# Expose chaque conteneur directement sur le LAN en IPVLAN (mode l2,
+# lxc.net.0.type = ipvlan) pose sur la carte de l'hote, puis amorce son acces
+# SSH (openssh-server, python3, python3-apt, cle du poste de controle).
+#
+# Pourquoi ipvlan : le reseau des hotes (cloud, MTU 1442) jette les MAC
+# inconnues. Un conteneur en macvlan ou en veth sur un bridge n'obtient alors
+# aucune reponse de sa passerelle et n'a pas Internet. L'ipvlan partage la MAC
+# de l'hote, que le reseau accepte. Valide sur 192.168.36.21 (passerelle et
+# 8.8.8.8 joignables). Reste a verifier sur les hotes 192.168.33.x.
+# Le choix vient de lxc_net_type dans inventory.yaml ([gluster_servers:vars]).
+#
+# Hotes : Debian 12. Le NAT de secours (lxc_egress_nat, eth1 sur lxcbr0) reste
+# disponible dans le role mais est desactive.
 #
 # C'est exactement la play 1/5 de ansi_odoo.yaml, extraite pour pouvoir
-# rejouer l'etape reseau sans dérouler tout le deploiement : apres un
-# changement de carte, une reinstallation de conteneur, ou pour diagnostiquer
+# rejouer l'etape reseau sans derouler tout le deploiement : apres un
+# changement de mode, une reinstallation de conteneur, ou pour diagnostiquer
 # un conteneur injoignable. Le role etant idempotent, le rejouer sur une
 # installation saine ne change rien.
 #
-# Ce playbook remplace l'ancien lxc-nic.yml, qui faisait la meme chose en
-# moins complet : ni garde-fou sur la carte par defaut, ni diagnostic au
-# demarrage, ni amorcage SSH. Il utilisait aussi son propre inventaire
-# (inventory-lxc.ini) dont le groupe "lxc_nodes" doublonnait gluster_servers.
+# PREREQUIS : les conteneurs existent deja (playbooks/ansi2-snapchot.yaml, role
+# install). Ce playbook ne les cree pas.
+#
+# ATTENTION : le poste de controle doit avoir la MEME version du role lxc_lan
+# que ce depot. Un role ancien reecrit lxc.net.0.type = macvlan et casse un
+# conteneur deja passe en ipvlan. Verifier avant de lancer :
+#   grep -c ipvlan roles/lxc_lan/tasks/main.yaml     # doit afficher plus de 2
 #
 # Lancement :
-#   ansible-playbook playbooks/reseau-lxc.yaml -k
+#   ansible-playbook -i inventory.yaml playbooks/reseau-lxc.yaml
 #
 # Voir d'abord ce qui changerait, sans rien toucher :
-#   ansible-playbook playbooks/reseau-lxc.yaml -k --check --diff
+#   ansible-playbook -i inventory.yaml playbooks/reseau-lxc.yaml --check --diff
 #
 # Un seul hote :
-#   ansible-playbook playbooks/reseau-lxc.yaml -k --limit 192.168.96.128
+#   ansible-playbook -i inventory.yaml playbooks/reseau-lxc.yaml --limit 192.168.36.21
 #
-# AVERTISSEMENT : ce playbook REDEMARRE les conteneurs et retire la carte
-# {{ nic }} de l'hote. Verifier avant qu'elle ne porte pas votre session SSH :
-#   ansible gluster_servers -k -m shell -a 'ip -br link show ens224; ip r | head -1'
-# Le role refuse de deporter la carte qui porte la route par defaut, mais ce
-# controle ne couvre pas le cas d'un acces par une route plus specifique.
+# AVERTISSEMENT : ce playbook REDEMARRE les conteneurs (lxc-stop puis
+# lxc-start). En ipvlan, l'hote ne joint pas son propre conteneur : tester
+# depuis le poste de controle (ping, ssh root@<ct_ip>).
+#
+# Procedure manuelle equivalente : docs/BOOTSTRAP-CONTENEUR-MANUEL.md.
 # ===========================================================================
 
 - name: "Reseau : exposer les conteneurs LXC sur le LAN"

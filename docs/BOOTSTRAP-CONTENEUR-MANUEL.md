@@ -26,7 +26,84 @@ Si `getent` ne répond rien : problème de DNS. Si `ping 8.8.8.8` échoue :
 problème de route ou de passerelle. Inutile d'aller plus loin tant que ça ne
 marche pas.
 
-## 1b. Si le conteneur n'a pas Internet : sortie NAT par l'hôte
+## 1a. Si le conteneur n'a pas Internet : passer en ipvlan (solution retenue)
+
+Symptôme : depuis le conteneur, `ping` de la passerelle échoue
+(`ip neigh` affiche `INCOMPLETE`), alors que l'hôte joint la passerelle et
+Internet. Le réseau (cloud, MTU 1442) jette les MAC inconnues : celle du
+macvlan est donc ignorée. L'ipvlan partage la MAC de l'hôte, que le réseau
+accepte. Vérifié sur `192.168.36.21` : la passerelle et `8.8.8.8` répondent.
+
+Le conteneur reste en macvlan tant que `lxc.net.0.type = macvlan` figure dans
+`/var/lib/lxc/<conteneur>/config`. Contrôle sur l'hôte :
+
+```bash
+grep -E '^lxc\.net\.0\.(type|ipvlan|macvlan)' /var/lib/lxc/devodoo14/config
+ip -br link show enp5s0         # MAC de l'hote
+lxc-attach -n devodoo14 -- ip -br link show eth0   # doit etre la meme MAC
+```
+
+### Un hôte
+
+```bash
+CT=devodoo14                    # devpg15 sur les hotes 192.168.33.x
+F=/var/lib/lxc/$CT/config
+
+lxc-stop -n $CT
+sed -i '/^lxc\.net\.0\.macvlan\./d; /^lxc\.net\.0\.ipvlan\./d;
+        s/^lxc\.net\.0\.type.*/lxc.net.0.type = ipvlan/' $F
+echo 'lxc.net.0.ipvlan.mode = l2' >> $F
+grep -E '^lxc\.net\.0\.(type|ipvlan|macvlan)' $F
+lxc-start -n $CT
+
+lxc-attach -n $CT -- ip -br addr show eth0
+lxc-attach -n $CT -- ping -c 2 GATEWAY      # 192.168.36.254 ou 192.168.33.254
+lxc-attach -n $CT -- ping -c 2 8.8.8.8
+```
+
+### Les six hôtes, depuis le poste de contrôle
+
+Le script ne s'arrête pas à la première erreur et affiche le résultat de
+chaque hôte. Hôte, conteneur et passerelle suivent `host_vars/<ip>.yml`.
+
+```bash
+for e in \
+    192.168.36.21:devodoo14:192.168.36.254 \
+    192.168.36.22:devodoo14:192.168.36.254 \
+    192.168.36.23:devodoo14:192.168.36.254 \
+    192.168.33.21:devpg15:192.168.33.254 \
+    192.168.33.22:devpg15:192.168.33.254 \
+    192.168.33.23:devpg15:192.168.33.254
+do
+  IFS=: read -r H CT GW <<< "$e"
+  echo "=== $H ($CT) ==="
+  ssh root@$H "
+    F=/var/lib/lxc/$CT/config
+    lxc-stop -n $CT
+    sed -i '/^lxc\.net\.0\.macvlan\./d; /^lxc\.net\.0\.ipvlan\./d;
+            s/^lxc\.net\.0\.type.*/lxc.net.0.type = ipvlan/' \$F
+    echo 'lxc.net.0.ipvlan.mode = l2' >> \$F
+    grep -E '^lxc\.net\.0\.(type|ipvlan|macvlan)' \$F
+    lxc-start -n $CT
+    sleep 5
+    lxc-attach -n $CT -- ping -c 2 -W 3 $GW
+    lxc-attach -n $CT -- ping -c 2 -W 3 8.8.8.8
+  "
+done
+```
+
+Points à savoir :
+- **Hôtes `192.168.33.x`** : l'ipvlan n'a été testé que sur le réseau
+  `192.168.36.0/24`. Si le ping de `192.168.33.254` échoue sur ces hôtes, le
+  réseau `.33` filtre aussi l'IP : voir la section 1b (NAT) ou faire autoriser
+  les adresses des conteneurs côté cloud.
+- **Les conteneurs redémarrent** (`lxc-stop` puis `lxc-start`).
+- **Le playbook ne doit pas défaire cela** : le rôle `lxc_lan` doit être à
+  jour sur le poste de contrôle (`grep -c ipvlan roles/lxc_lan/tasks/main.yaml`
+  doit afficher plus de 2). Sinon, le prochain `reseau-lxc.yaml` remet
+  `macvlan`.
+
+## 1b. Si l'ipvlan ne suffit pas : sortie NAT par l'hôte
 
 Symptôme : `ping` de la passerelle (`ip neigh` affiche `INCOMPLETE`) ou de
 `8.8.8.8` échoue depuis le conteneur, alors que l'hôte y arrive. Le réseau
