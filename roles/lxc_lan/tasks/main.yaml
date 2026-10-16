@@ -286,10 +286,28 @@
       ansible.builtin.command: "lxc-info -n {{ lxc_container_name }} -sH"
       register: _lxc_state
       until: _lxc_state.stdout | trim == "RUNNING"
-      retries: 100
+      retries: 30
       delay: 2
       changed_when: false
   rescue:
+    - name: Config reseau lue par LXC et essai de demarrage au premier plan
+      ansible.builtin.shell: |
+        echo "--- lxc-info ---"
+        lxc-info -n {{ lxc_container_name }} 2>&1
+        echo "--- config reseau ---"
+        grep -E '^lxc\.net' /var/lib/lxc/{{ lxc_container_name }}/config 2>&1
+        echo "--- lxc-start au premier plan (8 s) ---"
+        timeout 8 lxc-start -n {{ lxc_container_name }} -F -l ERROR -o /dev/stdout 2>&1 | head -20
+        lxc-stop -n {{ lxc_container_name }} -k 2>&1
+        true
+      register: _lxc_why
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher la cause du non-demarrage
+      ansible.builtin.debug:
+        msg: "{{ (_lxc_start.stderr_lines | default([])) + (_lxc_why.stdout_lines | default([])) }}"
+
     - name: Recuperer le log du conteneur
       ansible.builtin.command: "tail -n 80 /var/log/lxc/{{ lxc_container_name }}.log"
       register: _lxc_log
