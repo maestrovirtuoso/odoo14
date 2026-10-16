@@ -281,7 +281,7 @@
         container_log: true
         template: download
         state: started
-        template_options: -d debian -r bookworm -a amd64 --no-validate
+        template_options: -d debian -r bookworm -a amd64
       loop: "{{ containers }}"
       register: _lxc_create
       until: _lxc_create is not failed
@@ -305,7 +305,7 @@
     - name: Rejouer lxc-create sans --quiet pour obtenir la cause reelle
       ansible.builtin.shell: >-
         lxc-create --name diag-{{ item.name }} --template download --bdev dir
-        -- -d debian -r bookworm -a amd64 --no-validate 2>&1 | tail -n 25
+        -- -d debian -r bookworm -a amd64 2>&1 | tail -n 25
       loop: "{{ containers }}"
       register: _lxc_diag
       changed_when: false
