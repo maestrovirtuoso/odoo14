@@ -40,7 +40,12 @@ data_dir = {{ odoo_data_dir }}
 
 logfile = {{ odoo_log_path }}
 log_level = info
-proxy_mode = True
+# Aucun proxy inverse devant Odoo : les clients le joignent en direct. A True,
+# Odoo croirait les en-tetes X-Forwarded-For / X-Forwarded-Host envoyes par
+# n'importe quel client, qui pourrait ainsi falsifier son IP (journaux,
+# limites de connexion) et l'URL de base. A repasser a True seulement derriere
+# un proxy qui pose lui-meme ces en-tetes.
+proxy_mode = False
 workers = {{ odoo_workers }}
 
 # Taches planifiees : actives sur le SEUL noeud primaire (groupe

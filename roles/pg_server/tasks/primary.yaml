@@ -1,0 +1,90 @@
+---
+# ---------------------------------------------------------------------------
+# Serveur PRIMAIRE (groupe db_containers) : la base que servent les Odoo.
+# ---------------------------------------------------------------------------
+- name: Effacer les reliquats de l'ancienne architecture repliquee
+  # Vise les fichiers de l'ANCIENNE replication (replication.conf,
+  # standby.signal, .pgpass). La replication actuelle vit dans
+  # 20-replication.conf, que ce nettoyage ne touche pas.
+  ansible.builtin.import_tasks: purge_replication.yaml
+
+# ---------------------------------------------------------------------------
+# Role SQL et base partagee
+#
+# Ces taches passent par la socket locale en authentification peer : elles
+# n'ont pas besoin de login_host, et fonctionnent meme si pg_hba interdit
+# tout acces reseau.
+# ---------------------------------------------------------------------------
+- name: Creer le role PostgreSQL odoo
+  # Pas de CREATEDB ni de SUPERUSER : la base est creee par Ansible ci-dessous.
+  # Aucune instance Odoo ne doit pouvoir creer ou detruire une base sur un
+  # serveur qui les heberge toutes.
+  # role_attr_flags est OBLIGATOIRE : sans lui le module remet les attributs
+  # a leurs valeurs par defaut a chaque passage.
+  community.postgresql.postgresql_user:
+    name: "{{ odoo_db_user }}"
+    password: "{{ odoo_db_password }}"
+    role_attr_flags: "LOGIN,NOSUPERUSER,NOCREATEDB,NOCREATEROLE"
+    state: present
+  become: true
+  become_user: postgres
+
+- name: Creer la base partagee
+  # owner est DETERMINANT en PostgreSQL 15 : un role ordinaire ne peut plus
+  # creer d'objet dans le schema "public", sauf s'il possede la base (public
+  # appartient alors a pg_database_owner, qui se resout a lui). Si postgres
+  # possedait cette base, "odoo -i base" echouerait sur
+  # "permission denied for schema public".
+  community.postgresql.postgresql_db:
+    name: "{{ odoo_shared_db }}"
+    owner: "{{ odoo_db_user }}"
+    encoding: UTF-8
+    template: template0
+    state: present
+  become: true
+  become_user: postgres
+
+# ---------------------------------------------------------------------------
+# Replication vers les reserves (groupe db_replicas)
+# ---------------------------------------------------------------------------
+- name: Creer le role de replication
+  # REPLICATION seul : il lit le flux WAL et rien d'autre. Ni LOGIN sur une
+  # base, ni droit d'ecriture -- son mot de passe circule dans le .pgpass des
+  # reserves, il ne doit ouvrir aucune donnee en dehors du flux.
+  community.postgresql.postgresql_user:
+    name: "{{ pg_replication_user }}"
+    password: "{{ pg_replication_password }}"
+    role_attr_flags: "LOGIN,REPLICATION,NOSUPERUSER,NOCREATEDB,NOCREATEROLE"
+    state: present
+  become: true
+  become_user: postgres
+  when: pg_replicas | length > 0
+
+- name: Creer un slot de replication par reserve
+  # Le slot garde sur le primaire les WAL qu'une reserve n'a pas encore lus :
+  # une reserve arretee quelques heures rattrape son retard au lieu d'exiger
+  # un nouveau pg_basebackup. Plafonne par max_slot_wal_keep_size
+  # (20-replication.conf), sans quoi une reserve morte remplirait le disque
+  # du primaire et arreterait la base de production.
+  #
+  # Requete plutot que le module postgresql_slot : son comportement n'a pas
+  # ete valide avec community.postgresql 1.1.1, epinglee dans requirements.yml.
+  community.postgresql.postgresql_query:
+    db: postgres
+    query: >-
+      SELECT pg_create_physical_replication_slot(%(slot)s, true)
+      WHERE NOT EXISTS (SELECT 1 FROM pg_replication_slots WHERE slot_name = %(slot)s)
+    named_args:
+      # Meme calcul que pg_slot_name (defaults) : les defaults d'un role ne
+      # sont pas lisibles dans hostvars d'un hote absent de la play.
+      slot: "{{ item | regex_replace('[^a-z0-9_]', '_') }}"
+  loop: "{{ pg_replicas }}"
+  register: _pg_slots
+  changed_when: _pg_slots.rowcount | default(0) > 0
+  become: true
+  become_user: postgres
+
+- name: Confirmer l'ecoute reseau
+  ansible.builtin.assert:
+    that: odoo_db_host in pg_listen_addresses
+    fail_msg: "pg_listen_addresses ({{ pg_listen_addresses }}) n'inclut pas {{ odoo_db_host }} : les instances Odoo ne pourront pas se connecter."

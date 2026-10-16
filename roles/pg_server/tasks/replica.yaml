@@ -1,0 +1,163 @@
+---
+# ---------------------------------------------------------------------------
+# Serveur de RESERVE (groupe db_replicas) : copie en lecture seule du primaire
+# {{ pg_primary_host }}, alimentee en continu par la replication streaming.
+#
+# Les Odoo n'y ecrivent jamais : odoo_db_host vise le primaire. La reserve
+# sert a ne pas tout perdre si le primaire tombe. La bascule est MANUELLE --
+# rien ici ne surveille le primaire ni ne promeut une reserve :
+#   1. sur la reserve choisie, en tant que postgres :
+#        pg_ctlcluster {{ pg_version }} main promote
+#   2. odoo_db_host = son IP dans group_vars/all/vars.yml, puis
+#      ansible-playbook playbooks/ansi_odoo.yaml --tags ... (ou editer
+#      db_host dans odoo.conf et redemarrer les trois Odoo) ;
+#   3. ne JAMAIS redemarrer l'ancien primaire tel quel : deux primaires
+#      ecriraient chacun de leur cote. Le reconstruire en reserve.
+# ---------------------------------------------------------------------------
+
+# Le mot de passe sert dans un .pgpass, pas sur la ligne de commande : il
+# n'apparait ni dans "ps", ni dans le journal d'Ansible, ni dans
+# postgresql.auto.conf. Le champ base vaut "replication" : c'est le nom que
+# libpq donne a une connexion de replication pour chercher son mot de passe.
+- name: Mot de passe de replication pour le compte postgres
+  ansible.builtin.copy:
+    dest: /var/lib/postgresql/.pgpass
+    content: "{{ pg_primary_host }}:{{ pg_port }}:replication:{{ pg_replication_user }}:{{ pg_replication_password }}\n"
+    owner: postgres
+    group: postgres
+    # libpq ignore le fichier s'il est lisible par d'autres que postgres.
+    mode: "0600"
+  no_log: true
+
+- name: Le cluster est-il deja une reserve ?
+  ansible.builtin.stat:
+    path: "{{ pg_data_dir }}/standby.signal"
+  register: _pg_standby
+
+# ---------------------------------------------------------------------------
+# Copie initiale, une seule fois : le cluster vide cree par le paquet Debian
+# est remplace par une copie du primaire.
+# ---------------------------------------------------------------------------
+- name: Copie initiale depuis le primaire
+  when: not _pg_standby.stat.exists
+  block:
+    # Garde-fou : la copie EFFACE le cluster local. Le paquet Debian n'y met
+    # que postgres, template0 et template1 ; toute autre base veut dire que ce
+    # conteneur a servi a autre chose, et qu'on detruirait des donnees.
+    - name: Le cluster local ne contient aucune base a perdre
+      community.postgresql.postgresql_query:
+        db: postgres
+        query: "SELECT datname FROM pg_database WHERE datname NOT IN ('postgres', 'template0', 'template1')"
+      register: _pg_bases_locales
+      become: true
+      become_user: postgres
+      changed_when: false
+
+    - name: Refuser d'ecraser des donnees
+      ansible.builtin.assert:
+        that: _pg_bases_locales.query_result | length == 0
+        fail_msg: >-
+          {{ inventory_hostname }} contient deja les bases
+          {{ _pg_bases_locales.query_result | map(attribute='datname') | list }} :
+          la copie depuis le primaire les effacerait. Les sauvegarder ou les
+          supprimer a la main avant de relancer.
+
+    - name: Arreter PostgreSQL
+      ansible.builtin.service:
+        name: postgresql
+        state: stopped
+
+    - name: Vider le repertoire de donnees
+      ansible.builtin.file:
+        path: "{{ pg_data_dir }}"
+        state: absent
+
+    - name: Recreer le repertoire de donnees vide
+      ansible.builtin.file:
+        path: "{{ pg_data_dir }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        # PostgreSQL refuse de demarrer sur un repertoire plus ouvert.
+        mode: "0700"
+
+    # -X stream : les WAL ecrits pendant la copie sont transmis en parallele,
+    # la copie est donc coherente sans arreter le primaire.
+    # -S : utilise le slot cree par le primaire (tasks/primary.yaml) ; sans
+    # lui, les WAL produits entre la fin de la copie et le premier demarrage
+    # de la reserve pourraient deja avoir ete recycles.
+    # -w : jamais d'invite de mot de passe, il vient du .pgpass.
+    - name: Copier le primaire (pg_basebackup)
+      ansible.builtin.command:
+        argv:
+          - "/usr/lib/postgresql/{{ pg_version }}/bin/pg_basebackup"
+          - -h
+          - "{{ pg_primary_host }}"
+          - -p
+          - "{{ pg_port }}"
+          - -U
+          - "{{ pg_replication_user }}"
+          - -D
+          - "{{ pg_data_dir }}"
+          - -X
+          - stream
+          - -S
+          - "{{ pg_slot_name }}"
+          - -c
+          - fast
+          - -w
+      become: true
+      become_user: postgres
+
+    # Sa seule presence fait demarrer le serveur en reserve. Sans lui, la
+    # copie demarrerait en PRIMAIRE autonome et divergerait sans prevenir.
+    - name: Marquer le cluster comme reserve
+      ansible.builtin.file:
+        path: "{{ pg_data_dir }}/standby.signal"
+        state: touch
+        owner: postgres
+        group: postgres
+        mode: "0600"
+
+- name: Demarrer la reserve
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+
+- name: Appliquer une configuration modifiee
+  ansible.builtin.meta: flush_handlers
+
+# ---------------------------------------------------------------------------
+# Verification : une reserve qui demarre n'est pas forcement une reserve qui
+# recoit. Les deux cotes doivent le confirmer.
+# ---------------------------------------------------------------------------
+- name: La reserve est en recuperation et recoit le flux
+  community.postgresql.postgresql_query:
+    db: postgres
+    query: >-
+      SELECT pg_is_in_recovery() AS en_reserve,
+             (SELECT status FROM pg_stat_wal_receiver) AS reception
+  register: _pg_reserve
+  become: true
+  become_user: postgres
+  until: >-
+    _pg_reserve.query_result[0].en_reserve
+    and _pg_reserve.query_result[0].reception == 'streaming'
+  retries: 30
+  delay: 2
+  changed_when: false
+
+- name: Le primaire voit la reserve
+  community.postgresql.postgresql_query:
+    db: postgres
+    query: "SELECT state FROM pg_stat_replication WHERE application_name = %(nom)s"
+    named_args:
+      nom: "{{ pg_slot_name }}"
+  delegate_to: "{{ groups['db_containers'] | first }}"
+  register: _pg_vu
+  become: true
+  become_user: postgres
+  until: _pg_vu.query_result | selectattr('state', 'equalto', 'streaming') | list | length > 0
+  retries: 15
+  delay: 2
+  changed_when: false

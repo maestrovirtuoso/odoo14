@@ -1,0 +1,19 @@
+---
+# Hote de odoodb3 - conteneur PostgreSQL (reserve au futur cluster Patroni)
+
+# Nom du conteneur LXC construit sur cet hote (a verifier par lxc-ls -f).
+# Lu par la variable "containers" (common/group_vars/local_dev.yml) pour les
+# roles install et cleanup, et par le role lxc_lan.
+lxc_container_name: devpg15
+
+# Carte de l'hote sur laquelle le conteneur est pose en macvlan. C'est aussi
+# la carte de l'hote : elle reste a lui (cf. roles/lxc_lan).
+nic: enp1s0
+
+# Adressage LAN du conteneur.
+ct_ip: 192.168.33.158
+ct_prefix: 24
+ct_gateway: 192.168.33.254
+ct_dns_servers:
+  - 192.168.36.1
+  - 192.168.36.2

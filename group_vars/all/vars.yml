@@ -7,8 +7,10 @@
 # deux cotes de la connexion, d'ou leur portee "all" plutot que par groupe.
 # ===========================================================================
 
-# Conteneur PostgreSQL dedie (hote 192.168.96.141).
-odoo_db_host: 192.168.96.150
+# Conteneur PostgreSQL dedie odoodb1 (hote 192.168.33.21).
+# Odoo (192.168.36.0/24) l'atteint a travers les passerelles .254 : le port
+# 5432 doit etre ouvert entre les deux sous-reseaux.
+odoo_db_host: 192.168.33.156
 odoo_db_port: 5432
 odoo_db_user: odoo
 
@@ -36,22 +38,37 @@ odoo_client_ips: "{{ groups['odoo_containers'] | map('extract', hostvars, 'ansib
 # l'inventaire : la liste est directement utilisable.
 # Ports d'ecoute d'Odoo.
 #
-# Portee "all" et non par groupe : ces valeurs doivent etre identiques des
-# DEUX cotes -- le template odoo.conf.j2 les pose dans les conteneurs, et le
-# template haproxy.cfg.j2 les vise depuis les hotes. Une divergence donnerait
-# un repartiteur qui frappe un port que personne n'ecoute.
-#
 # 8072 est le port du LONGPOLLING, qu'Odoo n'ouvre que si workers > 0. Il
 # porte le bus de notifications : messagerie instantanee, compteurs, alertes.
-# Un repartiteur qui enverrait /longpolling vers 8069 donnerait une interface
-# fonctionnelle mais sans aucune notification -- une panne difficile a
-# diagnostiquer, parce que rien n'echoue visiblement.
 odoo_http_port: 8069
 odoo_longpolling_port: 8072
 
 pg_backup_client_ips: "{{ groups['backup_host'] | default([]) | list }}"
 
 
+# Volume GlusterFS replique qui porte le filestore COMMUN aux trois Odoo.
+#
+# Il est servi par des serveurs GlusterFS EXTERNES au projet : aucun hote du
+# depot ne porte de brique. gluster_server ne sert qu'a recuperer la
+# description du volume au montage ; le client parle ensuite DIRECTEMENT a
+# chaque serveur de brique du volume. Le pare-feu doit donc laisser passer,
+# depuis les hotes Odoo, 24007/tcp vers gluster_server ET les ports de brique
+# (49152 et suivants) vers tous les serveurs du volume
+# ("gluster volume status sre" les liste).
+gluster_server: 192.168.36.8
+gluster_volume: sre
+
+# Autres serveurs du volume, a qui demander sa description si gluster_server
+# est injoignable au montage (option backup-volfile-servers). Vide : le
+# montage depend de gluster_server seul au moment du demarrage de l'hote.
+gluster_backup_servers: []
+
+# Role PostgreSQL de la replication streaming, partage par le primaire (qui
+# le cree) et les reserves (qui s'en servent) : portee "all" pour la meme
+# raison que les ports ci-dessus.
+pg_replication_user: replicator
+
 # Secrets (group_vars/all/vault.yml, gitignore tant qu'il est en clair).
 odoo_admin_password: "{{ vault_odoo_admin_password }}"
 odoo_db_password: "{{ vault_odoo_db_password }}"
+pg_replication_password: "{{ vault_pg_replication_password }}"

@@ -6,11 +6,11 @@
 # dans le conteneur, le volume GlusterFS est monte sur l'hote, et c'est
 # lxc.mount.entry qui fait le pont.
 #
-# IL NE GERE PAS LE MONTAGE, a la demande : le montage du volume est fait a la
-# main (voir docs/ARCHITECTURE.md). Le role se contente de VERIFIER qu'il est
-# la, et refuse de continuer sinon -- ce qui empeche exactement l'accident du
-# 25/09/2026, ou les conteneurs se sont retrouves silencieusement sur du
-# stockage local en croyant ecrire sur le volume.
+# Il MONTE le volume {{ gluster_server }}:/{{ gluster_volume }}
+# (group_vars/all) sur l'hote, puis VERIFIE le type du montage, et refuse de
+# continuer sinon -- ce qui empeche exactement l'accident du 25/09/2026, ou
+# les conteneurs se sont retrouves silencieusement sur du stockage local en
+# croyant ecrire sur le volume.
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
@@ -31,7 +31,12 @@
 # ou la destination est resolue depuis la racine du rootfs. Un chemin absolu
 # y serait interprete comme un chemin de l'HOTE et le montage echouerait sans
 # message clair.
-odoo_ct_filestore: var/lib/odoo/filestore
+#
+# Le data_dir ENTIER (/var/lib/odoo), et non son seul sous-repertoire
+# filestore : c'est ce que le role odoo14 exige (odoo_filestore, controle par
+# findmnt et AssertPathIsMountPoint), et cela partage aussi les sessions.
+# Doit rester egal a odoo_filestore de group_vars/odoo_containers, sans "/".
+odoo_ct_filestore: var/lib/odoo
 
 # Recuperer les reliquats d'un ancien filestore local avant de binder.
 #

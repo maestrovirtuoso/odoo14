@@ -3,11 +3,12 @@
 # odoo_migration : chaque store_fname a-t-il son fichier ?
 #
 # Sur l'hote de sauvegarde, seul point qui voit a la fois la base (client
-# PostgreSQL 15 et .pgpass poses par le role odoo_backup) et un filestore.
+# PostgreSQL 15 et .pgpass poses par le role odoo_backup) et le filestore
+# COMMUN, par le volume monte sur {{ sauvegarde_filestore_src }}.
 #
-# ATTENTION : celui de SON noeud seulement. Les references vers des fichiers
-# d'odoo2 ou odoo3 apparaitront donc comme manquantes -- consequence directe
-# d'un filestore non partage, pas d'un defaut de la verification.
+# Le volume est le data_dir d'Odoo : les pieces jointes de la base
+# {{ odoo_shared_db }} sont sous filestore/{{ odoo_shared_db }}, pas a la
+# racine du volume.
 #
 # Compare dans les DEUX sens :
 #   - reference sans fichier : une image cassee pour l'utilisateur ;
@@ -24,7 +25,7 @@
            -d {{ odoo_shared_db }} -Atc \
            "SELECT DISTINCT store_fname FROM ir_attachment WHERE store_fname IS NOT NULL" \
         | sort > /tmp/verif-base.txt
-      (cd {{ sauvegarde_filestore_src }}/{{ odoo_shared_db }} \
+      (cd {{ sauvegarde_filestore_src }}/filestore/{{ odoo_shared_db }} \
         && find . -type f -not -path './checklist/*' | sed 's|^\./||') \
         | sort > /tmp/verif-disque.txt
       echo "REFERENCES=$(wc -l < /tmp/verif-base.txt)"

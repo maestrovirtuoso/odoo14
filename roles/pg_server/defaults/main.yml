@@ -20,3 +20,23 @@ pg_shared_buffers: 256MB
 
 # Clients autorises (liste d'IP). Vide = personne, hors boucle locale.
 odoo_client_ips: []
+
+# --- Replication -------------------------------------------------------------
+# Reserves declarees dans l'inventaire (groupe db_replicas). Vide = pas de
+# replication : le primaire ne cree ni role de replication ni slot.
+pg_replicas: "{{ groups['db_replicas'] | default([]) }}"
+
+# Ce conteneur est-il une reserve ? Decide par l'inventaire, jamais a la main.
+pg_is_replica: "{{ inventory_hostname in pg_replicas }}"
+
+# Primaire que suivent les reserves : celui que visent les Odoo.
+pg_primary_host: "{{ odoo_db_host }}"
+
+# Nom du slot de la reserve sur le primaire, et application_name sous lequel
+# le primaire la liste. PostgreSQL n'accepte que [a-z0-9_] dans un nom de slot.
+pg_slot_name: "{{ inventory_hostname | regex_replace('[^a-z0-9_]', '_') }}"
+
+# WAL qu'un slot peut retenir sur le primaire pour une reserve en retard.
+# Au-dela, la reserve est abandonnee et devra etre recopiee : c'est voulu, la
+# production passe avant la reserve.
+pg_max_slot_wal_keep_size: 2GB

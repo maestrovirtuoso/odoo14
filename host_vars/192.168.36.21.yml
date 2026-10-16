@@ -1,0 +1,19 @@
+---
+# Hote de odoo1 - conteneur Odoo (primaire : init de la base et taches planifiees)
+
+# Nom du conteneur LXC construit sur cet hote (a verifier par lxc-ls -f).
+# Lu par la variable "containers" (common/group_vars/local_dev.yml) pour les
+# roles install et cleanup, et par le role lxc_lan.
+lxc_container_name: devodoo14
+
+# Carte de l'hote sur laquelle le conteneur est pose en macvlan. C'est aussi
+# la carte de l'hote : elle reste a lui (cf. roles/lxc_lan).
+nic: enp5s0
+
+# Adressage LAN du conteneur.
+ct_ip: 192.168.36.151
+ct_prefix: 24
+ct_gateway: 192.168.36.254
+ct_dns_servers:
+  - 172.24.10.17
+  - 172.24.10.18

@@ -1,0 +1,25 @@
+# {{ ansible_managed }}
+# Replication streaming : {{ groups['db_containers'] | first }} (primaire) vers
+# {{ pg_replicas | join(', ') if pg_replicas else 'aucune reserve' }}.
+#
+# Meme fichier sur le primaire et les reserves : une reserve promue doit
+# pouvoir servir de source a son tour sans changer de configuration.
+# Ces parametres ne sont relus qu'au DEMARRAGE (sauf primary_conninfo).
+
+wal_level = replica
+max_wal_senders = 10
+max_replication_slots = 10
+# Plafond des WAL retenus par un slot. Au-dela, la reserve en retard est
+# abandonnee (il faudra la recopier) plutot que de remplir le disque du
+# primaire et d'arreter la production.
+max_slot_wal_keep_size = {{ pg_max_slot_wal_keep_size }}
+hot_standby = on
+{% if pg_is_replica %}
+
+# --- Reserve {{ inventory_hostname }} --------------------------------------
+# Pas de mot de passe ici : il est lu dans passfile, lisible par postgres seul.
+# application_name : nom sous lequel le primaire liste cette reserve dans
+# pg_stat_replication.
+primary_conninfo = 'host={{ pg_primary_host }} port={{ pg_port }} user={{ pg_replication_user }} application_name={{ pg_slot_name }} passfile=/var/lib/postgresql/.pgpass'
+primary_slot_name = '{{ pg_slot_name }}'
+{% endif %}

@@ -42,6 +42,21 @@ host    {{ odoo_databases.ljust(16) }}{{ odoo_db_user.ljust(16) }}{{ (ip ~ '/32'
 {% endfor -%}
 {% endif %}
 
+{% set pg_replication_ips = (groups['db_containers'] | default([]) + pg_replicas)
+       | map('extract', hostvars, 'ansible_host') | list %}
+{% if pg_replicas | length > 0 %}
+# Replication streaming entre serveurs PostgreSQL (primaire et reserves).
+#
+# "replication" n'est pas une base : c'est le mot-cle qui designe le flux
+# WAL. Ces lignes n'ouvrent aucune donnee en SQL au role de replication.
+#
+# Posees a l'identique sur tous les serveurs, primaire compris : une reserve
+# promue doit pouvoir alimenter les autres sans qu'on retouche ce fichier.
+{% for ip in pg_replication_ips -%}
+host    {{ 'replication'.ljust(16) }}{{ pg_replication_user.ljust(16) }}{{ (ip ~ '/32').ljust(24) }}{{ pg_password_encryption }}
+{% endfor -%}
+{% endif %}
+
 {% if pg_backup_client_ips | length > 0 %}
 # Hote de sauvegarde (groupe backup_host), pour pg_dump et le test de
 # restauration.

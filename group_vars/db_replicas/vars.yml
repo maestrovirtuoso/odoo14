@@ -1,0 +1,11 @@
+---
+# Variables des reserves PostgreSQL (groupe db_replicas) : copies en lecture
+# seule du primaire odoodb1, par replication streaming (roles/pg_server,
+# tasks/replica.yaml).
+pg_conf_dir: "/etc/postgresql/{{ pg_version }}/main"
+pg_data_dir: "/var/lib/postgresql/{{ pg_version }}/main"
+
+# Chaque reserve ecoute sur SA propre IP, et non sur odoo_db_host comme le
+# primaire : elle doit etre joignable pour etre promue un jour, et pour que le
+# primaire la voie dans pg_stat_replication.
+pg_listen_addresses: "{{ ansible_host }},localhost"

@@ -25,9 +25,6 @@ Documents voisins :
 | rebrancher le filestore | `… ansi_syncro.yaml -k --ask-vault-pass --tags filestore` |
 | vérifier base ↔ filestore | `… ansi_syncro.yaml -k --ask-vault-pass --tags verif` |
 | sauvegarder maintenant | `ansible-playbook playbooks/ansi_sauvegarde.yaml -k --ask-vault-pass` |
-| poser le répartiteur | `ansible-playbook playbooks/ansi_repartiteur.yaml -k --ask-vault-pass` |
-| vérifier la VIP | `… ansi_repartiteur.yaml -k --ask-vault-pass --tags verif` |
-| éprouver la bascule | `… ansi_repartiteur.yaml -k --ask-vault-pass --tags bascule` |
 | copie hors cluster | `… ansi_sauvegarde.yaml … -e sauvegarde_rapatrier=true` |
 
 ---
@@ -40,7 +37,6 @@ CONSTRUIRE     ansi2-snapchot.yaml          crée les conteneurs LXC
 
 EXPLOITER      ansi_syncro.yaml             déplace les pièces jointes
                ansi_sauvegarde.yaml         sauvegarde
-               ansi_repartiteur.yaml        une seule adresse d'entrée
 
 DÉFAIRE        nettoyage_odoo.yaml          remet les conteneurs Odoo à plat
                nettoyage.yaml               désinstalle LXC des hôtes
@@ -308,76 +304,7 @@ Automatique : timer systemd sur `.128`, 02h15, rétention 30 jours,
 
 ---
 
-## 5. `ansi_repartiteur.yaml` — une seule adresse d'entrée
-
-Avant lui, chaque utilisateur visait une IP fixe : `.151`, `.152` ou `.153`. Si son
-nœud tombait, il devait changer d'URL à la main. Trois instances, mais aucune
-tolérance à la panne du point de vue de l'utilisateur.
-
-```
-        navigateur  →  VIP 192.168.96.160:80
-                            │
-                       keepalived   (QUI porte la VIP)
-                            │
-                        HAProxy     (VERS QUEL Odoo aller)
-                      /     │     \
-                 odoo1    odoo2    odoo3
-```
-
-### Deux services, pas un
-
-**HAProxy** répartit — mais il ne survit pas à sa propre panne : seul, il serait le
-point unique qu'on cherchait à supprimer. **keepalived** fait donc voyager la VIP
-vers un hôte vivant. Les deux tournent sur les **trois** hôtes ; un seul porte la
-VIP à la fois.
-
-### L'ordre des plays est contraignant
-
-| # | Hôtes | Action | Pourquoi là |
-|---|---|---|---|
-| 0 | `lb_hosts` | préflight : VIP libre, backends joignables | une VIP déjà prise par un tiers ne se découvre pas après coup |
-| 1 | `odoo_containers` | sessions sur le volume partagé | **avant** le répartiteur |
-| 2 | `lb_hosts` | HAProxy + keepalived | |
-| 3 | `lb_hosts` | vérification | mesure le service, pas la configuration |
-| 4 | `lb_hosts` | épreuve de bascule (tag `never`) | coupe brièvement |
-
-**Le play 1 avant le play 2, et pas l'inverse.** Odoo 14 garde ses sessions dans
-des *fichiers*. Tant qu'elles sont locales à chaque nœud, un utilisateur renvoyé
-ailleurs par le répartiteur y est **déconnecté** : sa session n'existe pas là.
-Poser le répartiteur d'abord donnerait des déconnexions apparemment aléatoires —
-un symptôme qu'on n'attribue pas spontanément aux sessions.
-
-### Ce que le play 3 mesure vraiment
-
-`systemctl is-active haproxy` ne dit **rien** sur un backend qui répond 502 : le
-service tourne, il sert des erreurs. Les contrôles portent donc sur :
-
-- **un seul** porteur de la VIP — aucun signifie keepalived arrêté ou VRRP filtré,
-  plusieurs signifient que les nœuds ne se voient pas et se croient tous maîtres ;
-- l'état des backends lu dans la socket d'administration de HAProxy, **seul juge**
-  puisque c'est lui qui exécute `option httpchk` ;
-- un `HTTP 200` par la VIP, qui traverse toute la chaîne — VIP, HAProxy, backend,
-  Odoo, PostgreSQL ;
-- la présence du cookie `SRV`.
-
-### Le tag `bascule`
-
-```bash
-ansible-playbook playbooks/ansi_repartiteur.yaml -k --ask-vault-pass --tags bascule
-```
-
-Arrête HAProxy sur le porteur, vérifie que la VIP part ailleurs **et** que le
-service répond toujours, puis remet HAProxy en marche dans tous les cas — un test
-ne doit pas laisser le service dans l'état dégradé qu'il a provoqué.
-
-Sous tag `never`, donc jamais joué par défaut. C'est pourtant le seul contrôle qui
-prouve la redondance : les deux pannes classiques — VRRP filtré, et HAProxy mort
-sur les hôtes de secours faute d'`ip_nonlocal_bind` — **ne se voient pas** en
-marche normale. Tout fonctionne, jusqu'au jour où le maître tombe.
-
----
-
-## 6. Les trois autres
+## 5. Les trois autres
 
 ### `nettoyage_odoo.yaml`
 

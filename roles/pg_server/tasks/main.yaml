@@ -1,16 +1,27 @@
 ---
 # ===========================================================================
-# Role pg_server  -  execute DANS le conteneur PostgreSQL dedie (db_containers)
+# Role pg_server  -  execute DANS les conteneurs PostgreSQL
 #
-# Ce conteneur ne sert que la base partagee par les instances Odoo. Aucun
-# depot Odoo, aucun paquet odoo, aucun wkhtmltopdf n'y sont installes.
+#   db_containers : le PRIMAIRE, seule base servie aux instances Odoo
+#                   (tasks/primary.yaml) ;
+#   db_replicas   : les RESERVES, copies en lecture seule alimentees par
+#                   replication streaming (tasks/replica.yaml).
+# Le tronc commun (paquets, configuration, pg_hba) est ci-dessous. Le
+# primaire doit etre joue AVANT les reserves : c'est lui qui cree le role
+# de replication et les slots qu'elles utilisent (deux plays distinctes
+# dans ansi_odoo.yaml).
+#
+# Ces conteneurs ne servent que la base. Aucun depot Odoo, aucun paquet
+# odoo, aucun wkhtmltopdf n'y sont installes.
 #
 # L'ORDRE DES TACHES EST CONTRAIGNANT, voir les commentaires : la
 # configuration doit etre en vigueur avant que le role SQL ne soit cree.
 # ===========================================================================
 - name: Afficher la cible
   ansible.builtin.debug:
-    msg: "{{ inventory_hostname }} ({{ ansible_host }}) - serveur PostgreSQL {{ pg_version }} partage"
+    msg: >-
+      {{ inventory_hostname }} ({{ ansible_host }}) - PostgreSQL {{ pg_version }}
+      {{ 'reserve de ' ~ pg_primary_host if pg_is_replica else 'primaire' }}
 
 - name: Installer PostgreSQL
   ansible.builtin.apt:
@@ -50,6 +61,17 @@
     mode: "0644"
   notify: restart postgresql
 
+- name: Configurer la replication (primaire et reserves)
+  # Le premier depot sur un primaire deja en service le REDEMARRE : les Odoo
+  # perdent leurs connexions quelques secondes.
+  ansible.builtin.template:
+    src: 20-replication.conf.j2
+    dest: "{{ pg_conf_dir }}/conf.d/20-replication.conf"
+    owner: postgres
+    group: postgres
+    mode: "0644"
+  notify: restart postgresql
+
 - name: Poser les regles d'authentification
   ansible.builtin.template:
     src: pg_hba.conf.j2
@@ -67,44 +89,16 @@
 - name: Appliquer la configuration avant de creer le role SQL
   ansible.builtin.meta: flush_handlers
 
-- name: Effacer les reliquats de l'ancienne architecture repliquee
-  ansible.builtin.import_tasks: purge_replication.yaml
-
 # ---------------------------------------------------------------------------
-# Role SQL et base partagee
-#
-# Ces deux taches passent par la socket locale en authentification peer :
-# elles n'ont pas besoin de login_host, et fonctionnent meme si pg_hba
-# interdit tout acces reseau.
+# Ce qui differe entre primaire et reserves
 # ---------------------------------------------------------------------------
-- name: Creer le role PostgreSQL odoo
-  # Pas de CREATEDB ni de SUPERUSER : la base est creee par Ansible ci-dessous.
-  # Aucune instance Odoo ne doit pouvoir creer ou detruire une base sur un
-  # serveur qui les heberge toutes.
-  # role_attr_flags est OBLIGATOIRE : sans lui le module remet les attributs
-  # a leurs valeurs par defaut a chaque passage.
-  community.postgresql.postgresql_user:
-    name: "{{ odoo_db_user }}"
-    password: "{{ odoo_db_password }}"
-    role_attr_flags: "LOGIN,NOSUPERUSER,NOCREATEDB,NOCREATEROLE"
-    state: present
-  become: true
-  become_user: postgres
+- name: Primaire - role SQL, base partagee, replication sortante
+  ansible.builtin.import_tasks: primary.yaml
+  when: not (pg_is_replica | bool)
 
-- name: Creer la base partagee
-  # owner est DETERMINANT en PostgreSQL 15 : un role ordinaire ne peut plus
-  # creer d'objet dans le schema "public", sauf s'il possede la base (public
-  # appartient alors a pg_database_owner, qui se resout a lui). Si postgres
-  # possedait cette base, "odoo -i base" echouerait sur
-  # "permission denied for schema public".
-  community.postgresql.postgresql_db:
-    name: "{{ odoo_shared_db }}"
-    owner: "{{ odoo_db_user }}"
-    encoding: UTF-8
-    template: template0
-    state: present
-  become: true
-  become_user: postgres
+- name: Reserve - copie initiale et replication entrante
+  ansible.builtin.import_tasks: replica.yaml
+  when: pg_is_replica | bool
 
 # ---------------------------------------------------------------------------
 # Verification
@@ -126,7 +120,3 @@
     that: _pg_hba_errors.query_result | length == 0
     fail_msg: "pg_hba.conf comporte des regles invalides : {{ _pg_hba_errors.query_result }}"
 
-- name: Confirmer l'ecoute reseau
-  ansible.builtin.assert:
-    that: odoo_db_host in pg_listen_addresses
-    fail_msg: "pg_listen_addresses ({{ pg_listen_addresses }}) n'inclut pas {{ odoo_db_host }} : les instances Odoo ne pourront pas se connecter."

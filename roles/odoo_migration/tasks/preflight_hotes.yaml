@@ -25,7 +25,7 @@
       par rapport au poste de controle.
       Correction immediate :
         ansible gluster_servers -k -m shell -a 'chronyc makestep'
-      Correction DURABLE, sur les 4 hotes, sans redemarrer les conteneurs :
+      Correction DURABLE, sur les 6 hotes, sans redemarrer les conteneurs :
         ansible-playbook playbooks/ansi_odoo.yaml -k --ask-vault-pass --tags horloge
       La politique Rocky par defaut, "makestep 1.0 3", n'autorise le saut
       que lors des 3 premieres mises a jour apres demarrage de chronyd :
@@ -37,8 +37,11 @@
     _contr_epoch: "{{ lookup('pipe', 'date -u +%s') }}"
 
 # --- Stockage --------------------------------------------------------------
-# Le filestore est le point de montage du volume GlusterFS partage. On verifie
-# ici qu'il est monte ET de quel TYPE il est, AVANT de couper quoi que ce soit.
+# Le filestore est le point de montage du volume GlusterFS {{ gluster_volume }},
+# pose par le role odoo_filestore au play 4/8. AVANT de couper quoi que ce
+# soit, on verifie que ce montage POURRA se faire, ou qu'il est deja la :
+#   - deja monte : il doit etre de type GlusterFS, et rien d'autre ;
+#   - pas encore monte : le serveur {{ gluster_server }} doit repondre.
 #
 # Le controle du seul chemin ne dit RIEN : un volume non monte laisse un
 # repertoire vide au meme endroit, et Odoo y ecrit sans se plaindre. C'est ce
@@ -55,17 +58,31 @@
   changed_when: false
   failed_when: false
 
-- name: Le filestore est bien servi par le volume partage
+- name: Un montage deja present est bien le volume partage
+  # findmnt rend 0 seulement si quelque chose est monte : c'est ce montage-la
+  # qui doit etre GlusterFS. Un disque local monte au meme endroit serait
+  # masque par le bind et ferait ecrire Odoo hors du volume.
   ansible.builtin.assert:
     that:
-      - _pre_stockage.rc == 0
-      - filestore_fstype_attendu in _pre_stockage.stdout
+      - _pre_stockage.rc != 0 or filestore_fstype_attendu in _pre_stockage.stdout
     fail_msg: >-
-      {{ filestore_host_src }} n'est pas un montage {{ filestore_fstype_attendu }}
-      sur {{ inventory_hostname }}
-      (findmnt : "{{ _pre_stockage.stdout | trim | default('rien') }}").
-      Le monter AVANT toute migration -- ce depot ne s'en charge pas :
-        mount -t glusterfs localhost:/odoo14 {{ filestore_host_src }}
+      {{ filestore_host_src }} est monte sur {{ inventory_hostname }}, mais ce
+      n'est pas un {{ filestore_fstype_attendu }}
+      (findmnt : "{{ _pre_stockage.stdout | trim }}"). Le demonter avant la
+      migration : le play 4/8 y montera {{ gluster_server }}:/{{ gluster_volume }}.
     success_msg: >-
-      {{ inventory_hostname }} : {{ filestore_host_src }} servi par
-      {{ _pre_stockage.stdout | trim }}
+      {{ inventory_hostname }} : {{ filestore_host_src }}
+      {{ ('servi par ' ~ (_pre_stockage.stdout | trim)) if _pre_stockage.rc == 0
+         else 'pas encore monte, le sera au play 4/8' }}
+
+- name: Le serveur GlusterFS repond, si le volume reste a monter
+  ansible.builtin.wait_for:
+    host: "{{ gluster_server }}"
+    port: 24007
+    timeout: 10
+    msg: >-
+      {{ gluster_server }}:24007 ne repond pas depuis {{ inventory_hostname }} :
+      le play 4/8 ne pourra pas monter le volume {{ gluster_volume }}, et la
+      migration s'arreterait instances deja coupees. Verifier le reseau et
+      le pare-feu avant de relancer.
+  when: _pre_stockage.rc != 0

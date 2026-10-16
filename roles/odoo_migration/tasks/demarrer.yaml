@@ -21,8 +21,8 @@
   ansible.builtin.debug:
     msg:
       - "Migration terminee. A verifier a la main :"
-      - "1. joindre un fichier a un contact via http://192.168.96.151:8069"
-      - "2. ouvrir le meme contact via .152 puis .153 : le fichier doit s'afficher"
+      - "1. joindre un fichier a un contact via http://{{ hostvars[groups['odoo_containers'][0]].ansible_host }}:8069"
+      - "2. ouvrir le meme contact via {{ groups['odoo_containers'][1:] | map('extract', hostvars, 'ansible_host') | join(' puis ') }} : le fichier doit s'afficher"
       - "3. redemarrer un conteneur et verifier que /var/lib/odoo remonte"
       - "Retour arriere possible tant que les sauvegardes existent :"
       - "  -e odoo_attachment_location=db -e odoo_force_storage=true"

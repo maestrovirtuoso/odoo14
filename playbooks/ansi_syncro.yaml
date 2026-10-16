@@ -12,23 +12,28 @@
 #
 #   odoo_migration   les 12 etapes propres a cette migration (tasks_from)
 #   odoo_uid         identite commune du compte odoo
-#   odoo_filestore   bind du stockage dans le conteneur
+#   odoo_filestore   montage du volume sur l'hote, bind dans le conteneur
 #   odoo_dbinit      support de stockage et deplacement des pieces jointes
 #
 # ---------------------------------------------------------------------------
-# Architecture posee, DEPUIS LE 25/09/2026 :
-#   volume gluster odoo14, replica 3    <- monte A LA MAIN sur /mnt/odoo14
-#         |  lxc.mount.entry (bind)     <- CONTENEUR Debian (.151 .152 .153)
+# Architecture visee :
+#   192.168.36.8:/sre                   <- volume GlusterFS replique, HORS
+#         |                                projet (gluster_server/_volume)
+#         |  mount -t glusterfs         <- role odoo_filestore, play 4/8
 #         v
-#   /var/lib/odoo/filestore             <- COMMUN aux trois instances
+#   /mnt/odoo                           <- HOTES Odoo .36.21 .36.22 .36.23
+#         |  lxc.mount.entry (bind)
+#         v
+#   /var/lib/odoo                       <- CONTENEURS odoo1-3 (.36.151-153)
+#                                          filestore/ et sessions/ COMMUNS
 #
-# Le filestore est COMMUN aux trois instances et replique x3, ce qui est la
-# seule configuration coherente avec une base PostgreSQL unique : une piece
-# jointe y est une ligne avec un seul store_fname, et aucune colonne ne dit
-# quel noeud l'a ecrite.
+# Le filestore est COMMUN aux trois instances, ce qui est la seule
+# configuration coherente avec une base PostgreSQL unique : une piece jointe
+# y est une ligne avec un seul store_fname, et aucune colonne ne dit quel
+# noeud l'a ecrite.
 #
-# Le MONTAGE du volume n'est pas gere par ce playbook, a la demande. Le role
-# odoo_filestore verifie seulement qu'il est la, et refuse sinon.
+# Le volume est MONTE par le role odoo_filestore (play 4/8), puis verifie :
+# le controle du type de systeme de fichiers reste le garde-fou central.
 #
 # COUPURE DE SERVICE : les instances sont arretees du play 2 au play 8.
 #
@@ -44,8 +49,9 @@
 #   7. bilan ; 8. demarrage.
 #
 # Prerequis :
-#   - volume gluster "odoo14" DEMARRE et monte sur /mnt/odoo14 des 3 hotes :
-#       mount -t glusterfs localhost:/odoo14 /mnt/odoo14
+#   - volume GlusterFS "sre" DEMARRE sur 192.168.36.8, joignable depuis les
+#     hotes Odoo sur 24007 et sur les ports de brique de chaque serveur du
+#     volume (le montage lui-meme est fait par le play 4/8) ;
 #   - deploiement nominal deja joue (playbooks/ansi_odoo.yaml) ;
 #   - UID cible pose dans roles/odoo_uid/defaults/main.yml.
 #
@@ -144,9 +150,10 @@
   hosts: gluster_bricks
   gather_facts: true
   roles:
-    # Tag "filestore" : joue la seule bascule du stockage -- verification que
-    # le volume est monte, recuperation d'un eventuel reliquat local, puis bind
-    # -- sans la migration des pieces jointes ni le VACUUM FULL.
+    # Tag "filestore" : joue la seule bascule du stockage -- montage du volume
+    # sre sur l'hote et verification de son type, recuperation d'un eventuel
+    # reliquat local, puis bind sur /var/lib/odoo -- sans la migration des
+    # pieces jointes ni le VACUUM FULL.
     # Breve coupure : le conteneur est redemarre pour appliquer le bind.
     - role: odoo_filestore
       tags: [filestore]

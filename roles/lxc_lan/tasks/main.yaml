@@ -2,9 +2,14 @@
 # ===========================================================================
 # Role lxc_lan  -  execute sur les HOTES (gluster_servers, Rocky 8)
 #
-# Expose le conteneur LXC directement sur le LAN en lui donnant une CARTE
-# PHYSIQUE dediee (lxc.net.0.type = phys). Le conteneur possede alors la
-# carte : elle disparait de l'hote, et ses paquets ne traversent jamais le
+# Expose le conteneur LXC directement sur le LAN, selon lxc_net_type :
+#   - phys    : le conteneur recoit une CARTE PHYSIQUE dediee. Il possede
+#               alors la carte : elle disparait de l'hote ;
+#   - macvlan : le conteneur recoit une interface virtuelle posee sur la
+#               carte de l'hote, qui la garde. Seul choix possible quand
+#               l'hote n'a qu'une carte sur ce reseau ; l'hote ne joint
+#               alors pas son propre conteneur.
+# Dans les deux cas, les paquets du conteneur ne traversent jamais le
 # netfilter de l'hote.
 #
 # Consequence a garder en tete : aucune regle de pare-feu de l'hote ne
@@ -23,19 +28,59 @@
 # ===========================================================================
 
 # ---------------------------------------------------------------------------
-# 0. Garde-fou
+# 0. Garde-fous
 # ---------------------------------------------------------------------------
-# Donner au conteneur la carte qui porte la route par defaut couperait
-# l'hote definitivement : on perdrait l'acces SSH, donc tout moyen de
-# revenir en arriere par Ansible. Ce controle doit passer AVANT toute
-# modification de configuration.
+# Tous passent AVANT la moindre modification : un reseau mal decrit coupe le
+# conteneur, voire l'hote, et Ansible perd alors le moyen de revenir en
+# arriere.
+- name: Le mode reseau et l'adressage du conteneur sont decrits
+  ansible.builtin.assert:
+    that:
+      - lxc_net_type in ['phys', 'macvlan']
+      - ct_ip is defined
+      - ct_ip | length > 0
+      - ct_prefix | int > 0
+      - ct_prefix | int <= 32
+    fail_msg: >-
+      lxc_net_type doit valoir phys ou macvlan (valeur : {{ lxc_net_type }}),
+      et ct_ip / ct_prefix doivent etre renseignes dans
+      host_vars/{{ inventory_hostname }}.yml.
+
+# Une passerelle hors du sous-reseau du conteneur laisse celui-ci sans route
+# par defaut : il demarre, mais ne joint ni les depots apt ni le poste de
+# controle. Le defaut (passerelle de l'hote) tombe dans ce cas des que l'hote
+# et son conteneur sont sur des sous-reseaux differents.
+# Calcul fait sur le poste de controle : son python est garanti, celui de
+# l'hote ne l'est pas, et ansible 2.10 n'a pas de filtre ipaddr sans netaddr.
+- name: La passerelle est dans le sous-reseau du conteneur
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - -c
+      - |
+        import ipaddress, sys
+        reseau = ipaddress.ip_interface(sys.argv[1]).network
+        if ipaddress.ip_address(sys.argv[2]) not in reseau:
+            sys.exit('Passerelle %s hors du reseau %s : definir ct_gateway dans host_vars.'
+                     % (sys.argv[2], reseau))
+      - "{{ ct_ip }}/{{ ct_prefix }}"
+      - "{{ ct_gateway }}"
+  delegate_to: localhost
+  become: false
+  changed_when: false
+
+# En mode phys, donner au conteneur la carte qui porte la route par defaut
+# couperait l'hote definitivement. En macvlan l'hote garde sa carte : le
+# controle n'a plus d'objet, et c'est justement le cas d'usage du macvlan.
 - name: Refuser de deporter la carte qui porte la route par defaut
   ansible.builtin.assert:
     that: ansible_default_ipv4.interface != nic
     fail_msg: >-
       {{ nic }} porte la route par defaut de {{ inventory_hostname }} :
       la donner au conteneur couperait l'hote, sans retour possible.
-      Choisir une autre carte (variable "nic").
+      Choisir une autre carte (variable "nic"), ou passer
+      lxc_net_type a macvlan.
+  when: lxc_net_type == 'phys'
 
 - name: Verifier la presence de la carte (sur l'hote ou deja dans le conteneur)
   ansible.builtin.shell: >-
@@ -48,11 +93,14 @@
   when: lxc_undo_routed | bool
 
 # ---------------------------------------------------------------------------
-# 1. Configuration de la carte physique
+# 1. Configuration de l'interface du conteneur
 # ---------------------------------------------------------------------------
-- name: NetworkManager ignore la carte dediee
+- name: NetworkManager ignore la carte dediee (mode phys seulement)
   # Sans cela NetworkManager la reclame au demarrage de l'hote, avant que LXC
   # ne la prenne, et le conteneur ne demarre pas.
+  # JAMAIS en macvlan : la carte y reste celle de l'hote, et la retirer a
+  # NetworkManager lui ferait perdre son adresse au prochain redemarrage.
+  when: lxc_net_type == 'phys'
   ansible.builtin.copy:
     dest: /etc/NetworkManager/conf.d/lxc-unmanaged.conf
     content: "[keyfile]\nunmanaged-devices=interface-name:{{ nic }}\n"
@@ -72,6 +120,8 @@
 
 - name: Supprimer l'adresse MAC figee et le hook ipvlan
   # Une hwaddr heritee du mode veth n'a pas de sens sur une carte physique.
+  # En macvlan, LXC en tire une au hasard : une MAC figee copiee d'un autre
+  # conteneur (clonage) creerait un doublon sur le LAN.
   ansible.builtin.lineinfile:
     path: "/var/lib/lxc/{{ lxc_container_name }}/config"
     regexp: "{{ item }}"
@@ -80,18 +130,29 @@
     - '^lxc\.net\.0\.hwaddr'
     - '^lxc\.hook\.pre-start.*ipvlan'
 
-- name: Basculer la configuration reseau du conteneur en carte physique
+- name: Retirer le mode macvlan d'une configuration repassee en phys
   ansible.builtin.lineinfile:
     path: "/var/lib/lxc/{{ lxc_container_name }}/config"
-    regexp: '^lxc\.net\.0\.{{ item.k }}\s*='
+    regexp: '^lxc\.net\.0\.macvlan\.'
+    state: absent
+  when: lxc_net_type == 'phys'
+
+- name: Configurer l'interface reseau du conteneur ({{ lxc_net_type }})
+  ansible.builtin.lineinfile:
+    path: "/var/lib/lxc/{{ lxc_container_name }}/config"
+    regexp: '^lxc\.net\.0\.{{ item.k | regex_escape }}\s*='
     line: "lxc.net.0.{{ item.k }} = {{ item.v }}"
-  loop:
-    - { k: type, v: phys }
-    - { k: link, v: "{{ nic }}" }
-    - { k: name, v: eth0 }
-    - { k: flags, v: up }
-    - { k: "ipv4.address", v: "{{ ct_ip }}/24" }
-    - { k: "ipv4.gateway", v: "{{ ansible_default_ipv4.gateway }}" }
+  loop: >-
+    {{ [
+         {'k': 'type', 'v': lxc_net_type},
+         {'k': 'link', 'v': nic},
+         {'k': 'name', 'v': 'eth0'},
+         {'k': 'flags', 'v': 'up'},
+         {'k': 'ipv4.address', 'v': ct_ip ~ '/' ~ ct_prefix},
+         {'k': 'ipv4.gateway', 'v': ct_gateway}
+       ]
+       + ([{'k': 'macvlan.mode', 'v': lxc_macvlan_mode}]
+          if lxc_net_type == 'macvlan' else []) }}
 
 - name: IP statique dans le conteneur (systemd-networkd, sans DHCP)
   ansible.builtin.copy:
@@ -102,9 +163,11 @@
       Name=eth0
 
       [Network]
-      Address={{ ct_ip }}/24
-      Gateway={{ ansible_default_ipv4.gateway }}
-      DNS={{ ansible_default_ipv4.gateway }}
+      Address={{ ct_ip }}/{{ ct_prefix }}
+      Gateway={{ ct_gateway }}
+      {% for dns in ct_dns_servers %}
+      DNS={{ dns }}
+      {% endfor %}
 
 # ---------------------------------------------------------------------------
 # 2. Demarrage du conteneur
@@ -335,9 +398,14 @@
   # lxc-attach renvoie toujours 0 (LXC 3.0.4) : on valide sur le marqueur.
   failed_when: "'BOOTSTRAP_SSH_OK' not in _ssh_bootstrap.stdout"
 
-- name: Attendre que le port SSH du conteneur soit ouvert (vu depuis l'hote)
+# Vu depuis le POSTE DE CONTROLE, et non depuis l'hote : en macvlan l'hote ne
+# joint pas son propre conteneur, et ce test echouerait sur un conteneur sain.
+# C'est de toute facon le poste de controle qui doit l'atteindre ensuite.
+- name: Attendre que le port SSH du conteneur soit ouvert (vu du poste de controle)
   ansible.builtin.wait_for:
     host: "{{ ct_ip }}"
     port: 22
     timeout: 120
     delay: 2
+  delegate_to: localhost
+  become: false

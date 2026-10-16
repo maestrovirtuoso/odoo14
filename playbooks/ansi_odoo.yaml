@@ -3,19 +3,19 @@
 # Deploiement d'Odoo 14 sur une base PostgreSQL PARTAGEE.
 #
 # Architecture :
-#   - un conteneur PostgreSQL dedie (192.168.96.150, hote .141), sans Odoo ;
-#   - trois conteneurs Odoo (.151 .152 .153) sans serveur PostgreSQL local ;
+#   - un conteneur PostgreSQL primaire odoodb1 (192.168.33.156), sans Odoo,
+#     et deux reserves en replication streaming (odoodb2, odoodb3) ;
+#   - trois conteneurs Odoo (192.168.36.151-153) sans serveur PostgreSQL ;
 #   - une base unique "prod" ;
-#   - un filestore LOCAL a chaque noeud depuis le 25/09/2026 : le montage
-#     GlusterFS a ete retire, chaque hote bind son propre volume logique
-#     /bricks/odoo14 dans son conteneur (role odoo_filestore). Il n'est donc
-#     ni partage ni replique -- voir la mise en garde de ansi_syncro.yaml sur
-#     ir_attachment.location ;
+#   - un filestore COMMUN : le volume GlusterFS replique "sre", servi par
+#     192.168.36.8 hors du projet, monte sur chaque hote Odoo et passe a son
+#     conteneur sur /var/lib/odoo (role odoo_filestore) ;
 #   - pas de repartiteur de charge : chaque utilisateur vise une IP.
 #
 # L'ORDRE DES PLAYS EST CONTRAIGNANT :
 #   1. l'horloge puis le reseau : une horloge fausse fait echouer apt dans les
-#      conteneurs, et rien n'est joignable sans reseau ;
+#      conteneurs, et rien n'est joignable sans reseau ; puis (1bis) le
+#      filestore commun, avant qu'Odoo ne soit installe ;
 #   2. la base, avant que le moindre client ne tente de s'y connecter ;
 #   3. Odoo installe et configure, mais LAISSE ARRETE ;
 #   4. l'initialisation du registre, par le SEUL noeud primaire ;
@@ -114,8 +114,35 @@
       tags: [horloge]
     - lxc_lan
 
+# Le filestore commun AVANT l'installation d'Odoo (play 3/5) : odoo14 refuse de
+# configurer une instance dont /var/lib/odoo n'est pas le volume GlusterFS, et
+# c'est voulu -- sans lui, chaque Odoo ecrirait ses pieces jointes sur son
+# disque local, sans erreur visible.
+# Redemarre les conteneurs Odoo au premier passage (lxc.mount.entry n'est lu
+# qu'au demarrage).
+#
+# DESACTIVEE (mise en commentaire) : le volume doit alors etre monte sur
+# /var/lib/odoo des conteneurs par un autre moyen, sinon la play 3/5 s'arrete
+# sur "n'est pas un point de montage GlusterFS". Pour la reactiver, retirer
+# les "#" des six lignes ci-dessous.
+# - name: "1bis/5 - Filestore commun : volume sre monte et passe aux conteneurs"
+#   hosts: gluster_bricks
+#   gather_facts: false
+#   tags: [filestore]
+#   roles:
+#     - odoo_filestore
+
 - name: "2/5 - Base PostgreSQL partagee"
   hosts: db_containers
+  gather_facts: true
+  roles:
+    - pg_server
+
+# Les reserves APRES le primaire, dans une play a part : leur copie initiale
+# a besoin du role de replication et des slots que la play precedente vient
+# de creer sur le primaire. Une play vide si db_replicas l'est.
+- name: "2bis/5 - Reserves PostgreSQL (replication streaming)"
+  hosts: db_replicas
   gather_facts: true
   roles:
     - pg_server
@@ -125,6 +152,13 @@
   gather_facts: true
   roles:
     - odoo14
+    # Juste apres odoo14, qui laisse le service ARRETE (prealable d'odoo_uid) :
+    # le paquet Debian cree le compte odoo avec le premier UID systeme libre,
+    # qui peut differer d'un conteneur a l'autre. Sur un volume partage, ce
+    # sont les NUMEROS qui comptent : sans alignement, chaque instance
+    # ecrirait sous son propre UID et ne pourrait plus modifier les fichiers
+    # des deux autres.
+    - odoo_uid
 
 - name: "4/5 - Initialisation de la base partagee (noeud primaire seul)"
   hosts: odoo_primary

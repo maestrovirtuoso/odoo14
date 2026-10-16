@@ -53,7 +53,7 @@ if ! findmnt -n -o FSTYPE "${FILESTORE}" 2>/dev/null | grep -q glusterfs; then
   echo "         Un pg_dump SEUL n'est pas une sauvegarde : la base ne contient" >&2
   echo "         que des store_fname qui designent des fichiers du filestore." >&2
   echo "         Le volume doit etre monte sur cette machine, par exemple :" >&2
-  echo "           mount -t glusterfs localhost:/{{ gluster_volume | default('odoo14') }} ${FILESTORE}" >&2
+  echo "           mount -t glusterfs {{ gluster_server }}:/{{ gluster_volume }} ${FILESTORE}" >&2
   echo "         NE PAS viser /bricks : une brick contient l'index interne" >&2
   echo "         .glusterfs et la lire court-circuite la couche de coherence." >&2
   exit 3

@@ -18,11 +18,11 @@
 # Ces valeurs sont donc definies ICI et NULLE PART AILLEURS.
 # ===========================================================================
 
-# Point de montage du volume GlusterFS "odoo14" SUR L'HOTE.
+# Point de montage du volume GlusterFS {{ gluster_volume }} SUR L'HOTE.
 #
-# Depuis le 30/09/2026 les conteneurs montent le volume eux-memes, par leur
-# propre /etc/fstab : ce point de montage hote ne sert plus a les alimenter. Il
-# reste necessaire a l'HOTE DE SAUVEGARDE, qui doit lire le filestore pour
+# Le role odoo_filestore y monte {{ gluster_server }}:/{{ gluster_volume }}
+# (group_vars/all), puis le passe au conteneur en bind sur /var/lib/odoo. Il
+# sert aussi a l'HOTE DE SAUVEGARDE, qui doit lire le filestore pour
 # l'archiver (cf. sauvegarde_filestore_src, qui doit valoir la meme chose).
 #
 # /mnt/odoo et non /mnt/odoo14 : c'est le chemin que declare deja le /etc/fstab

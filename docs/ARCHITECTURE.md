@@ -17,8 +17,9 @@ Documents voisins :
 ## 1. Vue d'ensemble
 
 Trois instances Odoo 14 servent la **même base PostgreSQL** et le **même
-filestore**. Aucune n'est maître ; depuis le 30/09/2026 les utilisateurs
-entrent par une **VIP unique** (§13bis) et non plus par une IP fixe.
+filestore**. Aucune n'est maître ; chaque utilisateur vise l'IP d'une
+instance. Le répartiteur HAProxy + keepalived posé le 30/09/2026 a été retiré
+du dépôt le 15/10/2026.
 
 ```
                     ┌──────────────────────────────────────────────┐
@@ -235,8 +236,10 @@ brique était absente.
 répartiteur : chaque utilisateur visait une IP fixe, des sessions locales étaient
 donc cohérentes.
 
-Avec la VIP (§13bis), ce n'est plus vrai : un utilisateur renvoyé sur un autre
-nœud y serait **déconnecté**, sa session n'existant pas là.
+Le répartiteur (retiré depuis, le 15/10/2026) avait rendu cela faux : un
+utilisateur renvoyé sur un autre nœud y aurait été **déconnecté**, sa session
+n'existant pas là. Sans lui, le partage n'est plus nécessaire, mais il reste
+en place : il ne gêne pas et resservira si un répartiteur revient.
 
 **Le partage est ici gratuit**, et c'est une conséquence du choix de point de
 montage : le volume est monté sur `/var/lib/odoo`, c'est-à-dire sur le `data_dir`
@@ -254,9 +257,8 @@ requête authentifiée lit et réécrit un fichier qui part vers trois réplique
 lieu de rester sur un disque local.
 
 L'alternative était les sessions **collantes** seules : aucun coût réseau, mais
-l'utilisateur est déconnecté quand son nœud tombe. Le choix a été la bascule
-transparente. Le cookie `SRV` de HAProxy est conservé par-dessus, pour que le cas
-courant reste servi par le même nœud et ne paie pas l'aller-retour.
+l'utilisateur est déconnecté quand son nœud tombe. Le choix avait été la bascule
+transparente.
 
 Les sessions sont **exclues des sauvegardes** (`--exclude=./sessions` et
 `--exclude=./_sessions`) : ce sont
@@ -324,13 +326,12 @@ Odoo doit utiliser `{{ odoo_python }}` en **chemin absolu**, jamais le `odoo` du
 | `gluster_servers` | .128 .129 .140 **.141** | les 4 hôtes physiques — **nom historique**, aucun rapport avec Gluster |
 | `gluster_bricks` | .128 .129 .140 | les 3 hôtes portant réellement une brick |
 | `backup_host` | .128 | porte les sauvegardes |
-| `lb_hosts` | **.129 .140 .128** | HAProxy + keepalived. **L'ORDRE COMPTE** : la priorité VRRP en dérive (150/140/130) |
 | `odoo_containers` | odoo1 odoo2 odoo3 | les instances |
 | `odoo_primary` | odoo1 | init de la base + tâches planifiées |
 | `db_containers` | odoodb | le serveur PostgreSQL |
 | `lxc_containers` | ↳ odoo_containers, db_containers | `ansible_user`, interpréteur Python |
 
-### Quatre pièges de précédence et d'ordre, vérifiés empiriquement
+### Trois pièges de précédence et d'ordre, vérifiés empiriquement
 
 1. **`vars_files` l'emporte sur `host_vars/`.** `containers` vit dans
    `common/group_vars/local_dev.yml`, injecté par `vars_files:`. Une surcharge
@@ -346,13 +347,8 @@ Odoo doit utiliser `{{ odoo_python }}` en **chemin absolu**, jamais le `odoo` du
 
 3. **Les defaults d'un rôle ne sont en portée que pendant ce rôle.** Un playbook
    qui lit une variable depuis une play `tasks:` distincte échoue sur
-   `undefined`. D'où `group_vars/backup_host/vars.yml`, `group_vars/lb_hosts/vars.yml`
-   et `odoo_python` dans `group_vars/odoo_containers`.
-
-4. **L'ordre d'un groupe est préservé à l'exécution**, contrairement à ce
-   qu'affiche `ansible-inventory --list`, qui le trie. `[lb_hosts]` en dépend :
-   `groups['lb_hosts'].index(inventory_hostname)` donne le rang, donc la priorité
-   VRRP. Réordonner le groupe **change le maître nominal**.
+   `undefined`. D'où `group_vars/backup_host/vars.yml` et `odoo_python` dans
+   `group_vars/odoo_containers`.
 
 ---
 
@@ -417,25 +413,6 @@ migration → `VACUUM FULL` → démarrage.
 
 Voir [sauvegarde-restauration.md](sauvegarde-restauration.md).
 
-### `ansi_repartiteur.yaml` — une seule adresse d'entrée
-
-Posé le 30/09/2026. Quatre plays, dans un ordre contraignant :
-
-| # | Hôtes | Action |
-|---|---|---|
-| 0 | `lb_hosts` | préflight : VIP libre, backends joignables |
-| 1 | `odoo_containers` | sessions communes (`odoo_sessions`) |
-| 2 | `lb_hosts` | HAProxy + keepalived (`odoo_lb`) |
-| 3 | `lb_hosts` | vérification |
-| 4 | `lb_hosts` | épreuve de bascule — tag `never` |
-
-Le play 1 **avant** le play 2 : sans sessions communes, un utilisateur renvoyé
-ailleurs par le répartiteur est déconnecté, et le symptôme — des déconnexions
-apparemment aléatoires — ne s'attribue pas spontanément aux sessions.
-
-Détail en §13bis, et dans
-[EXPLICATION-DES-PLAYBOOKS.md](EXPLICATION-DES-PLAYBOOKS.md).
-
 ---
 
 ## 8. Rôles
@@ -452,7 +429,6 @@ Détail en §13bis, et dans
 | `odoo14` | conteneurs Odoo | paquet, venv, `odoo.conf`, fragment systemd |
 | `odoo_uid` | conteneurs Odoo | UID/GID communs (105/112) |
 | `odoo_sessions` | conteneurs Odoo | sessions communes ; mesure si un bind est nécessaire |
-| `odoo_lb` | `lb_hosts` | HAProxy + keepalived, VIP `.160` |
 | `pg_server` | `odoodb` | PostgreSQL 15, `pg_hba`, rôle SQL, base |
 | `odoo_dbinit` | `odoo_primary` | init du registre, stockage des pièces jointes |
 | `cleanup`, `odoo_cleanup` | — | démontage |
@@ -589,13 +565,6 @@ Tous les arguments d'une tâche sont templatés avant de la jouer. Un
 lieu d'afficher le `fail_msg`** patiemment rédigé pour ce cas précis. Utiliser
 `join`, qui accepte le vide.
 
-### Une élection VRRP ne se mesure pas immédiatement
-
-Juste après un redémarrage de keepalived, les trois nœuds sont encore en `BACKUP`.
-Un contrôle lancé là conclut « aucun porteur de la VIP » alors que le maître la
-prend trois secondes plus tard. Il faut attendre la VIP (`until`, `retries`) avant
-de compter ses porteurs.
-
 ### `/bricks/odoo14/prod` n'est pas une brique
 
 `gluster volume info odoo14` est la **seule** source : les briques sont
@@ -703,7 +672,6 @@ en `.part`, et la rotation n'a lieu **qu'après** un succès.
 | `odoo_uid` / `odoo_gid` | `105` / `112` | `roles/odoo_uid/defaults` |
 | `gluster_volume` | `odoo14` | `roles/odoo_filestore/defaults` |
 | `filestore_host_src` / `sauvegarde_filestore_src` | `/mnt/odoo` — montage **hôte**, pour la sauvegarde | `group_vars/gluster_bricks`, `group_vars/backup_host` |
-| `lb_vip` / `lb_port` / `lb_vrrp_id` | `192.168.96.160` / `80` / `51` | `group_vars/lb_hosts` |
 | `odoo_http_port` / `odoo_longpolling_port` | `8069` / `8072` | `group_vars/all` |
 
 Les secrets vivent dans `group_vars/all/vault.yml`, **chiffré**, gitignoré tant
@@ -728,9 +696,6 @@ ansible odoo_containers -m shell -a 'find /var/lib/odoo/filestore/prod -type f |
 
 # Les pièces jointes citées en base ont-elles leur fichier ?
 ansible odoodb -m shell -a "su - postgres -c \"psql -d prod -At -c 'SELECT count(DISTINCT store_fname) FROM ir_attachment WHERE store_fname IS NOT NULL'\""
-
-# Le répartiteur : VIP, backends, session collante, tout d'un coup
-ansible-playbook playbooks/ansi_repartiteur.yaml --tags verif
 
 # Base et filestore concordent
 ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass --tags verif
@@ -759,7 +724,6 @@ Mesuré le **30/09/2026**, machines interrogées.
 | Montage | par les **conteneurs** eux-mêmes sur `/var/lib/odoo` ; rien de monté côté hôtes |
 | Odoo | actif sur les trois, `/web/login` → **200** |
 | Modules | **63 installés**, dont `website` réinstallé le 30/09 (§13ter) |
-| Répartiteur | VIP `.160` portée par node1 seul ; 6 backends UP ; bascule éprouvée |
 | Sessions | dans le volume par construction, aucun bind (§3.3) |
 | Horloges | dérive de **14 h 09** le 25/09 — le rôle `chrony` la corrige et l'empêche |
 | Sauvegarde base | quotidienne, dernier dump `prod-20260930-110338.dump` vérifié au `pg_restore --list` (9553 entrées) |
@@ -822,8 +786,8 @@ un document vide, sans aucune erreur.
    `lxc_undo_routed` existe déjà pour les neutraliser.
 5. **`EXPLICATION-DES-FICHIERS.md`** ignore la quinzaine de fichiers créés du
    24 au 30/09/2026 : les rôles `chrony`, `odoo_uid`, `odoo_backup`,
-   `odoo_migration`, `odoo_sessions`, `odoo_lb`, et les playbooks
-   `ansi_sauvegarde`, `ansi_syncro`, `ansi_repartiteur`.
+   `odoo_migration`, `odoo_sessions`, et les playbooks
+   `ansi_sauvegarde`, `ansi_syncro`.
 6. **`/etc/fstab` des conteneurs : doublon `/mnt/odoo14`** — le volume y est monté
    deux fois, sur `/var/lib/odoo` et sur `/mnt/odoo14`. Sans effet, hérité des
    essais. Sur odoo1 et odoo3 s'ajoute une ligne `/mnt/odoo14` commentée.
@@ -835,7 +799,10 @@ un document vide, sans aucune erreur.
 9. ~~`makestep 1.0 -1` à poser, chronyd à installer sur `.141`~~ — **résolu le
    25/09/2026** par le rôle `chrony`, appliqué aux quatre hôtes par
    `ansi_odoo.yaml` play 1.
-10. ~~Pas de répartiteur de charge~~ — **résolu le 30/09/2026**, §13bis.
+10. **Pas de répartiteur de charge** — HAProxy + keepalived, posés le
+    30/09/2026, ont été retirés du dépôt le 15/10/2026. Chaque utilisateur
+    vise l'IP d'une instance ; si elle tombe, il doit changer d'URL. Le rôle
+    `odoo_sessions` n'est plus appelé par aucun playbook.
 
 ### À faire dans l'ordre
 
@@ -852,80 +819,6 @@ ansible-playbook playbooks/ansi_sauvegarde.yaml --tags sauvegarder
 # 3. confronter la base au filestore
 ansible-playbook playbooks/ansi_syncro.yaml --ask-vault-pass --tags verif
 ```
-
----
-
-## 13bis. Le répartiteur de charge
-
-Posé par `playbooks/ansi_repartiteur.yaml` le 30/09/2026.
-
-```
-        navigateur  →  VIP 192.168.96.160:80
-                            │
-                       keepalived   (VRRP : QUI porte la VIP)
-                            │
-                        HAProxy     (VERS QUEL Odoo aller)
-                      /     │     \
-                 odoo1    odoo2    odoo3
-                 .151     .152     .153      :8069 web   :8072 bus
-```
-
-### Où ça tourne
-
-HAProxy **et** keepalived sont sur les **trois hôtes** Rocky (`.129`, `.140`,
-`.128`), pas sur un seul : un répartiteur unique serait le point de panne qu'on
-cherchait à supprimer. Un seul porte la VIP à la fois ; les autres attendent.
-
-Pas sur `.141` : il porte PostgreSQL, et une panne y emporterait la base **et**
-l'entrée unique du service.
-
-### L'ordre du groupe `[lb_hosts]` compte
-
-keepalived dérive la priorité de la **position** dans ce groupe :
-`lb_vrrp_priorite_max - (rang × lb_vrrp_pas)`, soit 150 / 140 / 130. Le premier
-est le maître nominal. Ansible préserve cet ordre à l'exécution — contrairement à
-`ansible-inventory --list`, qui l'affiche trié.
-
-### Deux backends, pas un
-
-| Backend | Port | Rôle |
-|---|---|---|
-| `odoo_http` | 8069 | interface web |
-| `odoo_longpolling` | 8072 | bus de notifications |
-
-Odoo n'ouvre 8072 que si `workers > 0`. Router `/longpolling` vers 8069 donnerait
-une interface parfaitement fonctionnelle **sans aucune notification** — une panne
-muette, difficile à imputer parce que rien n'échoue visiblement.
-
-### Les trois réglages qui ne se voient pas quand ils manquent
-
-| Réglage | Sans lui |
-|---|---|
-| `net.ipv4.ip_nonlocal_bind=1` | HAProxy **ne démarre pas** sur les deux hôtes de secours : il veut écouter sur une VIP qu'ils ne portent pas. Le service est mort exactement quand on a besoin de lui. |
-| SELinux `haproxy_connect_any` | Tous les backends apparaissent DOWN alors qu'Odoo répond en direct. Le journal HAProxy ne dit rien ; la trace est dans l'audit SELinux. |
-| firewalld, protocole IP **112** | VRRP n'est ni TCP ni UDP, donc ne s'ouvre pas avec `port:`. Bloqué, chaque nœud se croit seul survivant et prend la VIP : trois machines avec la **même** adresse. |
-
-### Ce qui vient de l'inventaire
-
-Les backends sont dérivés de `groups['odoo_containers']` et de
-`hostvars[h].ansible_host`, les priorités de l'ordre de `[lb_hosts]`, l'interface
-de `ansible_default_ipv4.interface`. Même principe que `odoo_client_ips` pour
-`pg_hba.conf` : rien n'est recopié, donc rien ne peut diverger.
-
-L'interface est prise sur la **route par défaut** de l'hôte, jamais `ens224` :
-celle-là est donnée au conteneur (`lxc.net.0.type = phys`) et n'existe plus côté
-hôte.
-
-### Éprouver la bascule
-
-```bash
-ansible-playbook playbooks/ansi_repartiteur.yaml -k --ask-vault-pass --tags bascule
-```
-
-Arrête HAProxy sur le porteur, vérifie que la VIP part ailleurs et que le service
-répond toujours, puis remet HAProxy en marche. Sous tag `never` : il coupe
-brièvement le service. C'est pourtant le seul contrôle qui prouve la redondance —
-les deux pannes du tableau ci-dessus ne se voient **pas** en marche normale.
 
 ---
 
@@ -970,8 +863,8 @@ désinstaller **depuis l'interface**, qui sait retirer ses 937 lignes.
 
 ## 14. Limites de cette architecture
 
-- **Le répartiteur ne couvre que le front.** La VIP survit à la perte d'un hôte
-  Odoo (§13bis), mais pas à celle de PostgreSQL ni à celle de l'hyperviseur.
+- **Aucune adresse d'entrée unique.** Sans répartiteur, la perte d'un hôte Odoo
+  coupe les utilisateurs qui le visaient, jusqu'à ce qu'ils changent d'URL.
 - **PostgreSQL est un point unique de défaillance.** Si `.150` tombe, les trois
   Odoo s'arrêtent. GlusterFS ne protège que le filestore.
 - **Odoo 14 est en fin de vie.** Le dépôt nightly est figé à `14.0.20231205`, et son
@@ -985,5 +878,4 @@ désinstaller **depuis l'interface**, qui sait retirer ses 937 lignes.
   25/09 (§10) et aucun test de restauration n'existe. Une sauvegarde dont on n'a
   jamais vérifié la restauration est une hypothèse, pas une protection.
 - **Les sessions partagées coûtent à chaque requête authentifiée.** GlusterFS est
-  mauvais sur les petits fichiers à forte rotation ; le cookie `SRV` limite la
-  casse sans la supprimer (§3.3).
+  mauvais sur les petits fichiers à forte rotation (§3.3).
