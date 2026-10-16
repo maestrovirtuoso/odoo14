@@ -17,12 +17,12 @@ asynchrone, chacune sur un hôte LXC distinct.
 
 | Service | Adresse du conteneur | Hôte LXC Rocky 8 | Nom LXC local |
 | --- | --- | --- | --- |
-| `odoo1` — Odoo 14, initialisation et cron | `192.168.36.151` | `192.168.36.21` | `devodoo14` |
-| `odoo2` — Odoo 14 | `192.168.36.152` | `192.168.36.22` | `devodoo14` |
-| `odoo3` — Odoo 14 | `192.168.36.153` | `192.168.36.23` | `devodoo14` |
-| `odoodb1` — PostgreSQL 15 primaire | `192.168.33.156` | `192.168.33.21` | `devpg15` |
-| `odoodb2` — PostgreSQL 15 réplique | `192.168.33.157` | `192.168.33.22` | `devpg15` |
-| `odoodb3` — PostgreSQL 15 réplique | `192.168.33.158` | `192.168.33.23` | `devpg15` |
+| `odoo1` — Odoo 14, initialisation et cron | `192.168.36.161` | `192.168.36.21` | `devodoo14` |
+| `odoo2` — Odoo 14 | `192.168.36.162` | `192.168.36.22` | `devodoo14` |
+| `odoo3` — Odoo 14 | `192.168.36.163` | `192.168.36.23` | `devodoo14` |
+| `odoodb1` — PostgreSQL 15 primaire | `192.168.33.161` | `192.168.33.21` | `devpg15` |
+| `odoodb2` — PostgreSQL 15 réplique | `192.168.33.162` | `192.168.33.22` | `devpg15` |
+| `odoodb3` — PostgreSQL 15 réplique | `192.168.33.163` | `192.168.33.23` | `devpg15` |
 
 Les conteneurs sont basés sur Debian 12. Un même nom LXC peut être réutilisé
 sur des hôtes différents ; les alias Ansible et les adresses IP identifient
@@ -30,10 +30,10 @@ chaque instance.
 
 ## Circulation des données
 
-1. Les utilisateurs accèdent à `http://192.168.36.151:8069`,
-   `http://192.168.36.152:8069` ou `http://192.168.36.153:8069`.
+1. Les utilisateurs accèdent à `http://192.168.36.161:8069`,
+   `http://192.168.36.162:8069` ou `http://192.168.36.163:8069`.
    Le bus Odoo utilise le port `8072` avec les workers configurés.
-2. Les trois Odoo se connectent à `192.168.33.156:5432`, avec le compte
+2. Les trois Odoo se connectent à `192.168.33.161:5432`, avec le compte
    SQL `odoo`, sur la base `prod` par défaut. Le nom de base est
    surchargeable par `PROSYS_ODOO_DB`.
 3. `odoodb1` réplique directement ses WAL vers `odoodb2` et `odoodb3`.

@@ -11,7 +11,7 @@ lxc_container_name: devpg15
 nic: enp1s0
 
 # Adressage LAN du conteneur.
-ct_ip: 192.168.33.157
+ct_ip: 192.168.33.162
 ct_prefix: 24
 ct_gateway: 192.168.33.254
 ct_dns_servers:

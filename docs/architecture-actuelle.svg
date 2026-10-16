@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1530" viewBox="0 0 1400 1530" role="img" aria-labelledby="title desc">
 <title id="title">Architecture actuelle du projet Odoo 14</title>
-<desc id="desc">Trois Odoo sur 192.168.36.151 à 153 utilisent PostgreSQL primaire 192.168.33.156, qui réplique vers 192.168.33.157 et 158. Stockage GlusterFS externe 192.168.36.8:/sre et sauvegardes sur 192.168.36.21. Bascule manuelle.</desc>
+<desc id="desc">Trois Odoo sur 192.168.36.161 à 163 utilisent PostgreSQL primaire 192.168.33.161, qui réplique vers 192.168.33.162 et 163. Stockage GlusterFS externe 192.168.36.8:/sre et sauvegardes sur 192.168.36.21. Bascule manuelle.</desc>
 <defs>
   <marker id="blue" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto-start-reverse"><path d="M0 0L9 4.5L0 9Z" fill="#2e73b7"/></marker>
   <marker id="green" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9Z" fill="#238767"/></marker>
@@ -46,21 +46,21 @@
 <rect x="64" y="354" width="344" height="180" rx="16" fill="#ffffff" stroke="#b9d0e8" />
 <rect x="64" y="354" width="344" height="46" rx="14" fill="#dceafa" stroke="none" />
 <text x="84" y="384" class="heading" fill="#205a91" text-anchor="start">Odoo 14 · odoo1</text>
-<text x="84" y="430" class="mono" fill="#223d56" text-anchor="start">192.168.36.151:8069</text>
+<text x="84" y="430" class="mono" fill="#223d56" text-anchor="start">192.168.36.161:8069</text>
 <text x="84" y="462" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.36.21</text>
 <text x="84" y="490" class="small" fill="#223d56" text-anchor="start">LXC : devodoo14 · Debian 12</text>
 <text x="84" y="517" class="small" fill="#506a80" text-anchor="start">Initialisation et cron</text>
 <rect x="528" y="354" width="344" height="180" rx="16" fill="#ffffff" stroke="#b9d0e8" />
 <rect x="528" y="354" width="344" height="46" rx="14" fill="#dceafa" stroke="none" />
 <text x="548" y="384" class="heading" fill="#205a91" text-anchor="start">Odoo 14 · odoo2</text>
-<text x="548" y="430" class="mono" fill="#223d56" text-anchor="start">192.168.36.152:8069</text>
+<text x="548" y="430" class="mono" fill="#223d56" text-anchor="start">192.168.36.162:8069</text>
 <text x="548" y="462" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.36.22</text>
 <text x="548" y="490" class="small" fill="#223d56" text-anchor="start">LXC : devodoo14 · Debian 12</text>
 <text x="548" y="517" class="small" fill="#506a80" text-anchor="start">Application sur la base partagée</text>
 <rect x="992" y="354" width="344" height="180" rx="16" fill="#ffffff" stroke="#b9d0e8" />
 <rect x="992" y="354" width="344" height="46" rx="14" fill="#dceafa" stroke="none" />
 <text x="1012" y="384" class="heading" fill="#205a91" text-anchor="start">Odoo 14 · odoo3</text>
-<text x="1012" y="430" class="mono" fill="#223d56" text-anchor="start">192.168.36.153:8069</text>
+<text x="1012" y="430" class="mono" fill="#223d56" text-anchor="start">192.168.36.163:8069</text>
 <text x="1012" y="462" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.36.23</text>
 <text x="1012" y="490" class="small" fill="#223d56" text-anchor="start">LXC : devodoo14 · Debian 12</text>
 <text x="1012" y="517" class="small" fill="#506a80" text-anchor="start">Application sur la base partagée</text>
@@ -71,21 +71,21 @@
 <rect x="64" y="795" width="344" height="190" rx="16" fill="#ffffff" stroke="#d8c291" />
 <rect x="64" y="795" width="344" height="46" rx="14" fill="#fff0d0" stroke="none" />
 <text x="84" y="825" class="heading" fill="#916718" text-anchor="start">odoodb2 · Réplique</text>
-<text x="84" y="871" class="mono" fill="#223d56" text-anchor="start">192.168.33.157:5432</text>
+<text x="84" y="871" class="mono" fill="#223d56" text-anchor="start">192.168.33.162:5432</text>
 <text x="84" y="903" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.33.22</text>
 <text x="84" y="931" class="small" fill="#223d56" text-anchor="start">LXC : devpg15 · Debian 12</text>
 <text x="84" y="962" class="small" fill="#506a80" text-anchor="start">Lecture seule · copie du primaire</text>
 <rect x="528" y="795" width="344" height="190" rx="16" fill="#ffffff" stroke="#80bca7" />
 <rect x="528" y="795" width="344" height="46" rx="14" fill="#d8efe4" stroke="none" />
 <text x="548" y="825" class="heading" fill="#216a50" text-anchor="start">odoodb1 · Primaire</text>
-<text x="548" y="871" class="mono" fill="#223d56" text-anchor="start">192.168.33.156:5432</text>
+<text x="548" y="871" class="mono" fill="#223d56" text-anchor="start">192.168.33.161:5432</text>
 <text x="548" y="903" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.33.21</text>
 <text x="548" y="931" class="small" fill="#223d56" text-anchor="start">LXC : devpg15 · Debian 12</text>
 <text x="548" y="962" class="small" fill="#506a80" text-anchor="start">Base partagée : prod par défaut</text>
 <rect x="992" y="795" width="344" height="190" rx="16" fill="#ffffff" stroke="#d8c291" />
 <rect x="992" y="795" width="344" height="46" rx="14" fill="#fff0d0" stroke="none" />
 <text x="1012" y="825" class="heading" fill="#916718" text-anchor="start">odoodb3 · Réplique</text>
-<text x="1012" y="871" class="mono" fill="#223d56" text-anchor="start">192.168.33.158:5432</text>
+<text x="1012" y="871" class="mono" fill="#223d56" text-anchor="start">192.168.33.163:5432</text>
 <text x="1012" y="903" class="small" fill="#223d56" text-anchor="start">Hôte Rocky 8 : 192.168.33.23</text>
 <text x="1012" y="931" class="small" fill="#223d56" text-anchor="start">LXC : devpg15 · Debian 12</text>
 <text x="1012" y="962" class="small" fill="#506a80" text-anchor="start">Lecture seule · copie du primaire</text>

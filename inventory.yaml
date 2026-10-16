@@ -85,9 +85,9 @@ nic=ens224
 # agissent sur l'hote a partir du conteneur).
 # ---------------------------------------------------------------------------
 [odoo_containers]
-odoo1 ansible_host=192.168.36.151 lxc_host=192.168.36.21
-odoo2 ansible_host=192.168.36.152 lxc_host=192.168.36.22
-odoo3 ansible_host=192.168.36.153 lxc_host=192.168.36.23
+odoo1 ansible_host=192.168.36.161 lxc_host=192.168.36.21
+odoo2 ansible_host=192.168.36.162 lxc_host=192.168.36.22
+odoo3 ansible_host=192.168.36.163 lxc_host=192.168.36.23
 
 # Noeud qui initialise la base partagee et porte les taches planifiees.
 # Il doit rester UNIQUE : trois "odoo -i base" concurrents sur la meme base
@@ -101,7 +101,7 @@ odoo1
 # UN SEUL membre : ansi_syncro et odoo_cleanup traitent ce groupe comme
 # "la" base. Les reserves sont dans db_replicas, pas ici.
 [db_containers]
-odoodb1 ansible_host=192.168.33.156 lxc_host=192.168.33.21
+odoodb1 ansible_host=192.168.33.161 lxc_host=192.168.33.21
 
 # Reserves PostgreSQL : copies en lecture seule de odoodb1, alimentees par
 # replication streaming (roles/pg_server, tasks/replica.yaml). Odoo ne s'y
@@ -109,8 +109,8 @@ odoodb1 ansible_host=192.168.33.156 lxc_host=192.168.33.21
 # reserve puis changer odoo_db_host. Rien ne la fait automatiquement (pas de
 # Patroni).
 [db_replicas]
-odoodb2 ansible_host=192.168.33.157 lxc_host=192.168.33.22
-odoodb3 ansible_host=192.168.33.158 lxc_host=192.168.33.23
+odoodb2 ansible_host=192.168.33.162 lxc_host=192.168.33.22
+odoodb3 ansible_host=192.168.33.163 lxc_host=192.168.33.23
 
 [lxc_containers:children]
 odoo_containers

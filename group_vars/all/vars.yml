@@ -10,7 +10,7 @@
 # Conteneur PostgreSQL dedie odoodb1 (hote 192.168.33.21).
 # Odoo (192.168.36.0/24) l'atteint a travers les passerelles .254 : le port
 # 5432 doit etre ouvert entre les deux sous-reseaux.
-odoo_db_host: 192.168.33.156
+odoo_db_host: 192.168.33.161
 odoo_db_port: 5432
 odoo_db_user: odoo
 
@@ -29,7 +29,7 @@ odoo_client_ips: "{{ groups['odoo_containers'] | map('extract', hostvars, 'ansib
 #
 # Il ne peut PAS etre couvert par odoo_client_ips : c'est un HOTE Rocky
 # (192.168.96.128), pas un conteneur. Les conteneurs Odoo portent leurs
-# propres IP LAN (.151 .152 .153) via une carte physique dediee, et l'hote qui
+# propres IP LAN (.161 .162 .163) via une carte physique dediee, et l'hote qui
 # heberge odoo1 est une machine distincte avec une autre adresse. Autoriser
 # odoo1 n'autorise donc en rien son hote -- c'est ce qui a produit
 # "no pg_hba.conf entry for host 192.168.96.128" le 2026-09-24.

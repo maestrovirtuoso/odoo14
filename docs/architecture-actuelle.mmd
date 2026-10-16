@@ -3,15 +3,15 @@ flowchart TB
     A["Poste de contrôle Ansible<br/>Ubuntu 22.04 ou Debian 12<br/>Administration SSH : 22/TCP"]
 
     subgraph APPS["Applications — 192.168.36.0/24 — LXC Debian 12 sur hôtes Rocky 8"]
-        O1["Odoo 14 · odoo1<br/>192.168.36.151:8069<br/>Hôte : 192.168.36.21<br/>LXC : devodoo14<br/>Initialisation de la base et tâches cron"]
-        O2["Odoo 14 · odoo2<br/>192.168.36.152:8069<br/>Hôte : 192.168.36.22<br/>LXC : devodoo14"]
-        O3["Odoo 14 · odoo3<br/>192.168.36.153:8069<br/>Hôte : 192.168.36.23<br/>LXC : devodoo14"]
+        O1["Odoo 14 · odoo1<br/>192.168.36.161:8069<br/>Hôte : 192.168.36.21<br/>LXC : devodoo14<br/>Initialisation de la base et tâches cron"]
+        O2["Odoo 14 · odoo2<br/>192.168.36.162:8069<br/>Hôte : 192.168.36.22<br/>LXC : devodoo14"]
+        O3["Odoo 14 · odoo3<br/>192.168.36.163:8069<br/>Hôte : 192.168.36.23<br/>LXC : devodoo14"]
     end
 
     subgraph DB["PostgreSQL 15 — 192.168.33.0/24 — LXC Debian 12 sur hôtes Rocky 8"]
-        P[("odoodb1 · Primaire<br/>192.168.33.156:5432<br/>Hôte : 192.168.33.21<br/>LXC : devpg15<br/>Base partagée : prod par défaut")]
-        R2[("odoodb2 · Réplique<br/>192.168.33.157:5432<br/>Hôte : 192.168.33.22<br/>LXC : devpg15<br/>Lecture seule")]
-        R3[("odoodb3 · Réplique<br/>192.168.33.158:5432<br/>Hôte : 192.168.33.23<br/>LXC : devpg15<br/>Lecture seule")]
+        P[("odoodb1 · Primaire<br/>192.168.33.161:5432<br/>Hôte : 192.168.33.21<br/>LXC : devpg15<br/>Base partagée : prod par défaut")]
+        R2[("odoodb2 · Réplique<br/>192.168.33.162:5432<br/>Hôte : 192.168.33.22<br/>LXC : devpg15<br/>Lecture seule")]
+        R3[("odoodb3 · Réplique<br/>192.168.33.163:5432<br/>Hôte : 192.168.33.23<br/>LXC : devpg15<br/>Lecture seule")]
         P -->|"Streaming WAL asynchrone"| R2
         P -->|"Streaming WAL asynchrone"| R3
     end

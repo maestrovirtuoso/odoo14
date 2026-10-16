@@ -11,7 +11,7 @@ lxc_container_name: devodoo14
 nic: enp5s0
 
 # Adressage LAN du conteneur.
-ct_ip: 192.168.36.151
+ct_ip: 192.168.36.161
 ct_prefix: 24
 ct_gateway: 192.168.36.254
 ct_dns_servers:

@@ -3,9 +3,9 @@
 # Deploiement d'Odoo 14 sur une base PostgreSQL PARTAGEE.
 #
 # Architecture :
-#   - un conteneur PostgreSQL primaire odoodb1 (192.168.33.156), sans Odoo,
+#   - un conteneur PostgreSQL primaire odoodb1 (192.168.33.161), sans Odoo,
 #     et deux reserves en replication streaming (odoodb2, odoodb3) ;
-#   - trois conteneurs Odoo (192.168.36.151-153) sans serveur PostgreSQL ;
+#   - trois conteneurs Odoo (192.168.36.161-163) sans serveur PostgreSQL ;
 #   - une base unique "prod" ;
 #   - un filestore COMMUN : le volume GlusterFS replique "sre", servi par
 #     192.168.36.8 hors du projet, monte sur chaque hote Odoo et passe a son
@@ -121,16 +121,16 @@
 # Redemarre les conteneurs Odoo au premier passage (lxc.mount.entry n'est lu
 # qu'au demarrage).
 #
-# DESACTIVEE (mise en commentaire) : le volume doit alors etre monte sur
-# /var/lib/odoo des conteneurs par un autre moyen, sinon la play 3/5 s'arrete
-# sur "n'est pas un point de montage GlusterFS". Pour la reactiver, retirer
-# les "#" des six lignes ci-dessous.
-# - name: "1bis/5 - Filestore commun : volume sre monte et passe aux conteneurs"
-#   hosts: gluster_bricks
-#   gather_facts: false
-#   tags: [filestore]
-#   roles:
-#     - odoo_filestore
+# Prerequis : les hotes Odoo joignent {{ gluster_server }}:24007 et les ports
+# de brique du volume. Pour la rejouer seule :
+#   ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass --tags filestore
+# gather_facts: le role choisit le paquet client Gluster selon le systeme.
+- name: "1bis/5 - Filestore commun : volume sre monte et passe aux conteneurs"
+  hosts: gluster_bricks
+  gather_facts: true
+  tags: [filestore]
+  roles:
+    - odoo_filestore
 
 - name: "2/5 - Base PostgreSQL partagee"
   hosts: db_containers

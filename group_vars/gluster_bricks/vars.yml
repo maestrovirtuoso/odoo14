@@ -50,3 +50,19 @@ filestore_host_src: /mnt/odoo
 # et 39 fichiers le 25/09/2026, avec une interface web cassee sur deux noeuds
 # et pas une erreur dans les journaux.
 filestore_fstype_attendu: fuse.glusterfs
+
+# Noms des serveurs Gluster que le client doit pouvoir resoudre EN IPv4.
+#
+# Le volume "sre" declare ses briques par nom (dev-glustervm1..3). Le client
+# se connecte a gluster_server pour lire la description du volume, puis
+# contacte chaque brique par ce nom. Si le nom ne resout qu'en IPv6 lien-local
+# (fe80::...), inutilisable sans interface, le montage echoue.
+# Renseigner les IPv4 ici : elles sont ecrites dans /etc/hosts des hotes.
+# Laisser vide si le DNS resout deja ces noms en IPv4
+# (getent ahostsv4 dev-glustervm1).
+#
+# gluster_hosts:
+#   - { ip: 192.168.36.8,  name: dev-glustervm1 }
+#   - { ip: 192.168.36.X,  name: dev-glustervm2 }
+#   - { ip: 192.168.36.Y,  name: dev-glustervm3 }
+gluster_hosts: []

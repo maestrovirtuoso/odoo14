@@ -54,6 +54,19 @@
     name: "{{ 'glusterfs-client' if ansible_os_family == 'Debian' else 'glusterfs-fuse' }}"
     state: present
 
+- name: Resoudre les serveurs Gluster en IPv4 (/etc/hosts)
+  # Les briques sont declarees par nom dans le volume ; le client les contacte
+  # par ce nom apres avoir lu sa description. Voir gluster_hosts dans
+  # group_vars/gluster_bricks/vars.yml.
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ANSIBLE odoo_filestore : serveurs Gluster"
+    block: |
+      {% for h in gluster_hosts %}
+      {{ h.ip }} {{ h.name }}
+      {% endfor %}
+  when: gluster_hosts | length > 0
+
 - name: Le serveur GlusterFS repond
   # Echouer ici, en nommant l'adresse, plutot que sur un "mount failed" qui ne
   # dit pas si c'est le reseau, le nom du volume ou le client.

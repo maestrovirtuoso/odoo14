@@ -24,7 +24,7 @@
 #   /mnt/odoo                           <- HOTES Odoo .36.21 .36.22 .36.23
 #         |  lxc.mount.entry (bind)
 #         v
-#   /var/lib/odoo                       <- CONTENEURS odoo1-3 (.36.151-153)
+#   /var/lib/odoo                       <- CONTENEURS odoo1-3 (.36.161-163)
 #                                          filestore/ et sessions/ COMMUNS
 #
 # Le filestore est COMMUN aux trois instances, ce qui est la seule
