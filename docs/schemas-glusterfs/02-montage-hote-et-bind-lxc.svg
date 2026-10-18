@@ -1,0 +1,350 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+<title id="title">02 - Montage hôte et bind LXC</title><desc id="desc">Schéma GlusterFS et sauvegarde Odoo. Configuration du dépôt du 18 octobre 2026, serveurs non audités.</desc>
+<rect x="0" y="0" width="1600" height="1000" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<polyline points="20,0 20,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="40,0 40,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="60,0 60,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="80,0 80,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="100,0 100,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="120,0 120,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="140,0 140,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="160,0 160,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="180,0 180,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="200,0 200,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="220,0 220,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="240,0 240,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="260,0 260,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="280,0 280,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="300,0 300,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="320,0 320,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="340,0 340,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="360,0 360,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="380,0 380,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="400,0 400,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="420,0 420,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="440,0 440,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="460,0 460,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="480,0 480,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="500,0 500,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="520,0 520,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="540,0 540,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="560,0 560,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="580,0 580,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="600,0 600,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="620,0 620,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="640,0 640,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="660,0 660,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="680,0 680,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="700,0 700,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="720,0 720,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="740,0 740,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="760,0 760,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="780,0 780,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="800,0 800,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="820,0 820,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="840,0 840,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="860,0 860,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="880,0 880,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="900,0 900,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="920,0 920,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="940,0 940,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="960,0 960,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="980,0 980,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1000,0 1000,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1020,0 1020,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1040,0 1040,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1060,0 1060,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1080,0 1080,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1100,0 1100,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1120,0 1120,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1140,0 1140,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1160,0 1160,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1180,0 1180,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1200,0 1200,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1220,0 1220,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1240,0 1240,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1260,0 1260,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1280,0 1280,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1300,0 1300,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1320,0 1320,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1340,0 1340,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1360,0 1360,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1380,0 1380,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1400,0 1400,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1420,0 1420,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1440,0 1440,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1460,0 1460,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1480,0 1480,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1500,0 1500,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1520,0 1520,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1540,0 1540,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1560,0 1560,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1580,0 1580,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,20 1600,20" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,40 1600,40" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,60 1600,60" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,80 1600,80" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,100 1600,100" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,120 1600,120" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,140 1600,140" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,160 1600,160" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,180 1600,180" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,200 1600,200" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,220 1600,220" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,240 1600,240" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,260 1600,260" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,280 1600,280" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,300 1600,300" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,320 1600,320" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,340 1600,340" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,360 1600,360" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,380 1600,380" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,400 1600,400" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,420 1600,420" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,440 1600,440" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,460 1600,460" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,480 1600,480" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,500 1600,500" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,520 1600,520" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,540 1600,540" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,560 1600,560" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,580 1600,580" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,600 1600,600" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,620 1600,620" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,640 1600,640" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,660 1600,660" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,680 1600,680" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,700 1600,700" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,720 1600,720" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,740 1600,740" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,760 1600,760" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,780 1600,780" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,800 1600,800" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,820 1600,820" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,840 1600,840" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,860 1600,860" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,880 1600,880" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,900 1600,900" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,920 1600,920" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,940 1600,940" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,960 1600,960" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,980 1600,980" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<rect x="0" y="0" width="1600" height="138" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<rect x="60" y="21" width="1200" height="24" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" text-anchor="start">
+<tspan x="60" y="37.225">02 / DÉTAIL DU MONTAGE</tspan>
+</text>
+<rect x="60" y="53" width="1240" height="45" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="600" text-anchor="start">
+<tspan x="60" y="85.9">Du volume GlusterFS au data_dir d&apos;Odoo</tspan>
+</text>
+<rect x="60" y="101" width="1260" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">
+<tspan x="60" y="118.7">Le bind LXC présente le montage de l&apos;hôte dans le conteneur, avec les mêmes fichiers.</tspan>
+</text>
+<rect x="1340" y="48" width="200" height="46" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="1350" y="53" width="180" height="34" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="middle">
+<tspan x="1440" y="75.525">MONTAGE / LXC</tspan>
+</text>
+<polyline points="60,948 1540,948" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round"/>
+<rect x="60" y="960" width="1200" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start">
+<tspan x="60" y="976.725">Configuration du dépôt · 18 octobre 2026 · État des serveurs non audité</tspan>
+</text>
+<rect x="1400" y="960" width="140" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" text-anchor="end">
+<tspan x="1540" y="977.05">02 / 03</tspan>
+</text>
+<polyline points="0,138 1600,138" fill="none" stroke="#000000" stroke-width="1" stroke-linejoin="round"/>
+<rect x="945" y="142" width="595" height="24" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<defs><marker id="arrow-legend-access" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="960,154 1000,154" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-legend-access)"/>
+<rect x="1013" y="143" width="205" height="23" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start">
+<tspan x="1013" y="158.725">Montage / accès</tspan>
+</text>
+<defs><marker id="arrow-legend-copy" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="1250,154 1290,154" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#arrow-legend-copy)"/>
+<rect x="1303" y="143" width="210" height="23" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start">
+<tspan x="1303" y="158.725">Copie de sauvegarde</tspan>
+</text>
+<rect x="60" y="200" width="850" height="470" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="98" y="225" width="43" height="51" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="104" y="231" width="32" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="109" y="235" width="3" height="3" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="116,236 130,236" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="104" y="245" width="32" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="109" y="249" width="3" height="3" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="116,250 130,250" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="104" y="259" width="32" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="109" y="263" width="3" height="3" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="116,264 130,264" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="170" y="219" width="700" height="34" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="600" text-anchor="start">
+<tspan x="170" y="243.8">HÔTE · 192.168.36.21</tspan>
+</text>
+<rect x="170" y="261" width="700" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">
+<tspan x="170" y="280.025">Le client GlusterFS s&apos;exécute sur cet hôte.</tspan>
+</text>
+<rect x="90" y="325" width="330" height="135" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="117" y="342" width="36" height="42" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="122" y="347" width="27" height="8" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="126" y="350" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="132,351 144,351" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="122" y="359" width="27" height="8" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="126" y="362" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="132,363 144,363" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="122" y="371" width="27" height="8" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="126" y="374" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="132,375 144,375" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="175" y="336" width="220" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="start">
+<tspan x="175" y="354.375">CLIENT GLUSTERFS</tspan>
+</text>
+<rect x="110" y="403" width="290" height="33" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="start">
+<tspan x="110" y="426.975">192.168.36.8:/sre</tspan>
+</text>
+<rect x="510" y="325" width="350" height="135" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="535,353 535,345 550,345 558,353 577,353 577,382 535,382 535,353" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="535,358 577,358" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="543,366 567,366" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="595" y="337" width="245" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="start">
+<tspan x="595" y="355.375">POINT DE MONTAGE</tspan>
+</text>
+<rect x="530" y="398" width="310" height="42" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="29" font-weight="600" text-anchor="start">
+<tspan x="530" y="428.425">/mnt/odoo</tspan>
+</text>
+<rect x="90" y="500" width="770" height="135" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="120,520 138,520 148,530 148,560 120,560 120,520" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="138,520 138,530 148,530" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="126,538 142,538" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="126,545 142,545" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="126,552 139,552" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="175" y="511" width="660" height="28" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="start">
+<tspan x="175" y="529.875">CONFIGURATION SUR L&apos;HÔTE</tspan>
+</text>
+<rect x="110" y="561" width="725" height="56" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">
+<tspan x="110" y="582.7">/etc/fstab : montage GlusterFS persistant</tspan>
+<tspan x="110" y="607">/var/lib/lxc/devodoo14/config : bind LXC</tspan>
+</text>
+<rect x="1010" y="200" width="530" height="470" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="1048,236 1070,225 1092,236 1092,261 1070,272 1048,261 1048,236" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1048,236 1070,248 1092,236" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1070,248 1070,272" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1056,245 1056,260" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1062,249 1062,264" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1078,249 1078,264" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1084,245 1084,260" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="1120" y="219" width="390" height="34" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="600" text-anchor="start">
+<tspan x="1120" y="243.8">ODOO1 · devodoo14</tspan>
+</text>
+<rect x="1120" y="261" width="390" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">
+<tspan x="1120" y="280.35">Conteneur : 192.168.36.161</tspan>
+</text>
+<rect x="1035" y="325" width="480" height="135" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="1060,353 1060,345 1075,345 1083,353 1102,353 1102,382 1060,382 1060,353" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1060,358 1102,358" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1068,366 1092,366" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="1120" y="337" width="365" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="start">
+<tspan x="1120" y="355.375">DATA_DIR D&apos;ODOO</tspan>
+</text>
+<rect x="1055" y="398" width="435" height="42" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="29" font-weight="600" text-anchor="start">
+<tspan x="1055" y="428.425">/var/lib/odoo</tspan>
+</text>
+<rect x="1035" y="520" width="225" height="115" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="1050,544 1050,539 1060,539 1065,544 1078,544 1078,563 1050,563 1050,544" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1050,547 1078,547" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1056,553 1071,553" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="1090" y="532" width="155" height="23" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" text-anchor="start">
+<tspan x="1090" y="547.725">FILESTORE</tspan>
+</text>
+<rect x="1050" y="568" width="195" height="26" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="600" text-anchor="start">
+<tspan x="1050" y="586.85">filestore/prod/</tspan>
+</text>
+<rect x="1050" y="603" width="195" height="23" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start">
+<tspan x="1050" y="619.05">Documents et images</tspan>
+</text>
+<rect x="1290" y="520" width="225" height="115" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="1305,544 1305,539 1315,539 1320,544 1333,544 1333,563 1305,563 1305,544" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1305,547 1333,547" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1310,553 1326,553" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="1345" y="532" width="155" height="23" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" text-anchor="start">
+<tspan x="1345" y="547.725">SESSIONS</tspan>
+</text>
+<rect x="1305" y="568" width="195" height="26" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="600" text-anchor="start">
+<tspan x="1305" y="586.85">sessions/</tspan>
+</text>
+<rect x="1305" y="603" width="195" height="23" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start">
+<tspan x="1305" y="619.05">Sessions partagées</tspan>
+</text>
+<defs><marker id="arrow-client-to-mount" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="420,392 510,392" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-client-to-mount)"/>
+<rect x="422" y="346" width="86" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" text-anchor="middle">
+<tspan x="465" y="363.725">Montage</tspan>
+</text>
+<defs><marker id="arrow-mount-to-container" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="860,392 1035,392" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-mount-to-container)"/>
+<rect x="875" y="345" width="130" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="middle">
+<tspan x="940" y="363.375">Bind LXC</tspan>
+</text>
+<defs><marker id="arrow-data-dir-to-filestore" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="1275,460 1275,493 1147,493 1147,520" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-data-dir-to-filestore)"/>
+<defs><marker id="arrow-data-dir-to-sessions" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="1275,460 1275,493 1402,493 1402,520" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-data-dir-to-sessions)"/>
+<rect x="60" y="715" width="1480" height="90" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="85" y="726" width="1420" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" text-anchor="start">
+<tspan x="85" y="743.05">DIRECTIVE LXC ÉCRITE PAR ANSIBLE</tspan>
+</text>
+<rect x="85" y="760" width="1420" height="33" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="start">
+<tspan x="85" y="783.975">lxc.mount.entry = /mnt/odoo var/lib/odoo none bind,create=dir 0 0</tspan>
+</text>
+<rect x="60" y="835" width="470" height="80" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="80" y="843" width="430" height="24" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" text-anchor="start">
+<tspan x="80" y="859.55">01 / MONTAGE APRÈS LE RÉSEAU</tspan>
+</text>
+<rect x="80" y="879" width="430" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">
+<tspan x="80" y="897.35">fstab : defaults,_netdev</tspan>
+</text>
+<rect x="565" y="835" width="470" height="80" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="585" y="843" width="430" height="24" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" text-anchor="start">
+<tspan x="585" y="859.55">02 / CONTRÔLE DU VOLUME</tspan>
+</text>
+<rect x="585" y="879" width="430" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">
+<tspan x="585" y="897.35">findmnt : type fuse.glusterfs</tspan>
+</text>
+<rect x="1070" y="835" width="470" height="80" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="1090" y="843" width="430" height="24" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" text-anchor="start">
+<tspan x="1090" y="859.55">03 / APPLICATION DU BIND</tspan>
+</text>
+<rect x="1090" y="879" width="430" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">
+<tspan x="1090" y="897.025">Redémarrage LXC si la directive change.</tspan>
+</text>
+</svg>

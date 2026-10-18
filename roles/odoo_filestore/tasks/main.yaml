@@ -189,22 +189,11 @@
   run_once: true
 
 # --- 4. Bind du volume dans le conteneur -----------------------------------
-- name: Retirer un ancien bind limite au sous-repertoire filestore
-  # L'ancien modele bindait le volume sur /var/lib/odoo/filestore. Laisse en
-  # place a cote du nouveau, il se poserait PAR-DESSUS lui et le filestore
-  # verrait la racine du volume au lieu de son sous-repertoire.
-  ansible.builtin.lineinfile:
-    path: "/var/lib/lxc/{{ lxc_container_name }}/config"
-    regexp: '^lxc\.mount\.entry\s*=.*\svar/lib/odoo/filestore\s'
-    state: absent
-  when: odoo_ct_filestore != 'var/lib/odoo/filestore'
-  notify: redemarrer le conteneur
-
 - name: Partager le filestore avec le conteneur
   # lxc.mount.entry est une directive REPETABLE : le modele "un lineinfile par
   # cle" utilise par lxc_lan pour lxc.net.0.* ne s'y transpose pas. Le regexp
   # discrimine donc sur le point de montage DESTINATION, qui est unique.
-  # create=dir fait creer /var/lib/odoo/filestore par LXC s'il manque.
+  # create=dir fait creer le point de montage par LXC s'il manque.
   ansible.builtin.lineinfile:
     path: "/var/lib/lxc/{{ lxc_container_name }}/config"
     regexp: '^lxc\.mount\.entry\s*=.*\s{{ odoo_ct_filestore | regex_escape }}\s'

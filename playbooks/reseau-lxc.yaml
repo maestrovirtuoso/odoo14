@@ -16,8 +16,9 @@
 # Hotes : Debian 12. Le NAT de secours (lxc_egress_nat, eth1 sur lxcbr0) reste
 # disponible dans le role mais est desactive.
 #
-# C'est exactement la play 1/5 de ansi_odoo.yaml, extraite pour pouvoir
-# rejouer l'etape reseau sans derouler tout le deploiement : apres un
+# C'est le SEUL playbook qui joue le role lxc_lan : ansi_odoo.yaml ne le joue
+# plus et suppose ce playbook deja passe. A lancer avant ansi_odoo.yaml, et
+# pour rejouer l'etape reseau sans derouler tout le deploiement : apres un
 # changement de mode, une reinstallation de conteneur, ou pour diagnostiquer
 # un conteneur injoignable. Le role etant idempotent, le rejouer sur une
 # installation saine ne change rien.

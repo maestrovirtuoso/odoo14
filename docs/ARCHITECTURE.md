@@ -375,6 +375,28 @@ puis création via le template `download` en Debian 12 bookworm.
 > et `/var/cache/lxc` vers `/srv`. Pour diagnostiquer à la main, rejouer
 > `lxc-create` **sans `--quiet`**.
 
+### `reseau-lxc.yaml` — réseau des conteneurs
+
+Rôle `lxc_lan` sur `gluster_servers` : conteneurs exposés sur le LAN en
+ipvlan, IP statique, amorçage SSH. C'est le **seul** playbook qui joue ce rôle :
+`ansi_odoo.yaml` ne le joue plus et suppose ce playbook déjà passé. Il
+redémarre les conteneurs.
+
+### Ordre de lancement
+
+Trois commandes, dans cet ordre :
+
+```bash
+ansible-playbook playbooks/ansi_odoo.yaml -k --ask-vault-pass --tags horloge
+ansible-playbook -i inventory.yaml playbooks/reseau-lxc.yaml
+ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass
+```
+
+L'horloge passe en premier parce que `reseau-lxc.yaml` installe
+`openssh-server` par apt dans les conteneurs : une horloge fausse le fait
+échouer sur *« Release file is not valid yet »*. Le réseau passe ensuite,
+sans quoi Ansible ne joint aucun conteneur. Le déploiement vient en dernier.
+
 ### `ansi_odoo.yaml` — déploiement nominal
 
 **L'ordre des plays est contraignant.**
@@ -382,7 +404,7 @@ puis création via le template `download` en Debian 12 bookworm.
 | # | Hôtes | Rôles | Pourquoi ici |
 |---|---|---|---|
 | 0 | localhost | — | contrôle des versions ; tag `never`, ne tourne plus par défaut |
-| 1 | `gluster_servers` | `chrony`, `lxc_lan` | l'horloge d'abord : fausse, elle fait échouer apt dans les conteneurs |
+| 1 | `gluster_servers` | `chrony` | l'horloge d'abord : fausse, elle fait échouer apt dans les conteneurs ; le réseau est fait avant, par `reseau-lxc.yaml` |
 | 2 | `db_containers` | `base_debian`, `pg_server` | la base avant tout client |
 | 3 | `odoo_containers` | `base_debian`, `python38`, `odoo14` | Odoo installé mais **laissé arrêté** |
 | 4 | `odoo_primary` | `odoo_dbinit` | init du registre, par **un seul** nœud |
@@ -395,7 +417,7 @@ corrompent — trois garde-fous indépendants l'en empêchent : le groupe
 `to_regclass('public.ir_module_module')` qui rend l'init conditionnelle.
 
 ```bash
-ansible-playbook playbooks/ansi_odoo.yaml -k --ask-vault-pass
+ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass                           # après reseau-lxc.yaml
 ansible-playbook playbooks/ansi_odoo.yaml -k --ask-vault-pass --tags all,preflight   # avec le contrôle d'env.
 ansible-playbook playbooks/ansi_odoo.yaml -k --ask-vault-pass --limit odoodb         # que la base
 ```
@@ -426,7 +448,7 @@ Voir [sauvegarde-restauration.md](sauvegarde-restauration.md).
 |---|---|---|
 | `install` | hôtes | paquets LXC, création des conteneurs Debian 12 |
 | `chrony` | hôtes | horloge : `makestep 1.0 -1`, saut immédiat, vérification |
-| `lxc_lan` | hôtes | carte physique, IP statique, amorçage SSH, démontage de l'ancien routage |
+| `lxc_lan` | hôtes | carte physique, IP statique, amorçage SSH, démontage de l'ancien routage ; joué par `reseau-lxc.yaml` seul |
 | `odoo_filestore` | `gluster_bricks` | vérifie le montage du volume ; ne le pose pas |
 | `odoo_backup` | `backup_host` | client PG15, `.pgpass`, script, timer quotidien |
 | `base_debian` | conteneurs | sources APT cohérentes, réalignement des paquets |
@@ -783,7 +805,7 @@ un document vide, sans aucune erreur.
 1. **`lxc_lan` arrête et redémarre les conteneurs à chaque exécution**, même quand
    la configuration n'a pas changé : `changed_when: _lxc_stop.rc == 0` est
    inconditionnel. C'est une coupure de service gratuite à chaque
-   `ansible-playbook`. À convertir en `notify:` / handler.
+   `ansible-playbook reseau-lxc.yaml`. À convertir en `notify:` / handler.
 2. **`roles/odoo_net/`** — code mort à supprimer.
 3. **`gluster_servers`** — nom trompeur, désigne les 4 hôtes physiques.
 4. **Purges one-shot rejouées à chaque passage** (~30 items sans effet) :

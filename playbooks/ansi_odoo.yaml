@@ -13,9 +13,8 @@
 #   - pas de repartiteur de charge : chaque utilisateur vise une IP.
 #
 # L'ORDRE DES PLAYS EST CONTRAIGNANT :
-#   1. l'horloge puis le reseau : une horloge fausse fait echouer apt dans les
-#      conteneurs, et rien n'est joignable sans reseau ; puis (1bis) le
-#      filestore commun, avant qu'Odoo ne soit installe ;
+#   1. l'horloge : une horloge fausse fait echouer apt dans les conteneurs ;
+#      puis (1bis) le filestore commun, avant qu'Odoo ne soit installe ;
 #   2. la base, avant que le moindre client ne tente de s'y connecter ;
 #   3. Odoo installe et configure, mais LAISSE ARRETE ;
 #   4. l'initialisation du registre, par le SEUL noeud primaire ;
@@ -25,6 +24,9 @@
 #
 # Prerequis :
 #   - conteneurs deja crees (playbooks/ansi2-snapchot.yaml)
+#   - reseau des conteneurs en place et SSH amorce : lancer d'abord
+#       ansible-playbook -i inventory.yaml playbooks/reseau-lxc.yaml
+#     (ce playbook ne joue plus le role lxc_lan)
 #   - authentification par CLE vers les 4 hotes :
 #       for h in 128 129 140 141; do ssh-copy-id root@192.168.96.$h; done
 #   - ansible-galaxy collection install -r requirements.yml
@@ -97,22 +99,22 @@
       loop_control:
         label: "{{ item.name }} {{ item.version }}"
 
-- name: "1/5 - Hotes : horloge puis reseau"
+# Le reseau des conteneurs (role lxc_lan) n'est plus joue ici : il est fait
+# par playbooks/reseau-lxc.yaml, a lancer avant ce playbook.
+- name: "1/5 - Hotes : horloge"
   hosts: gluster_servers
   gather_facts: true
   vars_files:
     - ../common/group_vars/local_dev.yml
   roles:
-    # chrony AVANT lxc_lan, et non apres : une horloge fausse fait echouer
-    # apt-get update dans les conteneurs ("Release file is not valid yet"), et
-    # fait arbitrer GlusterFS sur des horodatages incoherents. Corriger l'heure
-    # est donc un prealable a tout le reste, pas une finition.
-    # Tag "horloge" : permet d'appliquer la seule correction d'horloge sans
-    # declencher lxc_lan, qui redemarre les conteneurs.
+    # Une horloge fausse fait echouer apt-get update dans les conteneurs
+    # ("Release file is not valid yet"), et fait arbitrer GlusterFS sur des
+    # horodatages incoherents. Corriger l'heure est donc un prealable a tout
+    # le reste, pas une finition.
+    # Tag "horloge" : permet d'appliquer la seule correction d'horloge.
     #   ansible-playbook playbooks/ansi_odoo.yaml -k --ask-vault-pass --tags horloge
     - role: chrony
       tags: [horloge]
-    - lxc_lan
 
 # Le filestore commun AVANT l'installation d'Odoo (play 3/5) : odoo14 refuse de
 # configurer une instance dont /var/lib/odoo n'est pas le volume GlusterFS, et
