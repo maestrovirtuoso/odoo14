@@ -116,22 +116,10 @@
       {{ inventory_hostname }} : {{ filestore_host_src }} servi par
       {{ _fs.stdout | trim }}
 
-- name: Refuser de partager un repertoire de brique
-  # Une brique porte un index interne .glusterfs. Y faire ecrire Odoo par un
-  # autre chemin que le volume court-circuite la replication et corrompt cet
-  # index -- gfid mismatch, split-brain. Gluster l'interdit explicitement.
-  ansible.builtin.stat:
-    path: "{{ filestore_host_src }}/.glusterfs"
-  register: _est_brique
-
-- name: Le chemin partage n'est pas une brique
-  ansible.builtin.assert:
-    that:
-      - not _est_brique.stat.exists
-    fail_msg: >-
-      {{ filestore_host_src }} contient .glusterfs : c'est une BRIQUE, pas le
-      point de montage du volume. Y ecrire corromprait la replication.
-      Utiliser le point de montage du volume (mount -t glusterfs).
+# Pas de test "est-ce une brique ?" (stat de .glusterfs) : le client FUSE
+# refuse tout acces a .glusterfs (EPERM), donc ce test echoue justement quand
+# le montage est correct. Le controle de type ci-dessus suffit : une brique est
+# en xfs/ext4, jamais en fuse.glusterfs.
 
 # --- 3. Recuperer un eventuel filestore local laisse derriere ---------------
 # Quand les conteneurs ont tourne sur du stockage local, leurs pieces jointes
