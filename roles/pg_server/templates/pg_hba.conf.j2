@@ -40,6 +40,20 @@ host    all             all             ::1/128                 {{ pg_password_e
 {% for ip in odoo_client_ips -%}
 host    {{ odoo_databases.ljust(16) }}{{ odoo_db_user.ljust(16) }}{{ (ip ~ '/32').ljust(24) }}{{ pg_password_encryption }}
 {% endfor -%}
+
+{% if pg_nat_gateway_ips | default([]) | length > 0 %}
+# Passerelle(s) NAT entre le reseau Odoo et celui de la base : les instances
+# y arrivent sous l'IP de la passerelle, et non sous la leur (constate le
+# 20/10/2026, "no pg_hba.conf entry for host 192.168.33.254").
+#
+# L'IP ne prouvant plus rien, l'instance doit presenter un certificat signe
+# par l'autorite du projet (roles/pg_pki), dont le CN est le role SQL, EN
+# PLUS du mot de passe. hostssl : jamais en clair. Une autre machine derriere
+# la meme passerelle, sans certificat, est refusee.
+{% for ip in pg_nat_gateway_ips -%}
+hostssl {{ odoo_databases.ljust(16) }}{{ odoo_db_user.ljust(16) }}{{ (ip ~ '/32').ljust(24) }}{{ pg_password_encryption }} clientcert=verify-full
+{% endfor -%}
+{% endif %}
 {% endif %}
 
 {% set pg_replication_ips = (groups['db_containers'] | default([]) + pg_replicas)

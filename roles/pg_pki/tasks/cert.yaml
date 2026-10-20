@@ -1,0 +1,39 @@
+---
+# ===========================================================================
+# pg_pki : un certificat signe par l'autorite du projet.
+#
+# Variables attendues :
+#   pg_pki_name        nom des fichiers dans {{ pg_pki_dir }} (<nom>.crt/.key)
+#   pg_pki_subject     sujet, ex. "/CN=odoo/OU=odoo1"
+#   pg_pki_extensions  liste d'extensions X509v3, ex. ["extendedKeyUsage=clientAuth"]
+#
+# Le certificat n'est cree qu'une fois (creates). Pour le reemettre, par
+# exemple apres un changement de sujet, supprimer <nom>.crt dans
+# {{ pg_pki_dir }} puis rejouer.
+#
+# Numero de serie aleatoire plutot que -CAcreateserial : plusieurs hotes
+# signent en parallele, et un fichier ca.srl partage serait une course.
+# ===========================================================================
+- name: PKI - l'autorite existe
+  ansible.builtin.import_tasks: main.yaml
+
+- name: "PKI - certificat {{ pg_pki_name }}"
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      umask 077
+      openssl req -new -nodes -newkey rsa:2048 -sha256 \
+        -subj {{ pg_pki_subject | quote }} \
+        -keyout {{ pg_pki_name | quote }}.key -out {{ pg_pki_name | quote }}.csr
+      openssl x509 -req -sha256 -days {{ pg_pki_days }} \
+        -in {{ pg_pki_name | quote }}.csr -CA ca.crt -CAkey ca.key \
+        -set_serial "0x$(openssl rand -hex 16)" \
+        -extfile <(printf '%s\n' {{ pg_pki_extensions | map('quote') | join(' ') }}) \
+        -out {{ pg_pki_name | quote }}.crt
+      chmod 644 {{ pg_pki_name | quote }}.crt
+      rm -f {{ pg_pki_name | quote }}.csr
+    chdir: "{{ pg_pki_dir }}"
+    creates: "{{ pg_pki_dir }}/{{ pg_pki_name }}.crt"
+    executable: /bin/bash
+  delegate_to: localhost
+  become: false

@@ -52,6 +52,11 @@
     state: present
   notify: restart postgresql
 
+# Les fichiers de certificat AVANT 10-prosys.conf, qui les designe : un
+# redemarrage sur un ssl_cert_file absent laisserait le serveur arrete.
+- name: TLS - certificats du serveur
+  ansible.builtin.import_tasks: ssl.yaml
+
 - name: Configurer l'ecoute reseau et l'encodage des mots de passe
   ansible.builtin.template:
     src: 10-prosys.conf.j2

@@ -1,0 +1,49 @@
+---
+# ===========================================================================
+# pg_server : TLS du serveur.
+#
+# Chaque serveur, primaire comme reserve, recoit un certificat a son IP : une
+# reserve promue doit pouvoir etre visee en verify-full sans rien reemettre
+# (il suffit de changer odoo_db_host).
+#
+# ca.crt sert ici dans l'autre sens : c'est l'autorite contre laquelle le
+# serveur verifie les certificats CLIENTS (clientcert=verify-full dans
+# pg_hba.conf).
+# ===========================================================================
+- name: Certificat serveur signe par l'autorite du projet
+  ansible.builtin.include_role:
+    name: pg_pki
+    tasks_from: cert
+  vars:
+    pg_pki_name: "server-{{ inventory_hostname }}"
+    pg_pki_subject: "/CN={{ ansible_host }}"
+    # verify-full compare l'adresse visee au subjectAltName, pas au CN.
+    pg_pki_extensions:
+      - "subjectAltName=IP:{{ ansible_host }}"
+      - "extendedKeyUsage=serverAuth"
+
+- name: Repertoire des certificats du serveur
+  ansible.builtin.file:
+    path: "{{ pg_ssl_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0750"
+
+- name: Deposer l'autorite, le certificat et la cle du serveur
+  # Cle en 0600 au compte postgres : le serveur REFUSE de demarrer sur une
+  # cle lisible par d'autres.
+  ansible.builtin.copy:
+    src: "{{ pg_pki_dir }}/{{ item.src }}"
+    dest: "{{ pg_ssl_dir }}/{{ item.dest }}"
+    owner: postgres
+    group: postgres
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: ca.crt, dest: ca.crt, mode: "0644" }
+    - { src: "server-{{ inventory_hostname }}.crt", dest: server.crt, mode: "0644" }
+    - { src: "server-{{ inventory_hostname }}.key", dest: server.key, mode: "0600" }
+  loop_control:
+    label: "{{ item.dest }}"
+  # Les parametres ssl_* sont relus au rechargement depuis PostgreSQL 10.
+  notify: reload postgresql

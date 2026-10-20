@@ -165,6 +165,9 @@
 - name: "4/5 - Initialisation de la base partagee (noeud primaire seul)"
   hosts: odoo_primary
   gather_facts: false
+  # Certificat client PostgreSQL (NAT, voir odoo_db_ssl_env) : "odoo -i base"
+  # et les requetes du role passent tous par libpq.
+  environment: "{{ odoo_db_ssl_env }}"
   roles:
     - odoo_dbinit
 

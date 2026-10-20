@@ -175,6 +175,10 @@
       #!/bin/sh
       # Fichier gere par Ansible (roles/odoo14) - toute modification sera perdue.
       # Odoo 14 sous CPython 3.8 : voir roles/python38 et roles/odoo14.
+      # Certificat client PostgreSQL : voir odoo_db_ssl_env.
+      {% for k, v in odoo_db_ssl_env.items() %}
+      export {{ k }}={{ v | quote }}
+      {% endfor %}
       exec {{ odoo_venv_path }}/bin/python /usr/bin/odoo "$@"
 
 - name: Creer le repertoire du fragment systemd
@@ -196,6 +200,10 @@
       [Service]
       ExecStart=
       ExecStart={{ odoo_venv_path }}/bin/python /usr/bin/odoo --config {{ odoo_config_path }} --logfile {{ odoo_log_path }}
+      # Certificat client PostgreSQL (libpq) : voir odoo_db_ssl_env.
+      {% for k, v in odoo_db_ssl_env.items() %}
+      Environment={{ k }}={{ v }}
+      {% endfor %}
   register: _odoo_unit
   notify: restart odoo
 
@@ -371,6 +379,44 @@
     group: "{{ odoo_system_user }}"
     mode: "0755"
 
+# Certificat client PostgreSQL. Le routeur fait du NAT entre ce conteneur et
+# la base : pg_hba ne reconnait plus l'instance a son IP, mais a ce
+# certificat (CN = role SQL, OU = nom du noeud pour le distinguer des deux
+# autres). Un certificat par noeud : un conteneur compromis se revoque seul.
+- name: Certificat client de ce noeud pour la base partagee
+  ansible.builtin.include_role:
+    name: pg_pki
+    tasks_from: cert
+  vars:
+    pg_pki_name: "client-{{ inventory_hostname }}"
+    pg_pki_subject: "/CN={{ odoo_db_user }}/OU={{ inventory_hostname }}"
+    pg_pki_extensions:
+      - "extendedKeyUsage=clientAuth"
+
+- name: Repertoire du certificat client
+  ansible.builtin.file:
+    path: "{{ odoo_db_ssl_dir }}"
+    state: directory
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0750"
+
+- name: Deposer l'autorite, le certificat et la cle du client
+  # Cle en 0600 au compte odoo : libpq refuse une cle lisible par d'autres.
+  ansible.builtin.copy:
+    src: "{{ pg_pki_dir }}/{{ item.src }}"
+    dest: "{{ odoo_db_ssl_dir }}/{{ item.dest }}"
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: ca.crt, dest: root.crt, mode: "0644" }
+    - { src: "client-{{ inventory_hostname }}.crt", dest: client.crt, mode: "0644" }
+    - { src: "client-{{ inventory_hostname }}.key", dest: client.key, mode: "0600" }
+  loop_control:
+    label: "{{ item.dest }}"
+  notify: restart odoo
+
 - name: Deposer /etc/odoo/odoo.conf
   ansible.builtin.template:
     src: odoo.conf.j2
@@ -401,15 +447,19 @@
     timeout: 30
 
 - name: Ce noeud est autorise a se connecter a la base partagee
-  # Prouve que le couple (mot de passe, regle pg_hba) fonctionne, ce que
-  # l'ouverture du port ne dit pas.
+  # Prouve que le triplet (mot de passe, certificat client, regle pg_hba)
+  # fonctionne, ce que l'ouverture du port ne dit pas. Meme mode TLS
+  # qu'Odoo : le module force sinon "prefer", qui ne verifie pas le serveur.
   community.postgresql.postgresql_query:
     login_host: "{{ odoo_db_host }}"
     login_port: "{{ odoo_db_port }}"
     login_user: "{{ odoo_db_user }}"
     login_password: "{{ odoo_db_password }}"
     db: "{{ odoo_shared_db }}"
+    ssl_mode: "{{ odoo_db_sslmode }}"
+    ca_cert: "{{ odoo_db_ssl_dir }}/root.crt"
     query: "SELECT 1"
+  environment: "{{ odoo_db_ssl_env }}"
   changed_when: false
 
 - name: Demarrer les handlers en attente (avant de figer l'etat des services)

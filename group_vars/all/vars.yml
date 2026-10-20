@@ -45,6 +45,47 @@ odoo_longpolling_port: 8072
 
 pg_backup_client_ips: "{{ groups['backup_host'] | default([]) | list }}"
 
+# ---------------------------------------------------------------------------
+# TLS et certificats clients PostgreSQL
+#
+# Le routeur entre 192.168.36.0/24 (Odoo) et 192.168.33.0/24 (base) fait du
+# NAT, et il n'est pas modifiable : la base voit toutes les instances sous
+# l'IP de la passerelle ("no pg_hba.conf entry for host 192.168.33.254",
+# 20/10/2026). L'instance est donc reconnue a son CERTIFICAT : la passerelle
+# n'est admise qu'en TLS, avec mot de passe ET certificat client signe par
+# l'autorite du projet. Voir roles/pg_pki et pg_hba.conf.j2.
+#
+# Vider cette liste le jour ou le NAT est retire : les lignes /32 par
+# instance reprennent alors seules le controle.
+# ---------------------------------------------------------------------------
+pg_nat_gateway_ips:
+  - 192.168.33.254
+
+# Autorite de certification, sur le POSTE DE CONTROLE et hors depot
+# (.gitignore) : ca.key permet d'emettre des certificats que la base accepte.
+# A proteger et sauvegarder comme le vault.
+pg_pki_dir: "{{ inventory_dir }}/pki"
+pg_pki_ca_cn: prosys-pg-ca
+pg_pki_days: 3650
+
+# Cote client, dans chaque conteneur Odoo. Surtout PAS sous /var/lib/odoo
+# (home du compte odoo, donc ~/.postgresql) : c'est le volume GlusterFS
+# partage, la cle d'un noeud y serait lisible des deux autres.
+#
+# verify-full : le client verifie aussi que le certificat du serveur porte
+# l'IP visee (odoo_db_host).
+odoo_db_sslmode: verify-full
+odoo_db_ssl_dir: /etc/odoo/pg-ssl
+
+# libpq n'a pas de parametre odoo.conf pour le certificat client : il le lit
+# dans ces variables. Posees dans l'unite systemd, l'enveloppe odoo, et sur
+# les plays Ansible qui se connectent a la base depuis un conteneur Odoo.
+odoo_db_ssl_env:
+  PGSSLMODE: "{{ odoo_db_sslmode }}"
+  PGSSLROOTCERT: "{{ odoo_db_ssl_dir }}/root.crt"
+  PGSSLCERT: "{{ odoo_db_ssl_dir }}/client.crt"
+  PGSSLKEY: "{{ odoo_db_ssl_dir }}/client.key"
+
 
 # Volume GlusterFS replique qui porte le filestore COMMUN aux trois Odoo.
 #

@@ -13,3 +13,12 @@ shared_buffers = {{ pg_shared_buffers }}
 # Doit etre effectif AVANT la creation du role odoo : un mot de passe pose
 # sous md5 serait rejete par un pg_hba en scram-sha-256.
 password_encryption = '{{ pg_password_encryption }}'
+
+# TLS, avec le certificat emis par l'autorite du projet (roles/pg_pki) a la
+# place du snakeoil de Debian. ssl_ca_file sert a verifier les certificats
+# CLIENTS exiges par les lignes hostssl ... clientcert=verify-full de
+# pg_hba.conf. Ces quatre-la sont relus au rechargement.
+ssl = on
+ssl_cert_file = '{{ pg_ssl_dir }}/server.crt'
+ssl_key_file = '{{ pg_ssl_dir }}/server.key'
+ssl_ca_file = '{{ pg_ssl_dir }}/ca.crt'

@@ -11,6 +11,12 @@ db_port = {{ odoo_db_port }}
 db_user = {{ odoo_db_user }}
 db_password = {{ odoo_db_password }}
 
+# TLS obligatoire vers la base : derriere le NAT, pg_hba exige un certificat
+# client. Odoo ne transmet que le mode ; le certificat, la cle et l'autorite
+# sont lus par libpq dans PGSSLCERT, PGSSLKEY et PGSSLROOTCERT, poses dans
+# l'unite systemd (roles/odoo14).
+db_sslmode = {{ odoo_db_sslmode }}
+
 # Nombre de connexions ouvertes par CETTE instance. A tenir coherent avec
 # max_connections du serveur : plusieurs instances x plusieurs workers x
 # db_maxconn se cumulent, et le depassement donne des "too many clients"

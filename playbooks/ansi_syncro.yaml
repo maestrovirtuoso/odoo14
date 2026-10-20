@@ -95,6 +95,8 @@
   hosts: odoo_primary
   gather_facts: false
   tags: [preflight]
+  # Certificat client PostgreSQL (NAT, voir odoo_db_ssl_env).
+  environment: "{{ odoo_db_ssl_env }}"
   tasks:
     - name: Mesurer le volume a migrer
       ansible.builtin.import_role:
@@ -214,6 +216,8 @@
     # Relit chaque piece jointe et la reecrit sur le support courant. C'est
     # l'etape longue.
     odoo_force_storage: true
+  # Certificat client PostgreSQL (NAT, voir odoo_db_ssl_env).
+  environment: "{{ odoo_db_ssl_env }}"
   roles:
     - odoo_dbinit
 
@@ -229,6 +233,8 @@
     # Un "-e odoo_attachment_location=db" en ligne de commande surcharge les
     # deux plays a la fois, donc ils ne peuvent pas diverger.
     odoo_attachment_location: file
+  # Certificat client PostgreSQL (NAT, voir odoo_db_ssl_env).
+  environment: "{{ odoo_db_ssl_env }}"
   tasks:
     - name: Mesurer et verifier
       ansible.builtin.import_role:

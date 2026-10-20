@@ -6,6 +6,9 @@ group_vars/all/vault.yml
 # chemins/mots de passe propres au poste). Seul .env.example est versionne.
 .env
 
+# Autorite de certification PostgreSQL et cles privees (roles/pg_pki).
+pki/
+
 # Artefacts Ansible
 *.retry
 collections/

@@ -1,0 +1,50 @@
+---
+# ===========================================================================
+# Role pg_pki  -  autorite de certification des connexions PostgreSQL
+#
+# Execute sur le POSTE DE CONTROLE (delegate_to: localhost), jamais sur les
+# cibles : la cle de l'autorite ne quitte pas cette machine. Seuls ca.crt et
+# le couple certificat/cle de chaque hote sont copies, par les roles qui en
+# ont besoin (pg_server cote serveur, odoo14 cote client).
+#
+# Pourquoi une autorite : le routeur entre le reseau Odoo et celui de la base
+# fait du NAT, et la base voit toutes les instances sous l'IP de la
+# passerelle. pg_hba ne peut donc plus reconnaitre une instance a son
+# adresse ; il la reconnait a un certificat que seule cette autorite emet.
+#
+# Points d'entree :
+#   main.yaml  l'autorite elle-meme (creee une fois, jamais remplacee) ;
+#   cert.yaml  un certificat signe par elle (voir ses variables en tete).
+#
+# Tout est fait avec la commande openssl : pas de collection community.crypto,
+# dont les versions compatibles ansible 2.10 sont anciennes (cf.
+# requirements.yml).
+# ===========================================================================
+- name: PKI - repertoire sur le poste de controle
+  ansible.builtin.file:
+    path: "{{ pg_pki_dir }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: PKI - autorite de certification
+  # creates : l'autorite n'est JAMAIS regeneree. La remplacer invaliderait
+  # d'un coup tous les certificats emis, serveurs et clients.
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      umask 077
+      openssl req -x509 -new -nodes -newkey rsa:4096 -sha256 \
+        -days {{ pg_pki_days }} -subj '/CN={{ pg_pki_ca_cn }}' \
+        -addext 'basicConstraints=critical,CA:TRUE' \
+        -addext 'keyUsage=critical,keyCertSign,cRLSign' \
+        -keyout ca.key -out ca.crt
+      chmod 644 ca.crt
+    chdir: "{{ pg_pki_dir }}"
+    creates: "{{ pg_pki_dir }}/ca.crt"
+    executable: /bin/bash
+  delegate_to: localhost
+  become: false
+  run_once: true
