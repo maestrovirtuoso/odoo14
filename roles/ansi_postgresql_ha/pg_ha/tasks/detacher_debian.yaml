@@ -30,7 +30,7 @@
   ansible.builtin.copy:
     dest: "{{ pg_conf_dir }}/start.conf"
     content: |
-      # {{ ansible_managed }}
+      # Gere par Ansible (roles/ansi_postgresql_ha/pg_ha) - ne pas modifier.
       # Ce cluster est demarre par Patroni (/etc/patroni/config.yml), pas par Debian.
       disabled
     owner: postgres
