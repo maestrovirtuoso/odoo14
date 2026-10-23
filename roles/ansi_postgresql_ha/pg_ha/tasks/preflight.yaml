@@ -36,21 +36,35 @@
   # Trois usages, trois secrets : le mot de passe de replication circule dans
   # la configuration des reserves, celui du superutilisateur ouvre tout, celui
   # de l'API REST permet de declencher une bascule.
+  #
+  # Un controle par ligne, et seulement son RESULTAT (vrai/faux) dans la
+  # boucle : l'echec dit lequel est en cause sans afficher aucun secret, la
+  # ou un no_log global cachait tout, y compris la raison.
+  # Pas de longueur minimale, et un meme secret possible pour le
+  # superutilisateur et l'API : choix du projet (lab).
   ansible.builtin.assert:
-    that:
-      # Pas de longueur minimale, et un meme secret possible pour le
-      # superutilisateur et l'API : choix du projet (lab).
-      - pg_replication_password | length > 0
-      - pg_ha_superuser_password != pg_replication_password
-      - pg_ha_superuser_password != odoo_db_password
-      # Les valeurs d'exemple de vault.yml.example.
-      - not (pg_ha_superuser_password is match('change-me'))
-      - not (pg_ha_rest_password is match('change-me'))
+    that: item.ok | bool
     fail_msg: >-
-      Renseigner vault_pg_patroni_superuser_password et
-      vault_pg_patroni_rest_password (differents des mots de passe odoo et
-      replicator) dans group_vars/all/vault.yml.
-  no_log: true
+      KO : {{ item.nom }}. A corriger dans group_vars/all/vault.yml
+      (ansible-vault edit group_vars/all/vault.yml).
+    success_msg: "OK : {{ item.nom }}"
+  loop:
+    - nom: vault_pg_replication_password est renseigne
+      ok: "{{ pg_replication_password | length > 0 }}"
+    - nom: vault_pg_patroni_superuser_password est renseigne
+      ok: "{{ pg_ha_superuser_password | length > 0 }}"
+    - nom: vault_pg_patroni_rest_password est renseigne
+      ok: "{{ pg_ha_rest_password | length > 0 }}"
+    - nom: le mot de passe Patroni (postgres) differe de celui de replicator
+      ok: "{{ pg_ha_superuser_password != pg_replication_password }}"
+    - nom: le mot de passe Patroni (postgres) differe de celui du compte odoo
+      ok: "{{ pg_ha_superuser_password != odoo_db_password }}"
+    - nom: vault_pg_patroni_superuser_password n'est plus la valeur d'exemple change-me
+      ok: "{{ not (pg_ha_superuser_password is match('change-me')) }}"
+    - nom: vault_pg_patroni_rest_password n'est plus la valeur d'exemple change-me
+      ok: "{{ not (pg_ha_rest_password is match('change-me')) }}"
+  loop_control:
+    label: "{{ item.nom }}"
   run_once: true
 
 # ---------------------------------------------------------------------------
