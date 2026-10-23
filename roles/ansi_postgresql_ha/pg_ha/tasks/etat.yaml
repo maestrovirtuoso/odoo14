@@ -60,18 +60,20 @@
     file_type: directory
   register: _pg_ha_bases
 
-# Double barre oblique dans les expressions : Jinja interprete lui-meme les
-# sequences d'echappement de ses chaines, et "\1" y deviendrait un caractere
-# de controle au lieu d'une reference au premier groupe.
+# Sans expression reguliere : la ligne voulue, puis ce qui suit le premier
+# ":". regex_search avec reference de groupe ('\1') depend de la facon dont
+# chaque version d'Ansible transmet les barres obliques, et plantait ici
+# ("'NoneType' object has no attribute 'group'", ansible 2.10).
+# Pas de repertoire de donnees : aucune ligne, d'ou les valeurs par defaut.
 - name: Retenir l'etat de ce serveur
   ansible.builtin.set_fact:
     _pg_ha_repris: "{{ _pg_ha_repris_cmd.rc == 0 }}"
     _pg_ha_etat: >-
-      {{ (_pg_ha_controldata.stdout | regex_search('Database cluster state:\\s+(.+)', '\\1') or ['absent'])
-         | first | trim }}
+      {{ (_pg_ha_controldata.stdout_lines | select('match', 'Database cluster state:')
+          | first | default('x: absent')).split(':', 1)[1] | trim }}
     _pg_ha_sysid: >-
-      {{ (_pg_ha_controldata.stdout | regex_search('Database system identifier:\\s+([0-9]+)', '\\1') or [''])
-         | first }}
+      {{ (_pg_ha_controldata.stdout_lines | select('match', 'Database system identifier:')
+          | first | default('x:')).split(':', 1)[1] | trim }}
     _pg_ha_donnees: "{{ _pg_ha_bases.matched | int > 3 }}"
 
 # ---------------------------------------------------------------------------
