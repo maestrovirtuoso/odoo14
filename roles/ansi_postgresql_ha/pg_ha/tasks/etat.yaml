@@ -1,0 +1,138 @@
+---
+# ===========================================================================
+# Etat de chaque serveur et decision de reprise, AVANT toute configuration.
+#
+# Place juste apres les paquets, et avant etcd et Patroni : un refus laisse
+# les serveurs exactement comme pg_server les a laisses. En particulier,
+# /etc/patroni/config.yml n'existe pas encore, et pg_server (qui refuse de
+# toucher a un serveur qui l'a) reste utilisable.
+#
+# Rien n'est arrete ici : tout se lit sur disque.
+# ===========================================================================
+- name: Ce serveur a-t-il deja ete repris par Patroni ?
+  # Marque posee par tasks/detacher_debian.yaml JUSTE AVANT le premier
+  # demarrage de Patroni : start.conf = disabled. Plus fiable que l'etat du
+  # service, qui peut etre arrete pour maintenance sur un serveur repris.
+  ansible.builtin.command: "grep -qx disabled {{ pg_conf_dir }}/start.conf"
+  register: _pg_ha_repris_cmd
+  changed_when: false
+  failed_when: false
+
+- name: La configuration Debian que Patroni va inclure existe
+  # custom_conf de patroni.yml : sans elle, PostgreSQL ne demarre pas.
+  ansible.builtin.stat:
+    path: "{{ pg_conf_dir }}/postgresql.conf"
+  register: _pg_ha_conf_debian
+
+- name: Refuser un serveur sans cluster Debian
+  ansible.builtin.assert:
+    that: _pg_ha_conf_debian.stat.exists
+    fail_msg: >-
+      {{ pg_conf_dir }}/postgresql.conf absent sur {{ inventory_hostname }} :
+      le cluster Debian {{ pg_version }}/main n'existe pas (pg_lsclusters).
+      Le recreer (pg_createcluster {{ pg_version }} main) puis relancer.
+
+- name: Etat du repertoire de donnees (pg_controldata)
+  # Lit le fichier de controle sur disque : fonctionne serveur arrete comme
+  # demarre, sans dependre de pg_hba ni d'un mot de passe. LC_ALL=C : les
+  # libelles sont traduits sinon, et les expressions ci-dessous ne les
+  # reconnaitraient plus.
+  ansible.builtin.command:
+    argv:
+      - "{{ pg_ha_bin_dir }}/pg_controldata"
+      - -D
+      - "{{ pg_data_dir }}"
+  environment:
+    LC_ALL: C
+  become: true
+  become_user: postgres
+  register: _pg_ha_controldata
+  changed_when: false
+  # rc 1 : pas de repertoire de donnees. C'est un etat, pas une erreur.
+  failed_when: false
+
+- name: Bases presentes dans le repertoire de donnees
+  # Une base = un sous-repertoire de base/. Un cluster neuf n'en a que trois
+  # (template1, template0, postgres) : au-dela, il contient des donnees.
+  # Compte sur disque pour la meme raison que pg_controldata.
+  ansible.builtin.find:
+    paths: "{{ pg_data_dir }}/base"
+    file_type: directory
+  register: _pg_ha_bases
+
+# Double barre oblique dans les expressions : Jinja interprete lui-meme les
+# sequences d'echappement de ses chaines, et "\1" y deviendrait un caractere
+# de controle au lieu d'une reference au premier groupe.
+- name: Retenir l'etat de ce serveur
+  ansible.builtin.set_fact:
+    _pg_ha_repris: "{{ _pg_ha_repris_cmd.rc == 0 }}"
+    _pg_ha_etat: >-
+      {{ (_pg_ha_controldata.stdout | regex_search('Database cluster state:\\s+(.+)', '\\1') or ['absent'])
+         | first | trim }}
+    _pg_ha_sysid: >-
+      {{ (_pg_ha_controldata.stdout | regex_search('Database system identifier:\\s+([0-9]+)', '\\1') or [''])
+         | first }}
+    _pg_ha_donnees: "{{ _pg_ha_bases.matched | int > 3 }}"
+
+# ---------------------------------------------------------------------------
+# Decision, la meme sur les trois serveurs (calculee a partir de hostvars)
+# ---------------------------------------------------------------------------
+- name: Serveurs deja repris par Patroni
+  ansible.builtin.set_fact:
+    _pg_ha_deja_repris: >-
+      {{ dict(pg_ha_nodes | zip(pg_ha_nodes | map('extract', hostvars, '_pg_ha_repris') | map('bool')))
+         | dict2items | selectattr('value') | map(attribute='key') | list }}
+
+- name: Identifiant systeme du cluster
+  # Celui d'un serveur deja repris si le cluster existe ; sinon, celui du
+  # primaire de la reprise.
+  ansible.builtin.set_fact:
+    _pg_ha_premiere_reprise: "{{ _pg_ha_deja_repris | length == 0 }}"
+    _pg_ha_sysid_ref: >-
+      {{ hostvars[_pg_ha_deja_repris | first if _pg_ha_deja_repris | length > 0
+                  else pg_ha_initial_primary]._pg_ha_sysid }}
+
+- name: Ce que devient ce serveur
+  # demarrer   deja repris : Patroni le gere, il suffit qu'il tourne.
+  # primaire   premiere reprise, primaire de l'inventaire : Patroni adopte
+  #            ses donnees.
+  # reserve    meme cluster (meme identifiant systeme) : Patroni le reprend
+  #            en reserve, sans recopie.
+  # recopie    cluster etranger SANS aucune base (cluster vide cree par le
+  #            paquet Debian) : vide, puis recopie depuis le primaire.
+  # refus      tout le reste.
+  ansible.builtin.set_fact:
+    _pg_ha_action: >-
+      {%- set en_reserve = _pg_ha_etat in ['in archive recovery', 'shut down in recovery'] -%}
+      {%- if _pg_ha_repris | bool -%}demarrer
+      {%- elif _pg_ha_premiere_reprise | bool and inventory_hostname == pg_ha_initial_primary -%}
+        {{- 'primaire' if _pg_ha_etat in ['in production', 'shut down'] else 'refus' -}}
+      {%- elif _pg_ha_sysid != '' and _pg_ha_sysid == _pg_ha_sysid_ref -%}
+        {#- A la premiere reprise, un serveur du meme cluster qui n'est PAS en
+            recuperation est un second primaire : il a diverge. Une fois le
+            cluster sous Patroni, pg_rewind sait le rattraper. -#}
+        {{- 'reserve' if en_reserve or not (_pg_ha_premiere_reprise | bool) else 'refus' -}}
+      {%- elif not (_pg_ha_donnees | bool) and _pg_ha_sysid_ref != '' -%}recopie
+      {%- else -%}refus
+      {%- endif -%}
+
+- name: Bilan de la reprise
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} : {{ _pg_ha_action }}
+      (etat {{ _pg_ha_etat }}, identifiant {{ _pg_ha_sysid or 'aucun' }},
+      cluster {{ _pg_ha_sysid_ref or 'inconnu' }},
+      {{ 'avec' if _pg_ha_donnees | bool else 'sans' }} donnees)
+
+- name: Refuser tout cas qui risquerait de perdre ou de dedoubler des donnees
+  ansible.builtin.assert:
+    that: _pg_ha_action != 'refus'
+    fail_msg: >-
+      {{ inventory_hostname }} : etat "{{ _pg_ha_etat }}", identifiant
+      {{ _pg_ha_sysid or 'aucun' }}, alors que le cluster est
+      {{ _pg_ha_sysid_ref or 'inconnu' }}. Aucun service n'a ete arrete ni
+      configure, aucune donnee touchee. Cas possibles : le primaire de
+      l'inventaire ({{ pg_ha_initial_primary }}) est en realite une reserve ;
+      une reserve a ete promue et a diverge ; ce serveur porte les donnees
+      d'un autre cluster. Sauvegarder, comprendre, puis corriger a la main
+      (docs/POSTGRESQL-PATRONI.md, "Reprise refusee").

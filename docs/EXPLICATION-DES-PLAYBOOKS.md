@@ -28,6 +28,7 @@ Documents voisins :
 | vérifier base ↔ filestore | `… ansi_syncro.yaml -k --ask-vault-pass --tags verif` |
 | sauvegarder maintenant | `ansible-playbook playbooks/ansi_sauvegarde.yaml -k --ask-vault-pass` |
 | copie hors cluster | `… ansi_sauvegarde.yaml … -e sauvegarde_rapatrier=true` |
+| passer la base en haute disponibilité | `ansible-playbook playbooks/ansi_postgresql_ha.yaml --ask-vault-pass`, puis la suite du [§ 5.5](POSTGRESQL-PATRONI.md) |
 
 ### Ordre de lancement
 
@@ -273,7 +274,7 @@ vide. Un simple *reload* ignore en silence une ligne invalide et laisse
 l'ancienne règle en vigueur.
 
 > La bascule vers une réserve est **manuelle** : rien ne surveille le
-> primaire. Procédure en tête de `roles/pg_server/tasks/replica.yaml`.
+> primaire. Procédure en tête de `roles/ansi_odoo/pg_server/tasks/replica.yaml`.
 
 ### Play 3 — Odoo installé, laissé arrêté
 
@@ -444,7 +445,7 @@ rend `True`.
 
 Mesuré : 36 pièces jointes en base, **14 migrées, 22 ignorées en silence**.
 
-Le contournement, dans `roles/odoo_dbinit` — ne pas le « simplifier » :
+Le contournement, dans `roles/ansi_odoo/odoo_dbinit` — ne pas le « simplifier » :
 
 ```python
 tous = ['|', ('res_field', '=', False), ('res_field', '!=', False)]
@@ -511,6 +512,25 @@ sauvegardes sont intactes.
 
 Automatique : timer systemd sur `.128`, 02h15, rétention 30 jours,
 `/srv/sauvegardes`.
+
+---
+
+## 4bis. `ansi_postgresql_ha.yaml` — haute disponibilité de la base
+
+Installe etcd, Patroni et HAProxy dans les trois conteneurs PostgreSQL
+(groupe `db_cluster`), et confie PostgreSQL à Patroni. Au premier passage,
+il **reprend** le cluster de `pg_server` sans recopie : `odoodb1` reste
+primaire, `odoodb2` et `odoodb3` restent ses réserves. Toute situation
+douteuse arrête le playbook avant qu'un service ne soit touché.
+
+Il se joue sur les trois serveurs ensemble, jamais avec `--limit`. Il doit
+être suivi sans attendre de `pg_ha_enabled: true`, puis de `ansi_odoo.yaml`
+et `ansi_sauvegarde.yaml` : c'est ce qui fait passer Odoo par HAProxy. Une
+fois Patroni en place, `ansi_odoo.yaml` joue `pg_ha` (play `2ter/5`) à la
+place de `pg_server`, et `pg_server` refuse de toucher à un serveur repris.
+
+Explication complète, exploitation et limites :
+[POSTGRESQL-PATRONI.md](POSTGRESQL-PATRONI.md).
 
 ---
 
@@ -628,7 +648,7 @@ journée de diagnostic le 25/09/2026.
    quand la configuration n'a pas changé : `changed_when: _lxc_stop.rc == 0`
    est inconditionnel. C'est une coupure de service gratuite à chaque
    `ansible-playbook reseau-lxc.yaml`. À convertir en `notify:` / handler.
-2. **`roles/odoo_net/`** — code mort, remplacé par `lxc_lan`.
+2. **`roles/inutilises/odoo_net/`** — code mort, remplacé par `lxc_lan`.
 3. **`gluster_servers`** — nom trompeur : il désigne les 4 hôtes physiques,
    pas les nœuds Gluster. Ceux-ci sont dans `gluster_bricks`.
 4. **Purges one-shot rejouées à chaque passage** (~30 items sans effet) :

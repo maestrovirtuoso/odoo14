@@ -82,8 +82,11 @@ installe et lance les sauvegardes.
 rôle Odoo exige ce montage. Le rôle de montage existe et reste notamment
 appelé par [`ansi_syncro.yaml`](../playbooks/ansi_syncro.yaml).
 
-Le parcours actuel n'utilise **ni HAProxy, ni keepalived, ni Patroni, ni
-etcd**. La panne du primaire PostgreSQL nécessite une **bascule manuelle** :
+Le parcours par défaut (`pg_ha_enabled: false`) n'utilise **ni HAProxy, ni
+keepalived, ni Patroni, ni etcd**. Une haute disponibilité de la base avec
+Patroni, etcd et HAProxy est prévue en option, mais pas encore déployée :
+voir [POSTGRESQL-PATRONI.md](POSTGRESQL-PATRONI.md). Sans elle, la panne du
+primaire PostgreSQL nécessite une **bascule manuelle** :
 isoler l'ancien primaire, promouvoir une réplique, puis adapter les cibles
 PostgreSQL dans l'inventaire et `odoo_db_host`, ainsi que la configuration
 des applications, des sauvegardes et de la réplication restante. L'ancien
@@ -95,6 +98,6 @@ primaire doit être réintégré comme réplique avant de reprendre du service.
 - [`host_vars/`](../host_vars/) : noms LXC, cartes, IP et passerelles.
 - [`group_vars/all/vars.yml`](../group_vars/all/vars.yml) : cible SQL,
   ports, base partagée et volume GlusterFS.
-- [`roles/pg_server/`](../roles/pg_server/) : primaire et réplication.
-- [`roles/odoo_filestore/`](../roles/odoo_filestore/) : montage et bind LXC.
-- [`roles/odoo_backup/`](../roles/odoo_backup/) : sauvegardes et timer.
+- [`roles/ansi_odoo/pg_server/`](../roles/ansi_odoo/pg_server/) : primaire et réplication.
+- [`roles/ansi_odoo/odoo_filestore/`](../roles/ansi_odoo/odoo_filestore/) : montage et bind LXC.
+- [`roles/ansi_sauvegarde/odoo_backup/`](../roles/ansi_sauvegarde/odoo_backup/) : sauvegardes et timer.

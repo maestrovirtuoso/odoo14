@@ -41,14 +41,14 @@ odoo_data_dir: /var/lib/odoo
 # etant commun.
 #
 # Le gain de ce choix : data_dir/sessions est sur le volume par construction,
-# donc partage sans bind ni montage supplementaire (voir roles/odoo_sessions).
+# donc partage sans bind ni montage supplementaire (voir roles/inutilises/odoo_sessions).
 odoo_filestore: "{{ odoo_data_dir }}"
 odoo_filestore_reel: "{{ odoo_data_dir }}/filestore"
 
 # Environnement virtuel Python 3.8 dans lequel Odoo s'execute (voir
-# roles/python38 : Odoo 14 ne fonctionne pas sur le Python 3.11 de bookworm).
+# roles/ansi_odoo/python38 : Odoo 14 ne fonctionne pas sur le Python 3.11 de bookworm).
 #
-# Defini ICI, au niveau du groupe, et non dans roles/odoo14/defaults : le role
+# Defini ICI, au niveau du groupe, et non dans roles/ansi_odoo/odoo14/defaults : le role
 # odoo_dbinit tourne dans une play distincte, ou les defaults d'odoo14 ne sont
 # pas en portee. Sans cela, l'init de la base retomberait sur le "odoo" du
 # PATH, donc potentiellement sur l'interpreteur 3.11, et rejouerait l'echec
@@ -61,7 +61,7 @@ odoo_python: "{{ odoo_venv_path }}/bin/python"
 # superieure a odoo_primary qui est un groupe racine : un groupe plus profond
 # l'emporte, et la valeur posee ici ecraserait silencieusement le 1 du
 # primaire. Les taches planifiees seraient alors desactivees PARTOUT, sans
-# aucune erreur. La valeur par defaut 0 vit dans roles/odoo14/defaults, que
+# aucune erreur. La valeur par defaut 0 vit dans roles/ansi_odoo/odoo14/defaults, que
 # group_vars/odoo_primary surcharge sans ambiguite.
 
 # Connexions PostgreSQL par instance. A tenir coherent avec

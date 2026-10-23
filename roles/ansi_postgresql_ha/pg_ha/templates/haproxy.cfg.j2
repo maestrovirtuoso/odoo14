@@ -1,0 +1,65 @@
+# {{ ansible_managed }}
+#
+# HAProxy de {{ inventory_hostname }} : renvoie vers le primaire PostgreSQL du
+# moment. Les trois serveurs portent le meme fichier, a l'adresse d'ecoute
+# pres. La liste des serveurs est DERIVEE DE L'INVENTAIRE.
+
+global
+    log         /dev/log local0
+    maxconn     1000
+    user        haproxy
+    group       haproxy
+    daemon
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+
+defaults
+    # TCP et non HTTP : HAProxy relaie le protocole PostgreSQL sans le lire.
+    # Le TLS va donc de bout en bout, d'Odoo au primaire, certificat client
+    # compris (pg_hba : clientcert=verify-full).
+    mode        tcp
+    log         global
+    option      tcplog
+    option      dontlognull
+    retries     2
+    timeout connect 4s
+    # Une heure sans echange avant de couper. Plus court, les connexions
+    # gardees en reserve par Odoo seraient coupees en permanence (il s'en
+    # apercoit et en ouvre une autre, mais pour rien) ; une requete longue
+    # (import, mise a jour de module) le serait aussi.
+    timeout client  1h
+    timeout server  1h
+    timeout check   3s
+    # Sondes TCP : une connexion dont l'autre bout a disparu sans prevenir
+    # est detectee et liberee, au lieu d'occuper une place de max_connections.
+    option      clitcpka
+    option      srvtcpka
+
+# Page d'etat, sur la boucle locale seulement :
+#   ssh -L {{ pg_ha_haproxy_stats_port }}:127.0.0.1:{{ pg_ha_haproxy_stats_port }} root@{{ ansible_host }}
+#   puis http://127.0.0.1:{{ pg_ha_haproxy_stats_port }}/
+listen stats
+    mode        http
+    bind        127.0.0.1:{{ pg_ha_haproxy_stats_port }}
+    stats       enable
+    stats       uri /
+    stats       refresh 5s
+
+listen postgres_primaire
+    bind {{ ansible_host }}:{{ pg_ha_haproxy_port }}
+
+    # Le controle interroge Patroni (API REST, port {{ pg_ha_rest_port }}) et
+    # non PostgreSQL : seul le primaire repond 200 a GET /primary, les
+    # reserves repondent 503. Un seul serveur est donc "en service" a la fois.
+    option httpchk GET /primary
+    http-check expect status 200
+
+    # inter 3s fall 3 : un primaire perdu est ecarte en 9 s au plus.
+    # on-marked-down shutdown-sessions : les connexions vers l'ancien
+    # primaire sont COUPEES des qu'il est ecarte. Sans cela, elles resteraient
+    # ouvertes sur un serveur redevenu reserve, en lecture seule, et Odoo
+    # echouerait a chaque ecriture sans jamais se reconnecter.
+    default-server inter 3s fall 3 rise 2 on-marked-down shutdown-sessions
+
+{% for h in pg_ha_nodes %}
+    server {{ h }} {{ hostvars[h].ansible_host }}:{{ pg_ha_pg_port }} check port {{ pg_ha_rest_port }}
+{% endfor %}

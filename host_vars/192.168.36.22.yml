@@ -7,7 +7,7 @@
 lxc_container_name: devodoo14
 
 # Carte de l'hote sur laquelle le conteneur est pose en macvlan. C'est aussi
-# la carte de l'hote : elle reste a lui (cf. roles/lxc_lan).
+# la carte de l'hote : elle reste a lui (cf. roles/reseau-lxc/lxc_lan).
 nic: enp5s0
 
 # Adressage LAN du conteneur.

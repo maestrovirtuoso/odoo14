@@ -1,7 +1,7 @@
 # Amorçage manuel d'un conteneur (Debian 12)
 
 Équivalent de la tâche « Installer openssh-server + clé du contrôleur » de
-`roles/lxc_lan/tasks/main.yaml`, à faire commande par commande quand on veut
+`roles/reseau-lxc/lxc_lan/tasks/main.yaml`, à faire commande par commande quand on veut
 voir où ça bloque.
 
 Entrer dans le conteneur depuis l'hôte LXC :
@@ -99,7 +99,7 @@ Points à savoir :
   les adresses des conteneurs côté cloud.
 - **Les conteneurs redémarrent** (`lxc-stop` puis `lxc-start`).
 - **Le playbook ne doit pas défaire cela** : le rôle `lxc_lan` doit être à
-  jour sur le poste de contrôle (`grep -c ipvlan roles/lxc_lan/tasks/main.yaml`
+  jour sur le poste de contrôle (`grep -c ipvlan roles/reseau-lxc/lxc_lan/tasks/main.yaml`
   doit afficher plus de 2). Sinon, le prochain `reseau-lxc.yaml` remet
   `macvlan`.
 
@@ -109,7 +109,7 @@ Symptôme : `ping` de la passerelle (`ip neigh` affiche `INCOMPLETE`) ou de
 `8.8.8.8` échoue depuis le conteneur, alors que l'hôte y arrive. Le réseau
 filtre la MAC/IP du macvlan. On donne alors au conteneur une 2e interface
 (`eth1`) sur `lxcbr0`, masquerade derrière l'IP de l'hôte. `eth0` garde son IP
-LAN. Équivalent manuel de `lxc_egress_nat` (roles/lxc_lan).
+LAN. Équivalent manuel de `lxc_egress_nat` (roles/reseau-lxc/lxc_lan).
 
 **Sur l'hôte LXC** (Debian 12, hors du conteneur) :
 

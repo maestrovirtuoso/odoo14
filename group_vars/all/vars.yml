@@ -7,11 +7,37 @@
 # deux cotes de la connexion, d'ou leur portee "all" plutot que par groupe.
 # ===========================================================================
 
-# Conteneur PostgreSQL dedie odoodb1 (hote 192.168.33.21).
-# Odoo (192.168.36.0/24) l'atteint a travers les passerelles .254 : le port
-# 5432 doit etre ouvert entre les deux sous-reseaux.
-odoo_db_host: 192.168.33.161
-odoo_db_port: 5432
+# Haute disponibilite PostgreSQL : Patroni + etcd + HAProxy (roles/ansi_postgresql_ha/pg_ha,
+# playbooks/ansi_postgresql_ha.yaml, docs/POSTGRESQL-PATRONI.md).
+#
+# false  la base est geree par roles/ansi_odoo/pg_server ; Odoo et les sauvegardes
+#        visent odoodb1 en direct sur 5432.
+# true   la base est geree par Patroni ; Odoo et les sauvegardes passent par
+#        les HAProxy des trois serveurs, qui menent toujours au primaire du
+#        moment. pg_server ne tourne plus.
+#
+# A passer a true JUSTE APRES le premier passage de ansi_postgresql_ha.yaml,
+# puis rejouer ansi_odoo.yaml et ansi_sauvegarde.yaml. Une fois Patroni en
+# place, pg_server refuse de toucher a la base, quelle que soit cette valeur.
+pg_ha_enabled: false
+
+# Port des HAProxy, un par serveur PostgreSQL.
+pg_ha_haproxy_port: 5000
+
+# Adresse de la base pour Odoo, les sauvegardes et les migrations.
+#
+# Haute disponibilite : les TROIS HAProxy, separes par des virgules, ce que
+# libpq comprend nativement. Il essaie les adresses dans l'ordre et garde la
+# premiere qui repond : si odoodb1 tombe avec son HAProxy, Odoo passe au
+# suivant sans changer de configuration. Derive de l'inventaire.
+#
+# Sinon : odoodb1 (hote 192.168.33.21), en direct. Odoo (192.168.36.0/24)
+# l'atteint a travers les passerelles .254 : le port 5432 doit etre ouvert
+# entre les deux sous-reseaux.
+odoo_db_host: >-
+  {{ groups['db_cluster'] | map('extract', hostvars, 'ansible_host') | join(',')
+     if pg_ha_enabled | bool else '192.168.33.161' }}
+odoo_db_port: "{{ pg_ha_haproxy_port if pg_ha_enabled | bool else 5432 }}"
 odoo_db_user: odoo
 
 # Base UNIQUE partagee par toutes les instances Odoo.
@@ -53,7 +79,7 @@ pg_backup_client_ips: "{{ groups['backup_host'] | default([]) | list }}"
 # l'IP de la passerelle ("no pg_hba.conf entry for host 192.168.33.254",
 # 20/10/2026). L'instance est donc reconnue a son CERTIFICAT : la passerelle
 # n'est admise qu'en TLS, avec mot de passe ET certificat client signe par
-# l'autorite du projet. Voir roles/pg_pki et pg_hba.conf.j2.
+# l'autorite du projet. Voir roles/commun/pg_pki et pg_hba.conf.j2.
 #
 # Vider cette liste le jour ou le NAT est retire : les lignes /32 par
 # instance reprennent alors seules le controle.
@@ -85,6 +111,10 @@ odoo_db_ssl_env:
   PGSSLROOTCERT: "{{ odoo_db_ssl_dir }}/root.crt"
   PGSSLCERT: "{{ odoo_db_ssl_dir }}/client.crt"
   PGSSLKEY: "{{ odoo_db_ssl_dir }}/client.key"
+  # read-write : en haute disponibilite, libpq ecarte toute adresse qui le
+  # menerait a un serveur en lecture seule (un HAProxy qui n'a pas encore vu
+  # la bascule) et passe a la suivante. "any" (defaut de libpq) sinon.
+  PGTARGETSESSIONATTRS: "{{ 'read-write' if pg_ha_enabled | bool else 'any' }}"
 
 
 # Volume GlusterFS replique qui porte le filestore COMMUN aux trois Odoo.
@@ -113,3 +143,7 @@ pg_replication_user: replicator
 odoo_admin_password: "{{ vault_odoo_admin_password }}"
 odoo_db_password: "{{ vault_odoo_db_password }}"
 pg_replication_password: "{{ vault_pg_replication_password }}"
+# Patroni (roles/ansi_postgresql_ha/pg_ha) : superutilisateur postgres (pg_rewind) et actions de
+# l'API REST (bascule, configuration).
+pg_ha_superuser_password: "{{ vault_pg_patroni_superuser_password }}"
+pg_ha_rest_password: "{{ vault_pg_patroni_rest_password }}"

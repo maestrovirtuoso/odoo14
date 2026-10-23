@@ -29,7 +29,7 @@
 # ATTENTION : le poste de controle doit avoir la MEME version du role lxc_lan
 # que ce depot. Un role ancien reecrit lxc.net.0.type = macvlan et casse un
 # conteneur deja passe en ipvlan. Verifier avant de lancer :
-#   grep -c ipvlan roles/lxc_lan/tasks/main.yaml     # doit afficher plus de 2
+#   grep -c ipvlan roles/reseau-lxc/lxc_lan/tasks/main.yaml     # doit afficher plus de 2
 #
 # Lancement :
 #   ansible-playbook -i inventory.yaml playbooks/reseau-lxc.yaml

@@ -1,0 +1,14 @@
+---
+# SIGHUP : Patroni relit sa configuration, reecrit pg_hba.conf et
+# postgresql.conf, puis recharge PostgreSQL. Aucune coupure.
+- name: reload patroni
+  ansible.builtin.service:
+    name: patroni
+    state: reloaded
+
+# Rechargement sans coupure : les connexions en cours restent sur l'ancien
+# processus jusqu'a leur fin.
+- name: reload haproxy
+  ansible.builtin.service:
+    name: haproxy
+    state: reloaded

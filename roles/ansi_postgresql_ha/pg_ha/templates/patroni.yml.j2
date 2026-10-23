@@ -1,0 +1,139 @@
+# {{ ansible_managed }}
+#
+# Patroni sur {{ inventory_hostname }} ({{ ansible_host }}), cluster {{ pg_ha_scope }}.
+# Valeurs encodees en JSON (to_json) : du JSON est du YAML valide, et un mot
+# de passe contenant ":" ou "#" ne casse pas le fichier.
+
+scope: {{ pg_ha_scope | to_json }}
+name: {{ inventory_hostname | to_json }}
+
+restapi:
+  listen: {{ (ansible_host ~ ':' ~ pg_ha_rest_port) | to_json }}
+  connect_address: {{ (ansible_host ~ ':' ~ pg_ha_rest_port) | to_json }}
+  # Exige pour les actions (bascule, redemarrage, configuration). Les GET
+  # restent libres : HAProxy s'en sert pour trouver le primaire.
+  authentication:
+    username: {{ pg_ha_rest_user | to_json }}
+    password: {{ pg_ha_rest_password | to_json }}
+
+etcd3:
+  hosts:
+{% for ip in pg_ha_node_ips %}
+    - {{ (ip ~ ':' ~ pg_ha_etcd_client_port) | to_json }}
+{% endfor %}
+  protocol: https
+  cacert: {{ (pg_ha_ssl_dir ~ '/etcd-ca.crt') | to_json }}
+  cert: {{ (pg_ha_ssl_dir ~ '/etcd.crt') | to_json }}
+  key: {{ (pg_ha_ssl_dir ~ '/etcd.key') | to_json }}
+
+# Pas de chien de garde materiel dans un conteneur LXC (/dev/watchdog).
+# Consequence : seul Patroni protege contre deux primaires. Voir Restart= dans
+# l'unite systemd, et les limites dans docs/POSTGRESQL-PATRONI.md.
+watchdog:
+  mode: "off"
+
+bootstrap:
+  # Configuration dynamique INITIALE : ecrite dans etcd au premier demarrage
+  # du cluster. Ensuite, c'est etcd qui fait foi, et tasks/configuration.yaml
+  # la remet en conformite avec pg_ha_dcs a chaque passage.
+  dcs: {{ pg_ha_dcs | to_json }}
+  # Ne sert que si le serveur n'a AUCUN repertoire de donnees (installation
+  # neuve). Une reprise adopte le cluster existant sans initdb.
+  initdb:
+    - encoding: UTF8
+    - locale: C.UTF-8
+    - data-checksums
+
+postgresql:
+  listen: {{ (ansible_host ~ ',127.0.0.1:' ~ pg_ha_pg_port) | to_json }}
+  connect_address: {{ (ansible_host ~ ':' ~ pg_ha_pg_port) | to_json }}
+  data_dir: {{ pg_data_dir | to_json }}
+  bin_dir: {{ pg_ha_bin_dir | to_json }}
+  config_dir: {{ pg_ha_config_dir | to_json }}
+  # postgresql.conf de Debian, inclus EN TETE de celui de Patroni : il garde
+  # les reglages poses par initdb (fuseau horaire, langue, format des dates),
+  # et tout ce que Patroni ecrit apres l'emporte.
+  custom_conf: {{ (pg_conf_dir ~ '/postgresql.conf') | to_json }}
+  pgpass: /var/lib/postgresql/.pgpass_patroni
+  use_unix_socket: true
+  remove_data_directory_on_rewind_failure: false
+  remove_data_directory_on_diverged_timelines: false
+
+  authentication:
+    # Patroni s'en sert en local par socket (authentification peer), et vers
+    # le primaire pour pg_rewind.
+    superuser:
+      username: postgres
+      password: {{ pg_ha_superuser_password | to_json }}
+      sslmode: verify-full
+      sslrootcert: {{ (pg_ha_ssl_dir ~ '/ca.crt') | to_json }}
+    # Le role cree par pg_server, repris tel quel.
+    replication:
+      username: {{ pg_replication_user | to_json }}
+      password: {{ pg_replication_password | to_json }}
+      sslmode: verify-full
+      sslrootcert: {{ (pg_ha_ssl_dir ~ '/ca.crt') | to_json }}
+
+  # Parametres propres a ce serveur. Les parametres COMMUNS sont dans
+  # pg_ha_dcs (etcd).
+  parameters:
+    unix_socket_directories: /var/run/postgresql
+    hba_file: {{ (pg_ha_config_dir ~ '/pg_hba.conf') | to_json }}
+    ident_file: {{ (pg_ha_config_dir ~ '/pg_ident.conf') | to_json }}
+    ssl: "on"
+    ssl_cert_file: {{ (pg_ha_ssl_dir ~ '/server.crt') | to_json }}
+    ssl_key_file: {{ (pg_ha_ssl_dir ~ '/server.key') | to_json }}
+    # Autorite contre laquelle sont verifies les certificats CLIENTS
+    # (clientcert=verify-full ci-dessous).
+    ssl_ca_file: {{ (pg_ha_ssl_dir ~ '/ca.crt') | to_json }}
+
+  # Ecrit par Patroni dans {{ pg_ha_config_dir }}/pg_ident.conf, qui doit
+  # exister puisque ident_file le designe.
+  pg_ident:
+    - "# Aucune correspondance : les comptes locaux utilisent peer."
+
+  # ATTENTION : seule barriere d'acces reseau a la base (aucun pare-feu
+  # d'hote dans le chemin des conteneurs). Des /32 uniquement, derives de
+  # l'inventaire, comme dans roles/ansi_odoo/pg_server/templates/pg_hba.conf.j2.
+  pg_hba:
+    # Comptes locaux par socket : Patroni et les taches Ansible
+    # (become_user: postgres).
+    - local   all  postgres  peer
+    - local   all  all       peer
+    - host    all  all  127.0.0.1/32  scram-sha-256
+    - host    all  all  ::1/128       scram-sha-256
+{% for ip in pg_ha_node_ips %}
+
+    # --- Depuis {{ ip }}, serveur du cluster ---
+    # Replication streaming et copie initiale d'une reserve.
+    - hostssl  replication  {{ pg_replication_user }}  {{ ip }}/32  scram-sha-256
+    # pg_rewind (Patroni) et controle du primaire par HAProxy (verif.yaml).
+    - hostssl  postgres  postgres  {{ ip }}/32  scram-sha-256
+    # Odoo ARRIVE PAR HAPROXY : vue du primaire, la connexion vient du
+    # serveur qui porte le HAProxy, pas d'Odoo. Le TLS, lui, va de bout en
+    # bout (HAProxy ne fait que relayer) : le certificat client d'Odoo est
+    # toujours exige, et c'est lui qui l'identifie.
+    - hostssl  {{ odoo_shared_db }},postgres  {{ odoo_db_user }}  {{ ip }}/32  scram-sha-256 clientcert=verify-full
+{% endfor %}
+{% for ip in odoo_client_ips %}
+
+    # Odoo en direct sur 5432, tant que pg_ha_enabled est a false.
+    - host  {{ odoo_shared_db }},postgres  {{ odoo_db_user }}  {{ ip }}/32  scram-sha-256
+{% endfor %}
+{% for ip in pg_nat_gateway_ips | default([]) %}
+
+    # Odoo en direct a travers le NAT ({{ ip }}), tant que pg_ha_enabled est
+    # a false : certificat client exige, comme dans pg_server.
+    - hostssl  {{ odoo_shared_db }},postgres  {{ odoo_db_user }}  {{ ip }}/32  scram-sha-256 clientcert=verify-full
+{% endfor %}
+{% for ip in pg_backup_client_ips %}
+
+    # Hote de sauvegarde (pg_dump), en direct.
+    - host  {{ odoo_shared_db }}  {{ odoo_db_user }}  {{ ip }}/32  scram-sha-256
+{% endfor %}
+
+tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false

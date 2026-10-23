@@ -12,3 +12,10 @@ vault_odoo_db_password: "change-me-odoo-db"
 # Role "replicator" : lit le flux WAL du primaire pour odoodb2 et odoodb3.
 # Pose dans /var/lib/postgresql/.pgpass sur chaque reserve.
 vault_pg_replication_password: "change-me-replication"
+
+# Patroni (roles/ansi_postgresql_ha/pg_ha, playbooks/ansi_postgresql_ha.yaml). 12 caracteres
+# minimum, differents des mots de passe ci-dessus (le role le verifie).
+# Superutilisateur "postgres" : pg_rewind entre serveurs.
+vault_pg_patroni_superuser_password: "change-me-patroni-superuser"
+# Compte "patroni" de l'API REST : bascule, redemarrage, configuration.
+vault_pg_patroni_rest_password: "change-me-patroni-rest"

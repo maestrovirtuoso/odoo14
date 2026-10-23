@@ -16,13 +16,13 @@
 # Les hotes n'ont qu'une carte sur leur reseau, et elle porte leur route par
 # defaut : la ceder au conteneur (mode phys) couperait l'hote. Les conteneurs
 # sont donc poses en IPVLAN sur cette carte, que l'hote garde.
-# Consequence : un hote ne joint pas son propre conteneur (cf. roles/lxc_lan).
+# Consequence : un hote ne joint pas son propre conteneur (cf. roles/reseau-lxc/lxc_lan).
 lxc_net_type=ipvlan
 #
 # Le reseau jette les MAC inconnues (le macvlan n'obtenait aucune reponse de
 # sa passerelle). L'ipvlan, qui partage la MAC de l'hote, passe : valide par
 # un test en netns sur enp5s0. Le NAT par l'hote (lxc_egress_nat) reste
-# disponible dans roles/lxc_lan mais n'est plus necessaire.
+# disponible dans roles/reseau-lxc/lxc_lan mais n'est plus necessaire.
 lxc_egress_nat=false
 #
 # L'ancien modele routé du lab (10.0.x.0/24) n'existe pas sur ces hotes. Ne
@@ -104,13 +104,21 @@ odoo1
 odoodb1 ansible_host=192.168.33.161 lxc_host=192.168.33.21
 
 # Reserves PostgreSQL : copies en lecture seule de odoodb1, alimentees par
-# replication streaming (roles/pg_server, tasks/replica.yaml). Odoo ne s'y
+# replication streaming (roles/ansi_odoo/pg_server, tasks/replica.yaml). Odoo ne s'y
 # connecte pas. Si odoodb1 tombe, la bascule est MANUELLE : promouvoir une
 # reserve puis changer odoo_db_host. Rien ne la fait automatiquement (pas de
 # Patroni).
 [db_replicas]
 odoodb2 ansible_host=192.168.33.162 lxc_host=192.168.33.22
 odoodb3 ansible_host=192.168.33.163 lxc_host=192.168.33.23
+
+# Les trois serveurs PostgreSQL, quel que soit leur role du moment. C'est le
+# groupe que joue Patroni (roles/ansi_postgresql_ha/pg_ha, playbooks/ansi_postgresql_ha.yaml).
+# Sous Patroni, db_containers et db_replicas ne decrivent plus que le
+# placement INITIAL : apres une bascule, le primaire peut etre odoodb2.
+[db_cluster:children]
+db_containers
+db_replicas
 
 [lxc_containers:children]
 odoo_containers

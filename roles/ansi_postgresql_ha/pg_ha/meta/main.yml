@@ -1,0 +1,13 @@
+---
+dependencies:
+  - role: base_debian
+    vars:
+      apt_validate_packages:
+        - postgresql
+        - "postgresql-{{ pg_version }}"
+        - python3-psycopg2
+        - patroni
+        - python3-etcd
+        - etcd-server
+        - etcd-client
+        - haproxy

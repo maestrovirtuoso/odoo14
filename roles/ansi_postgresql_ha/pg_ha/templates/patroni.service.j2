@@ -1,0 +1,28 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Patroni - PostgreSQL haute disponibilite ({{ pg_ha_scope }})
+Documentation=file:///etc/patroni/config.yml
+After=network-online.target etcd.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=postgres
+Group=postgres
+ExecStart=/usr/bin/patroni {{ pg_ha_config_file }}
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Patroni arrete lui-meme PostgreSQL, proprement : systemd ne doit tuer que
+# Patroni, jamais le serveur dans son dos.
+KillMode=process
+TimeoutSec=60
+
+# Un PostgreSQL primaire sans son Patroni continue d'accepter les ecritures
+# alors que personne ne renouvelle plus son verrou : apres ttl secondes, une
+# reserve est promue et il y a DEUX primaires. Relancer Patroni au plus vite
+# le fait se retirer (il constate qu'il n'a plus le verrou).
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

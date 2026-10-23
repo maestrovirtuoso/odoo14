@@ -1,0 +1,44 @@
+---
+# ===========================================================================
+# Haute disponibilite PostgreSQL : etcd + Patroni + HAProxy dans les trois
+# conteneurs PostgreSQL (odoodb1, odoodb2, odoodb3).
+#
+# Explication complete : docs/POSTGRESQL-PATRONI.md
+#
+# PREMIER PASSAGE : reprend le cluster installe par roles/ansi_odoo/pg_server (odoodb1
+# primaire, odoodb2 et odoodb3 en streaming) sans perte ni recopie. Odoo
+# perd la base quelques secondes, le temps que Patroni redemarre odoodb1.
+# Il continue ensuite de viser odoodb1 en direct, jusqu'a l'etape suivante.
+#
+# ETAPE SUIVANTE, a enchainer sans attendre (tant qu'elle n'est pas faite,
+# une bascule de Patroni laisserait Odoo sur un serveur en lecture seule) :
+#   1. pg_ha_enabled: true dans group_vars/all/vars.yml ;
+#   2. ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass
+#   3. ansible-playbook playbooks/ansi_sauvegarde.yaml --ask-vault-pass
+#
+# PASSAGES SUIVANTS : remise en conformite, sans coupure.
+#
+# Prerequis :
+#   - lancer depuis le poste de controle qui a deploye la base : il detient
+#     pki/ (autorite des certificats) et le vault. Le role refuse de creer
+#     une nouvelle autorite ;
+#   - deux secrets de plus dans group_vars/all/vault.yml :
+#       vault_pg_patroni_superuser_password
+#       vault_pg_patroni_rest_password
+#   - entre les trois conteneurs PostgreSQL : 2379, 2380 (etcd), 8008
+#     (Patroni), 5432 ; depuis le reseau Odoo : 5000 (HAProxy).
+#
+# Lancement :
+#   ansible-playbook playbooks/ansi_postgresql_ha.yaml --ask-vault-pass
+#
+# Ne JAMAIS utiliser --limit : etcd et la reprise exigent les trois serveurs
+# ensemble (le role le verifie).
+# ===========================================================================
+- name: "PostgreSQL haute disponibilite : etcd, Patroni, HAProxy"
+  hosts: db_cluster
+  gather_facts: true
+  # Un serveur en echec arrete les trois : une reprise a moitie faite sur
+  # un seul serveur est pire qu'une reprise pas commencee.
+  any_errors_fatal: true
+  roles:
+    - pg_ha

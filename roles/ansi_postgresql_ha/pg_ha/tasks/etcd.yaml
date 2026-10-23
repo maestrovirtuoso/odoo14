@@ -1,0 +1,85 @@
+---
+# ===========================================================================
+# etcd : trois membres, un par serveur PostgreSQL.
+#
+# QUORUM : 2 sur 3. La perte d'un serveur est toleree ; la perte de deux
+# fige le cluster -- Patroni ne peut plus renouveler le verrou, et le
+# primaire se remet en lecture seule plutot que de risquer deux primaires.
+#
+# Tout passe en TLS avec certificat client (autorite d'etcd) : ecrire dans
+# etcd, c'est pouvoir changer les parametres de PostgreSQL via Patroni.
+# ===========================================================================
+- name: etcd tourne-t-il deja ?
+  ansible.builtin.command: systemctl is-active etcd
+  register: _pg_ha_etcd_avant
+  changed_when: false
+  failed_when: false
+
+- name: Configuration d'etcd
+  # Lue par l'unite etcd.service du paquet Debian (EnvironmentFile).
+  ansible.builtin.template:
+    src: etcd.default.j2
+    dest: /etc/default/etcd
+    owner: root
+    group: root
+    mode: "0644"
+  register: _pg_ha_etcd_conf
+
+- name: Demarrer etcd sur les trois serveurs EN MEME TEMPS
+  # Un membre neuf attend les deux autres pour former le cluster, et systemd
+  # attend qu'il soit pret : une seule tache, executee en parallele sur les
+  # trois serveurs (strategie linear, forks >= 3, verifie au preflight).
+  # Trois taches successives se bloqueraient l'une l'autre.
+  ansible.builtin.systemd:
+    name: etcd
+    state: started
+    enabled: true
+
+- name: Appliquer une configuration modifiee, un membre a la fois
+  # Redemarrer les trois ensemble ferait perdre le quorum, donc le primaire.
+  # throttle 1 : un serveur, puis attendre qu'il ait rejoint le cluster,
+  # puis le suivant.
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      systemctl restart etcd
+      for i in $(seq 30); do
+        etcdctl endpoint health --cluster >/dev/null 2>&1 && exit 0
+        sleep 2
+      done
+      echo "etcd n'a pas rejoint le cluster apres son redemarrage" >&2
+      exit 1
+  environment: "{{ pg_ha_etcdctl_env }}"
+  throttle: 1
+  when:
+    - _pg_ha_etcd_conf.changed
+    - _pg_ha_etcd_avant.stdout == 'active'
+
+- name: Le cluster etcd est sain, avec ses trois membres
+  ansible.builtin.command: etcdctl endpoint health --cluster
+  environment: "{{ pg_ha_etcdctl_env }}"
+  register: _pg_ha_etcd_sante
+  until: _pg_ha_etcd_sante.rc == 0
+  retries: 30
+  delay: 2
+  changed_when: false
+
+- name: Les trois membres sont declares
+  ansible.builtin.command: etcdctl member list -w json
+  environment: "{{ pg_ha_etcdctl_env }}"
+  register: _pg_ha_etcd_membres
+  changed_when: false
+  run_once: true
+
+- name: Refuser un cluster etcd qui ne serait pas celui de l'inventaire
+  # Un membre en trop (ancien serveur jamais retire) compte dans le quorum :
+  # avec quatre membres declares, en perdre deux fige le cluster.
+  ansible.builtin.assert:
+    that:
+      - (_pg_ha_etcd_membres.stdout | from_json).members | map(attribute='name') | sort | list
+        == pg_ha_nodes | sort
+    fail_msg: >-
+      Membres etcd : {{ (_pg_ha_etcd_membres.stdout | from_json).members | map(attribute='name') | list }},
+      attendus : {{ pg_ha_nodes }}. Retirer les membres en trop
+      (etcdctl member remove) avant de continuer.
+  run_once: true

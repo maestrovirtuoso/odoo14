@@ -1,0 +1,484 @@
+---
+# ===========================================================================
+# Role odoo14  -  execute DANS les conteneurs (groupe odoo_containers, Debian 12)
+# Installe Odoo 14 depuis le depot APT nightly officiel.
+#
+# AUCUN serveur PostgreSQL n'est installe ici : la base est celle du
+# conteneur db_containers ({{ odoo_db_host }}), partagee par toutes les
+# instances. Seul le CLIENT est present.
+#
+# Le role laisse Odoo ARRETE. Le demarrage est fait par une play distincte,
+# apres l'initialisation de la base par le seul noeud primaire : trois
+# instances demarrant sur un registre a moitie initialise le corrompent.
+# ===========================================================================
+
+- name: Afficher la cible
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} ({{ ansible_host }}) - instance Odoo,
+      base partagee {{ odoo_shared_db }} sur {{ odoo_db_host }}
+      {{ '(PRIMAIRE)' if odoo_is_primary | default(false) else '' }}
+
+- name: Installer les dependances de base
+  ansible.builtin.apt:
+    name:
+      # gpgv est liste explicitement avec gnupg : sans cela apt refuse de
+      # mettre a jour l'un sans l'autre ("held broken packages").
+      - gnupg
+      - gpgv
+      - wget
+      - ca-certificates
+      - python3-pip
+      - fonts-liberation
+      - rsync
+      - wkhtmltopdf
+      # Client seul : le paquet Debian d'Odoo ne depend que de
+      # postgresql-client, et le serveur vit dans un autre conteneur.
+      # Version explicite plutot que le metapaquet nu, qui passe par
+      # postgresql-common et peut entrainer le serveur.
+      - "postgresql-client-{{ pg_version }}"
+      - python3-psycopg2
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# ---------------------------------------------------------------------------
+# Depot Odoo nightly
+# ---------------------------------------------------------------------------
+- name: Recuperer la cle du depot Odoo
+  ansible.builtin.get_url:
+    url: "{{ odoo_nightly_key_url }}"
+    dest: /usr/share/keyrings/odoo-archive-keyring.asc
+    mode: "0644"
+    timeout: 30
+  register: _odoo_key
+  until: _odoo_key is succeeded
+  retries: 5
+  delay: 10
+
+- name: Ajouter le depot Odoo nightly {{ odoo_version }}
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/odoo-archive-keyring.asc] {{ odoo_nightly_repo }}"
+    filename: odoo
+    state: present
+    update_cache: true
+
+- name: Installer Odoo {{ odoo_version }}
+  ansible.builtin.apt:
+    name: odoo
+    state: present
+  notify: restart odoo
+
+# ===========================================================================
+# Environnement virtuel Python 3.8
+#
+# Voir defaults/main.yml pour la raison : Odoo 14 ne fonctionne pas sur le
+# Python 3.11 de bookworm. L'interpreteur 3.8 est fourni par le role python38
+# (dependance declaree dans meta/main.yml).
+# ===========================================================================
+- name: Installer les en-tetes necessaires aux dependances Python
+  ansible.builtin.apt:
+    name: "{{ odoo_build_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Creer l'environnement virtuel sur Python 3.8
+  ansible.builtin.command:
+    cmd: "{{ python38_prefix }}/bin/python3.8 -m venv {{ odoo_venv_path }}"
+    creates: "{{ odoo_venv_path }}/bin/python"
+
+# Deux sources possibles pour la liste des dependances, par ordre de
+# preference. Voir odoo_requirements_lock dans defaults/main.yml.
+- name: Un fichier de versions figees existe-t-il sur le controleur ?
+  ansible.builtin.stat:
+    path: "{{ role_path }}/files/{{ odoo_requirements_lock }}"
+  register: _odoo_lock
+  delegate_to: localhost
+  become: false
+  changed_when: false
+
+- name: Deposer les versions figees
+  ansible.builtin.copy:
+    src: "{{ odoo_requirements_lock }}"
+    dest: "{{ odoo_venv_work_dir }}/{{ odoo_requirements_lock }}"
+    mode: "0644"
+  when: _odoo_lock.stat.exists
+
+- name: Telecharger le requirements.txt amont d'Odoo {{ odoo_version }}
+  ansible.builtin.get_url:
+    url: "{{ odoo_requirements_url }}"
+    dest: "{{ odoo_venv_work_dir }}/odoo-{{ odoo_version }}-requirements.txt"
+    mode: "0644"
+    timeout: 30
+  register: _odoo_req
+  until: _odoo_req is succeeded
+  retries: 3
+  delay: 10
+  when: not _odoo_lock.stat.exists
+
+- name: Retenir le fichier de dependances retenu
+  ansible.builtin.set_fact:
+    odoo_requirements_path: >-
+      {{ odoo_venv_work_dir ~ '/' ~ odoo_requirements_lock
+         if _odoo_lock.stat.exists
+         else odoo_venv_work_dir ~ '/odoo-' ~ odoo_version ~ '-requirements.txt' }}
+
+- name: Source des dependances
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'versions figees : ' ~ odoo_requirements_lock
+         if _odoo_lock.stat.exists
+         else 'requirements.txt amont (aucun fichier fige dans roles/ansi_odoo/odoo14/files/)' }}
+
+# pip et setuptools restent ceux que livre CPython 3.8 (pip 21, setuptools 56)
+# et ce n'est PAS un oubli : les versions recentes de setuptools ont retire
+# le support de "use_2to3", dont dependent encore plusieurs sdists epingles
+# par Odoo 14. Les mettre a jour ferait echouer leur construction.
+#
+# Sous Python 3.8, les marqueurs "python_version <= '3.9'" du fichier amont
+# selectionnent d'eux-memes les versions d'origine d'Odoo 14. C'est ce qui
+# remplace les retrogradations manuelles que nous posions sur 3.11.
+# Plusieurs minutes au PREMIER passage : lxml, Pillow, psycopg2, python-ldap
+# et greenlet se compilent depuis les sources.
+- name: Installer les dependances d'Odoo dans le venv (plusieurs minutes)
+  ansible.builtin.pip:
+    requirements: "{{ odoo_requirements_path | trim }}"
+    virtualenv: "{{ odoo_venv_path }}"
+  notify: restart odoo
+
+# Le code d'Odoo lui-meme reste celui du .deb : c'est du Python pur, donc
+# parfaitement importable par l'interpreteur 3.8. Ce fichier .pth ajoute son
+# repertoire au sys.path du venv.
+#
+# ORDRE : site.py traite les .pth APRES le site-packages du venv, donc les
+# versions du venv l'emportent sur celles de Debian. Les extensions C de
+# /usr/lib/python3/dist-packages, compilees pour 3.11 et illisibles par 3.8,
+# ne sont jamais atteintes puisque le venv fournit les siennes.
+- name: Rendre le code Odoo du paquet Debian visible depuis le venv
+  ansible.builtin.copy:
+    dest: "{{ odoo_venv_path }}/lib/python3.8/site-packages/odoo-deb.pth"
+    content: "/usr/lib/python3/dist-packages\n"
+    mode: "0644"
+  notify: restart odoo
+
+# /usr/bin/odoo demarre sur "#!/usr/bin/python3", c'est-a-dire le 3.11 du
+# systeme. Cette enveloppe le relance sous l'interpreteur du venv.
+# /usr/local/bin precede /usr/bin dans le PATH par defaut comme dans le
+# secure_path de sudo : le role odoo_dbinit, qui appelle "odoo" sans chemin,
+# passe donc par ici sans modification.
+- name: Poser l'enveloppe odoo pointant sur le venv
+  ansible.builtin.copy:
+    dest: /usr/local/bin/odoo
+    mode: "0755"
+    content: |
+      #!/bin/sh
+      # Fichier gere par Ansible (roles/ansi_odoo/odoo14) - toute modification sera perdue.
+      # Odoo 14 sous CPython 3.8 : voir roles/ansi_odoo/python38 et roles/ansi_odoo/odoo14.
+      # Certificat client PostgreSQL : voir odoo_db_ssl_env.
+      {% for k, v in odoo_db_ssl_env.items() %}
+      export {{ k }}={{ v | quote }}
+      {% endfor %}
+      exec {{ odoo_venv_path }}/bin/python /usr/bin/odoo "$@"
+
+- name: Creer le repertoire du fragment systemd
+  ansible.builtin.file:
+    path: /etc/systemd/system/odoo.service.d
+    state: directory
+    mode: "0755"
+
+# Une unite systemd ignore le PATH : son ExecStart est un chemin absolu vers
+# /usr/bin/odoo, donc vers le 3.11. Ce fragment le remplace. La ligne
+# "ExecStart=" vide est OBLIGATOIRE : sans elle systemd ajoute la nouvelle
+# commande a la precedente au lieu de s'y substituer.
+- name: Pointer le service odoo sur l'interpreteur du venv
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/odoo.service.d/venv.conf
+    mode: "0644"
+    content: |
+      # Fichier gere par Ansible (roles/ansi_odoo/odoo14) - toute modification sera perdue.
+      [Service]
+      ExecStart=
+      ExecStart={{ odoo_venv_path }}/bin/python /usr/bin/odoo --config {{ odoo_config_path }} --logfile {{ odoo_log_path }}
+      # Certificat client PostgreSQL (libpq) : voir odoo_db_ssl_env.
+      {% for k, v in odoo_db_ssl_env.items() %}
+      Environment={{ k }}={{ v }}
+      {% endfor %}
+  register: _odoo_unit
+  notify: restart odoo
+
+- name: Recharger systemd apres modification de l'unite
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: _odoo_unit is changed
+
+# ---------------------------------------------------------------------------
+# Garde-fou : ne pas demarrer Odoo si le filestore partage manque.
+#
+# Ce fragment existait deja SUR LES TROIS CONTENEURS, pose a la main, et dans
+# aucun fichier du depot ni aucun commit. Il y est donc entre le 30/09/2026 :
+# une garde qui ne vit que sur les machines est une garde qu'un rebuild efface
+# sans bruit, et que personne ne peut relire.
+#
+# Il assertait /var/lib/odoo/filestore, qui n'est PAS le point de montage : le
+# volume est monte sur /var/lib/odoo. L'assertion etait donc devenue
+# infalsifiable, et a tenu les trois instances arretees du 29/09 16h18 au
+# 30/09. La lecon n'est pas de retirer la garde -- elle a fait exactement son
+# travail, elle a refuse de servir -- mais de la deriver de odoo_filestore, la
+# MEME variable que le montage, pour que les deux ne puissent plus diverger.
+#
+# AssertPathIsMountPoint et non ConditionPathIsMountPoint : une Condition non
+# remplie fait passer l'unite pour "demarree avec succes", ce qui masquerait
+# l'absence du volume. Une Assert echoue bruyamment, et c'est ce qu'on veut.
+# ---------------------------------------------------------------------------
+# Le POINT DE MONTAGE, cree avant le controle qui suit.
+#
+# L'ordre n'est pas indifferent : sur un conteneur neuf, ce repertoire n'existe
+# pas, et sans lui le volume ne peut pas y etre monte. Le controle du montage
+# echouerait alors sans issue -- il reprocherait une absence qu'il empeche de
+# corriger. Cree ici, un premier deploiement s'arrete en disant quoi monter,
+# et le second passe.
+#
+# Quand le volume est monte, cette tache ne touche a rien : le repertoire
+# existe et appartient deja a odoo.
+- name: S'assurer que le point de montage du filestore existe
+  ansible.builtin.file:
+    path: "{{ odoo_filestore }}"
+    state: directory
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0750"
+
+# Constater l'absence du volume ICI, et le DIRE, plutot que de laisser systemd
+# la signaler plus tard.
+#
+# Le 30/09/2026, le seul indice renvoye par un deploiement complet a ete
+# "Unable to start service odoo: Assertion failed on job for odoo.service",
+# depuis un handler, a la toute fin de la play. Ce message ne nomme ni le
+# chemin attendu, ni la raison, ni la commande a jouer -- il fallait aller
+# lire "systemctl status" sur chaque conteneur pour apprendre lequel des deux
+# chemins manquait.
+#
+# Un echec doit porter son propre diagnostic. Celui-ci s'arrete avant d'avoir
+# touche au service, et nomme le chemin, l'etat observe et la consequence.
+- name: Le filestore partage est-il monte ?
+  ansible.builtin.command: "findmnt -n -o TARGET,SOURCE,FSTYPE {{ odoo_filestore }}"
+  register: _odoo_fs_monte
+  changed_when: false
+  failed_when: false
+  when: odoo_exiger_filestore_partage | bool
+
+- name: Refuser de configurer Odoo sans son filestore partage
+  ansible.builtin.assert:
+    that:
+      - _odoo_fs_monte.rc == 0
+      - "'glusterfs' in _odoo_fs_monte.stdout"
+    fail_msg: >-
+      {{ odoo_filestore }} n'est pas un point de montage GlusterFS sur
+      {{ inventory_hostname }} (findmnt : {{ _odoo_fs_monte.stdout | default('rien') | trim | default('rien', true) }}).
+      Odoo 14 ecrit ses pieces jointes dans {{ odoo_filestore_reel }}/<base>,
+      chemin qu'il construit en dur et qui doit se trouver A L'INTERIEUR de ce
+      volume. Demarrer maintenant les ecrirait sur le disque LOCAL du
+      conteneur, sans erreur visible --
+      la panne ne se decouvrirait qu'en ouvrant depuis un autre noeud une
+      piece jointe creee ici.
+      Le volume est monte sur l'hote {{ lxc_host | default('porteur') }} et
+      passe au conteneur par le role odoo_filestore : jouer d'abord la play
+      1bis/5 de ansi_odoo.yaml (--tags filestore).
+      Pour un conteneur volontairement isole, poser
+      odoo_exiger_filestore_partage=false.
+    success_msg: "{{ _odoo_fs_monte.stdout | trim }}"
+    quiet: true
+  when: odoo_exiger_filestore_partage | bool
+
+# Le repertoire qu'Odoo utilise reellement, cree DANS le volume.
+#
+# Apres le controle ci-dessus, et non avant : le volume etant monte sur
+# {{ odoo_data_dir }}, ce repertoire doit atterrir dans le volume PARTAGE. Le
+# creer alors que rien n'est monte le poserait sur le disque local du
+# conteneur, ou le montage le masquerait aussitot -- trois repertoires
+# invisibles, un par noeud, et un filestore qu'Odoo croit vide.
+#
+# C'est le meme piege que le 25/09/2026 : verifier la DESTINATION, pas la
+# source.
+#
+# run_once : le volume est commun aux trois noeuds. Le creer trois fois ferait
+# ecrire trois clients GlusterFS au meme endroit sans rien apporter.
+- name: S'assurer que le repertoire du filestore existe dans le volume
+  ansible.builtin.file:
+    path: "{{ odoo_filestore_reel }}"
+    state: directory
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0750"
+  run_once: true
+  when: odoo_exiger_filestore_partage | bool
+
+- name: Exiger le filestore partage au demarrage d'Odoo
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/odoo.service.d/filestore.conf
+    mode: "0644"
+    content: |
+      # Fichier gere par Ansible (roles/ansi_odoo/odoo14) - toute modification sera perdue.
+      [Unit]
+      AssertPathIsMountPoint={{ odoo_filestore }}
+  when: odoo_exiger_filestore_partage | bool
+  register: _odoo_assert_fs
+  notify: restart odoo
+
+- name: Retirer l'exigence du filestore partage
+  ansible.builtin.file:
+    path: /etc/systemd/system/odoo.service.d/filestore.conf
+    state: absent
+  when: not (odoo_exiger_filestore_partage | bool)
+  register: _odoo_assert_fs_absent
+  notify: restart odoo
+
+- name: Recharger systemd apres modification du garde-fou
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: _odoo_assert_fs is changed or _odoo_assert_fs_absent is changed
+
+# Controle decisif : ce n'est pas "le venv existe" qui compte, mais que
+# l'interpreteur qui executera Odoo soit bien en 3.8 ET qu'il importe le code
+# d'Odoo. Les deux ensemble, sinon le diagnostic reste ambigu.
+- name: Verifier qu'Odoo s'importe bien sous Python 3.8
+  ansible.builtin.command:
+    argv:
+      - "{{ odoo_venv_path }}/bin/python"
+      - -c
+      - "import sys, odoo; print('%d.%d.%d' % sys.version_info[:3], odoo.release.version)"
+  register: _odoo_import
+  changed_when: false
+
+- name: L'interpreteur d'Odoo est bien en 3.8
+  ansible.builtin.assert:
+    that: _odoo_import.stdout.split()[0].startswith('3.8.')
+    fail_msg: "Odoo s'importe sous {{ _odoo_import.stdout }} au lieu de Python 3.8."
+    success_msg: "Odoo {{ _odoo_import.stdout.split()[1] }} importe sous Python {{ _odoo_import.stdout.split()[0] }}"
+
+# safe_eval est precisement ce qui echouait sous 3.11, sur l'opcode RESUME.
+# On evalue ici l'expression exacte du fichier res_partner_data.xml qui
+# bloquait l'initialisation : si elle passe, l'init passe.
+- name: Verifier que safe_eval accepte les expressions d'Odoo
+  ansible.builtin.command:
+    argv:
+      - "{{ odoo_venv_path }}/bin/python"
+      - -c
+      - "from odoo.tools.safe_eval import safe_eval; print(safe_eval(\"{'default_is_company': True}\"))"
+  changed_when: false
+
+# ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+- name: Creer le repertoire de log Odoo
+  ansible.builtin.file:
+    path: "{{ odoo_log_path | dirname }}"
+    state: directory
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0755"
+
+# Certificat client PostgreSQL. Le routeur fait du NAT entre ce conteneur et
+# la base : pg_hba ne reconnait plus l'instance a son IP, mais a ce
+# certificat (CN = role SQL, OU = nom du noeud pour le distinguer des deux
+# autres). Un certificat par noeud : un conteneur compromis se revoque seul.
+- name: Certificat client de ce noeud pour la base partagee
+  ansible.builtin.include_role:
+    name: pg_pki
+    tasks_from: cert
+  vars:
+    pg_pki_name: "client-{{ inventory_hostname }}"
+    pg_pki_subject: "/CN={{ odoo_db_user }}/OU={{ inventory_hostname }}"
+    pg_pki_extensions:
+      - "extendedKeyUsage=clientAuth"
+
+- name: Repertoire du certificat client
+  ansible.builtin.file:
+    path: "{{ odoo_db_ssl_dir }}"
+    state: directory
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0750"
+
+- name: Deposer l'autorite, le certificat et la cle du client
+  # Cle en 0600 au compte odoo : libpq refuse une cle lisible par d'autres.
+  ansible.builtin.copy:
+    src: "{{ pg_pki_dir }}/{{ item.src }}"
+    dest: "{{ odoo_db_ssl_dir }}/{{ item.dest }}"
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: ca.crt, dest: root.crt, mode: "0644" }
+    - { src: "client-{{ inventory_hostname }}.crt", dest: client.crt, mode: "0644" }
+    - { src: "client-{{ inventory_hostname }}.key", dest: client.key, mode: "0600" }
+  loop_control:
+    label: "{{ item.dest }}"
+  notify: restart odoo
+
+- name: Deposer /etc/odoo/odoo.conf
+  ansible.builtin.template:
+    src: odoo.conf.j2
+    dest: "{{ odoo_config_path }}"
+    owner: "{{ odoo_system_user }}"
+    group: "{{ odoo_system_user }}"
+    mode: "0640"
+  notify: restart odoo
+
+- name: Effacer les reliquats de l'ancienne architecture repliquee
+  ansible.builtin.import_tasks: purge_replication.yaml
+
+# ---------------------------------------------------------------------------
+# Verification de l'acces a la base partagee
+#
+# Sans ces deux controles, une erreur de pg_hba ou de mot de passe se
+# manifeste par une boucle de demarrage d'Odoo illisible dans le journal.
+# Ici elle donne un message exploitable, avant meme de demarrer le service.
+#
+# La creation du role SQL et de la base est faite par le role pg_server,
+# dans le conteneur qui heberge le serveur. L'initialisation du registre
+# (odoo -i base) est faite par le role odoo_dbinit, sur le SEUL primaire.
+# ---------------------------------------------------------------------------
+- name: Le serveur PostgreSQL partage ecoute
+  # Une adresse par HAProxy en haute disponibilite : odoo_db_host en contient
+  # alors trois, separees par des virgules, et wait_for n'en accepte qu'une.
+  # Les trois doivent repondre au deploiement : un serveur PostgreSQL absent
+  # se voit ici plutot qu'au premier incident.
+  ansible.builtin.wait_for:
+    host: "{{ item }}"
+    port: "{{ odoo_db_port }}"
+    timeout: 30
+  loop: "{{ odoo_db_host.split(',') }}"
+
+- name: Ce noeud est autorise a se connecter a la base partagee
+  # Prouve que le triplet (mot de passe, certificat client, regle pg_hba)
+  # fonctionne, ce que l'ouverture du port ne dit pas. Meme mode TLS
+  # qu'Odoo : le module force sinon "prefer", qui ne verifie pas le serveur.
+  community.postgresql.postgresql_query:
+    login_host: "{{ odoo_db_host }}"
+    login_port: "{{ odoo_db_port }}"
+    login_user: "{{ odoo_db_user }}"
+    login_password: "{{ odoo_db_password }}"
+    db: "{{ odoo_shared_db }}"
+    ssl_mode: "{{ odoo_db_sslmode }}"
+    ca_cert: "{{ odoo_db_ssl_dir }}/root.crt"
+    query: "SELECT 1"
+  environment: "{{ odoo_db_ssl_env }}"
+  changed_when: false
+
+- name: Demarrer les handlers en attente (avant de figer l'etat des services)
+  ansible.builtin.meta: flush_handlers
+
+# ---------------------------------------------------------------------------
+# Etat des services
+#
+# Odoo est volontairement laisse ARRETE : le demarrage a lieu dans la
+# derniere play de playbooks/ansi_odoo.yaml, une fois la base initialisee
+# par le primaire. Il n'y a plus de service postgresql dans ce conteneur.
+# ---------------------------------------------------------------------------
+- name: Odoo arrete jusqu'a l'initialisation de la base partagee
+  ansible.builtin.service:
+    name: odoo
+    state: stopped
+    enabled: true

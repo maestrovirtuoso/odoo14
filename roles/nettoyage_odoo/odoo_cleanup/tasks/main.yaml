@@ -1,0 +1,182 @@
+---
+# ===========================================================================
+# Role odoo_cleanup  -  execute DANS les conteneurs (groupe odoo_containers)
+#
+# Remet un conteneur a plat apres des lancements partiels ou echoues, pour
+# repartir d'un etat propre sans devoir detruire/recreer le conteneur.
+#
+# Deux niveaux :
+#   - par defaut  : reparation APT seulement (dpkg interrompu, paquets casses,
+#                   versions desalignees, verrous residuels, cache).
+#   - -e full_reset=true : desinstalle en plus Odoo, PostgreSQL, leurs donnees,
+#                   le depot nightly et les fichiers deposes par les roles.
+#                   DESTRUCTIF : supprime les bases et le filestore.
+#
+# GARDE-FOU : depuis le passage a une base partagee, le conteneur du groupe
+# db_containers porte l'UNIQUE copie des donnees de toutes les instances.
+# La purge PostgreSQL y est donc refusee, sauf -e destroy_shared_db=true.
+# Sur les conteneurs Odoo elle reste sans risque : ils n'ont plus de serveur.
+# ===========================================================================
+
+- name: Annoncer le niveau de nettoyage
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} :
+      {{ 'RESET COMPLET (Odoo + PostgreSQL + donnees)' if (full_reset | default(false) | bool)
+         else 'reparation APT uniquement' }}
+
+# ---------------------------------------------------------------------------
+# 1. Arreter ce qui pourrait tenir des verrous
+# ---------------------------------------------------------------------------
+- name: Arreter Odoo
+  ansible.builtin.service:
+    name: odoo
+    state: stopped
+  failed_when: false
+
+- name: Liberer les verrous dpkg/apt residuels d'un lancement interrompu
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/dpkg/lock
+    - /var/lib/dpkg/lock-frontend
+    - /var/cache/apt/archives/lock
+    - /var/lib/apt/lists/lock
+
+- name: Terminer une transaction dpkg interrompue
+  ansible.builtin.command: dpkg --configure -a
+  register: _dpkg_fix
+  changed_when: _dpkg_fix.stdout | length > 0
+  failed_when: false
+
+- name: Reparer les paquets laisses en etat incoherent
+  ansible.builtin.shell: |
+    set -u
+    # Un paquet sain a le statut "install ok installed" ; tout autre etat
+    # (half-configured, reinstreq...) bloque toute operation apt ulterieure.
+    broken=$(dpkg-query -W -f='${Package} ${Status}\n' 2>/dev/null \
+             | awk '$4 != "installed" {print $1}')
+    if [ -z "$broken" ]; then
+      echo "aucun paquet casse"
+      exit 0
+    fi
+    echo "paquets casses:$(echo $broken | tr '\n' ' ')"
+    if apt-get install -y --reinstall $broken; then
+      echo "reinstallation reussie"
+    else
+      echo "reinstallation impossible, suppression forcee"
+      dpkg --remove --force-remove-reinstreq $broken || true
+    fi
+    dpkg --configure -a || true
+  register: _apt_repair
+  changed_when: "'aucun paquet casse' not in _apt_repair.stdout"
+  failed_when: false
+
+- name: Afficher le resultat de la reparation
+  ansible.builtin.debug:
+    var: _apt_repair.stdout_lines
+
+- name: Realigner les versions si l'outil est present
+  ansible.builtin.shell: |
+    if [ -x /usr/local/sbin/apt-realign ]; then
+      /usr/local/sbin/apt-realign
+    else
+      echo "outil de realignement absent (depose par le role odoo14)"
+    fi
+  register: _cleanup_realign
+  changed_when: "'retrogradation de' in _cleanup_realign.stdout"
+  failed_when: false
+
+- name: Afficher le realignement
+  ansible.builtin.debug:
+    var: _cleanup_realign.stdout_lines
+
+- name: Reparer les dependances cassees
+  ansible.builtin.command: apt-get -y --fix-broken install
+  register: _apt_fix
+  changed_when: "'0 upgraded, 0 newly installed' not in _apt_fix.stdout"
+  failed_when: false
+
+# ---------------------------------------------------------------------------
+# 2. Reset complet (optionnel, destructif)
+# ---------------------------------------------------------------------------
+- name: Reset complet Odoo + PostgreSQL
+  when: full_reset | default(false) | bool
+  block:
+    - name: Purger Odoo
+      ansible.builtin.apt:
+        name: odoo
+        state: absent
+        purge: true
+      failed_when: false
+
+    - name: Refuser de detruire la base partagee sans confirmation explicite
+      ansible.builtin.assert:
+        that: destroy_shared_db | default(false) | bool
+        fail_msg: >-
+          {{ inventory_hostname }} porte la base PARTAGEE par toutes les
+          instances Odoo : sa purge detruirait l'unique copie des donnees.
+          Sauvegarder d'abord (pg_dump -Fc), puis relancer avec
+          -e destroy_shared_db=true si c'est bien l'intention.
+      when: "'db_containers' in group_names"
+
+    - name: Purger PostgreSQL et ses donnees
+      ansible.builtin.apt:
+        name:
+          - "postgresql-{{ pg_version | default('15') }}"
+          - postgresql-common
+        state: absent
+        purge: true
+      failed_when: false
+
+    - name: Supprimer les repertoires de donnees et de configuration
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/postgresql
+        - /etc/postgresql
+        - /var/lib/odoo
+        - /etc/odoo
+        - /var/log/odoo
+        - /etc/apt/sources.list.d/odoo.list
+        - /usr/share/keyrings/odoo-archive-keyring.asc
+        # Unites de l'ancienne synchro de filestore : elles vivent hors des
+        # repertoires supprimes ci-dessus, il faut donc les nommer.
+        # Le reste des reliquats de replication est traite en continu par
+        # roles/ansi_odoo/odoo14/tasks/purge_replication.yaml et, pour la partie serveur,
+        # roles/ansi_odoo/pg_server/tasks/purge_replication.yaml.
+        - /usr/local/bin/odoo-filestore-sync.sh
+        - /etc/systemd/system/odoo-filestore-sync.service
+        - /etc/systemd/system/odoo-filestore-sync.timer
+
+    - name: Recharger systemd apres suppression des unites
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    
+
+# ---------------------------------------------------------------------------
+# 3. Etat final
+# ---------------------------------------------------------------------------
+- name: Vider le cache apt
+  ansible.builtin.command: apt-get clean
+  changed_when: true
+
+- name: Resume de l'etat du conteneur
+  ansible.builtin.shell: |
+    echo "--- paquets casses ---"
+    dpkg -l | awk '$1 !~ /^ii/ && NR>5 {print $1, $2}' || true
+    echo "--- odoo ---"
+    dpkg -s odoo 2>/dev/null | grep -E '^(Status|Version)' || echo "absent"
+    echo "--- postgresql ---"
+    dpkg -s postgresql-{{ pg_version | default('15') }} 2>/dev/null | grep -E '^(Status|Version)' || echo "absent"
+    echo "--- espace disque ---"
+    df -h / | tail -1
+  register: _etat
+  changed_when: false
+
+- name: Afficher l'etat
+  ansible.builtin.debug:
+    var: _etat.stdout_lines

@@ -1,0 +1,93 @@
+---
+# ===========================================================================
+# Verification. Un service demarre n'est pas un service qui fonctionne :
+# chaque maillon est prouve, du cluster etcd jusqu'a la connexion a travers
+# HAProxy.
+# ===========================================================================
+- name: Appliquer les configurations modifiees avant de verifier
+  ansible.builtin.meta: flush_handlers
+
+- name: Etat du cluster selon Patroni
+  ansible.builtin.command: "patronictl -c {{ pg_ha_config_file }} list -f json"
+  register: _pg_ha_liste
+  # Un primaire et deux reserves qui suivent, avec peu de retard. Une reserve
+  # recopiee met un moment a rattraper : on attend.
+  # rc d'abord : sans sortie, from_json echouerait et la tache s'arreterait
+  # au lieu de reessayer.
+  until: >-
+    _pg_ha_liste.rc == 0
+    and
+    (_pg_ha_liste.stdout | from_json | selectattr('Role', 'equalto', 'Leader')
+       | selectattr('State', 'equalto', 'running') | list | length) == 1
+    and
+    (_pg_ha_liste.stdout | from_json | rejectattr('Role', 'equalto', 'Leader')
+       | selectattr('State', 'in', ['running', 'streaming'])
+       | selectattr('Lag in MB', 'number')
+       | rejectattr('Lag in MB', 'gt', pg_ha_retard_max_mo)
+       | list | length) == 2
+  retries: 40
+  delay: 3
+  changed_when: false
+  run_once: true
+
+- name: Aucun serveur n'attend un redemarrage
+  # pending_restart : un parametre de pg_ha_dcs exige un redemarrage de
+  # PostgreSQL pour s'appliquer. Ce role ne le fait PAS (coupure) : voir
+  # docs/POSTGRESQL-PATRONI.md, "Changer un parametre".
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ pg_ha_rest_port }}/patroni"
+    return_content: true
+  register: _pg_ha_statut
+  changed_when: false
+
+- name: Signaler un redemarrage en attente
+  ansible.builtin.debug:
+    msg: >-
+      ATTENTION : {{ inventory_hostname }} attend un redemarrage pour
+      appliquer sa configuration. Le faire a un moment choisi :
+      patronictl -c {{ pg_ha_config_file }} restart {{ pg_ha_scope }} {{ inventory_hostname }}
+  when: _pg_ha_statut.json.pending_restart | default(false) | bool
+
+- name: Chaque HAProxy mene au primaire
+  # Connexion REELLE a travers le HAProxy de ce serveur, en TLS verifie : elle
+  # prouve a la fois le controle de sante, le routage, le certificat a trois
+  # adresses et la regle pg_hba des connexions relayees.
+  community.postgresql.postgresql_query:
+    login_host: "{{ ansible_host }}"
+    login_port: "{{ pg_ha_haproxy_port }}"
+    login_user: postgres
+    login_password: "{{ pg_ha_superuser_password }}"
+    db: postgres
+    ssl_mode: verify-full
+    ca_cert: "{{ pg_ha_ssl_dir }}/ca.crt"
+    query: "SELECT pg_is_in_recovery() AS reserve, host(inet_server_addr()) AS serveur"
+  register: _pg_ha_par_haproxy
+  # Juste apres une reprise, HAProxy met jusqu'a rise x inter (6 s) a
+  # declarer le primaire en service.
+  until: _pg_ha_par_haproxy.query_result is defined
+  retries: 10
+  delay: 3
+  changed_when: false
+
+- name: Le serveur atteint par HAProxy est bien le primaire
+  ansible.builtin.assert:
+    that:
+      - not (_pg_ha_par_haproxy.query_result[0].reserve | bool)
+      - _pg_ha_par_haproxy.query_result[0].serveur == hostvars[_pg_ha_primaire | first].ansible_host
+    fail_msg: >-
+      Le HAProxy de {{ inventory_hostname }} mene a
+      {{ _pg_ha_par_haproxy.query_result[0].serveur }}
+      (reserve : {{ _pg_ha_par_haproxy.query_result[0].reserve }}), et non au
+      primaire {{ _pg_ha_primaire | first }}.
+
+- name: Bilan
+  ansible.builtin.debug:
+    msg:
+      - "Cluster {{ pg_ha_scope }} : primaire {{ _pg_ha_primaire | first }}, reserves {{ pg_ha_nodes | difference(_pg_ha_primaire) | join(', ') }}."
+      - "Point d'entree : {{ pg_ha_node_ips | map('regex_replace', '$', ':' ~ pg_ha_haproxy_port) | join(', ') }}."
+      - >-
+        {{ 'Odoo passe deja par HAProxy (pg_ha_enabled: true).'
+           if pg_ha_enabled | bool else
+           'ETAPE SUIVANTE : Odoo vise encore ' ~ pg_ha_initial_primary ~ ' en direct. Passer pg_ha_enabled a true
+           (group_vars/all/vars.yml), puis rejouer ansi_odoo.yaml et ansi_sauvegarde.yaml.' }}
+  run_once: true

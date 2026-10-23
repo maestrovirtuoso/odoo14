@@ -1,0 +1,113 @@
+---
+# Valeurs par defaut du role odoo14 (surchargees par group_vars).
+# Les parametres de connexion a la base partagee (odoo_db_host, odoo_db_user,
+# odoo_shared_db, mots de passe, pg_version) sont dans group_vars/all.
+
+odoo_version: "14.0"
+odoo_nightly_repo: "https://nightly.odoo.com/{{ odoo_version }}/nightly/deb/ ./"
+odoo_nightly_key_url: "https://nightly.odoo.com/odoo.key"
+
+odoo_system_user: odoo
+odoo_admin_password: admin
+odoo_db_password: odoo
+odoo_list_db: false
+odoo_config_path: /etc/odoo/odoo.conf
+odoo_log_path: /var/log/odoo/odoo.log
+odoo_addons_path: /usr/lib/python3/dist-packages/odoo/addons
+
+# Racine des donnees d'Odoo, telle que posee dans odoo.conf. Le filestore en
+# decoule : Odoo ecrit dans {{ data_dir }}/filestore/{{ db_name }}.
+#
+# odoo_filestore valait auparavant /var/lib/odoo/.local/share/Odoo/filestore,
+# qui est le chemin d'un data_dir par defaut base sur $HOME. Comme odoo.conf
+# impose data_dir = /var/lib/odoo, ce chemin n'a JAMAIS ete celui qu'Odoo
+# utilise : la tache qui le creait fabriquait un repertoire mort. Sans
+# consequence tant que les pieces jointes etaient en base, bloquant des
+# qu'elles repassent sur disque.
+odoo_data_dir: /var/lib/odoo
+
+# DEUX chemins, a ne pas confondre -- c'est leur confusion qui a immobilise les
+# trois instances du 29/09 16h18 au 30/09.
+#
+# odoo_filestore        POINT DE MONTAGE du volume partage. Monte sur le
+#                       data_dir ENTIER, choix du 30/09/2026.
+# odoo_filestore_reel   repertoire ou Odoo ecrit vraiment. Odoo 14 le construit
+#                       EN DUR : {data_dir}/filestore/{base}. Contrainte de son
+#                       code, pas un choix. Avec le montage ci-dessus, c'est un
+#                       simple repertoire A L'INTERIEUR du volume.
+#
+# Detail dans group_vars/odoo_containers/vars.yml, ou les valeurs effectives
+# sont definies.
+odoo_filestore: "{{ odoo_data_dir }}"
+odoo_filestore_reel: "{{ odoo_data_dir }}/filestore"
+
+# Refuser de demarrer Odoo si le filestore partage n'est pas monte.
+#
+# Sans cette garde, Odoo demarre, ecrit les pieces jointes sur le disque LOCAL
+# du conteneur, et repond parfaitement : la panne ne se voit que plus tard,
+# quand une piece jointe creee sur un noeud est introuvable depuis les autres.
+# C'est la panne silencieuse du 25/09/2026.
+#
+# Mettre a false pour un conteneur sans volume partage (poste de test isole).
+odoo_exiger_filestore_partage: true
+
+# Ce noeud initialise-t-il la base et porte-t-il les taches planifiees ?
+# Vrai pour le seul groupe odoo_primary.
+odoo_is_primary: false
+odoo_max_cron_threads: 0
+
+odoo_workers: 2
+odoo_db_maxconn: 16
+
+# ---------------------------------------------------------------------------
+# Environnement virtuel Python 3.8
+#
+# Odoo ne tourne PAS sur le Python 3.11 du conteneur : safe_eval d'Odoo 14
+# valide le bytecode des expressions contre une liste blanche d'opcodes qui
+# s'arrete a Python 3.10, et rejette l'opcode RESUME que 3.11 place en tete
+# de toute expression. Aucune version de bibliotheque ne corrige cela (voir
+# roles/ansi_odoo/python38). Odoo tourne donc dans ce venv, bati sur l'interpreteur 3.8
+# compile par le role python38.
+#
+# Le paquet .deb reste installe : il fournit l'utilisateur systeme odoo,
+# /etc/odoo, /var/lib/odoo, l'unite systemd et le code d'Odoo lui-meme, qui
+# est du Python pur et s'importe donc parfaitement depuis le venv 3.8. Seul
+# l'interpreteur change.
+# ---------------------------------------------------------------------------
+odoo_venv_path: /opt/odoo14-venv
+
+# Le requirements.txt amont porte des marqueurs "python_version <= '3.9'" :
+# sous 3.8, pip selectionne AUTOMATIQUEMENT les versions d'origine d'Odoo 14
+# (Werkzeug 0.16.1, Jinja2 2.11.2, PyPDF2 1.26.0...). C'est tout l'interet de
+# la manoeuvre : plus aucune version a deviner ni a epingler a la main.
+odoo_requirements_url: "https://raw.githubusercontent.com/odoo/odoo/{{ odoo_version }}/requirements.txt"
+
+# Versions FIGEES, relevees sur un venv reellement construit et fonctionnel
+# (playbooks/figer-dependances.yaml). Quand ce fichier existe dans files/, il
+# est prefere au requirements.txt amont.
+#
+# Pourquoi le preferer : le fichier amont epingle les dependances DIRECTES
+# d'Odoo, pas leurs propres dependances. "Jinja2==2.11.2" laisse par exemple
+# MarkupSafe libre, et MarkupSafe 2.1 a supprime soft_unicode, dont Jinja2
+# 2.11 a besoin. Deux installations a un mois d'ecart peuvent donc donner
+# deux environnements differents, dont un casse. Le fichier fige tout l'arbre.
+#
+# Absent, le role retombe sur le fichier amont : un premier deploiement
+# fonctionne donc sans rien de plus.
+odoo_requirements_lock: "requirements-{{ odoo_version }}-py38.txt"
+
+# Repertoire ou l'archive des dependances est deposee avant installation.
+odoo_venv_work_dir: /usr/local/src
+
+# En-tetes necessaires a la COMPILATION des dependances Python : aucune roue
+# precompilee n'existe pour ces versions anciennes sous Python 3.8, pip les
+# construit donc depuis les sources.
+odoo_build_packages:
+  - libxml2-dev        # lxml
+  - libxslt1-dev       # lxml
+  - libjpeg-dev        # Pillow
+  - libfreetype6-dev   # Pillow
+  - zlib1g-dev         # Pillow
+  - libpq-dev          # psycopg2
+  - libldap2-dev       # python-ldap
+  - libsasl2-dev       # python-ldap

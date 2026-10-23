@@ -2,7 +2,7 @@
 # ===========================================================================
 # Variables de l'hote de sauvegarde.
 #
-# POURQUOI ICI ET NON DANS roles/odoo_backup/defaults :
+# POURQUOI ICI ET NON DANS roles/ansi_sauvegarde/odoo_backup/defaults :
 #
 # Les defaults d'un role ne sont en portee QUE pendant l'execution de ce role.
 # playbooks/ansi_sauvegarde.yaml et playbooks/ansi_syncro.yaml les
@@ -21,13 +21,13 @@
 #
 # Les reglages qui ne servent QU'A L'INTERIEUR du role (retention, horaire du
 # timer, source du filestore, verification) restent, eux, dans
-# roles/odoo_backup/defaults/main.yml.
+# roles/ansi_sauvegarde/odoo_backup/defaults/main.yml.
 # ===========================================================================
 
 # Ou atterrissent les sauvegardes, sur l'hote.
 #
 # Sous /srv et non /var : la partition /var des hotes fait 1 Go. /srv vit sur
-# rl-root (15 Go), ou roles/install deporte deja /var/lib/lxc.
+# rl-root (15 Go), ou roles/ansi2-snapchot/install deporte deja /var/lib/lxc.
 #
 # Surtout PAS sous /srv/odoo-filestore ni sous /bricks : une sauvegarde rangee
 # sur le volume qu'elle sauvegarde ne protege de rien, et sur un volume
@@ -66,7 +66,7 @@ sauvegarde_dir_local: "./sauvegardes"
 # court-circuite la couche qui garantit une vue coherente. /bricks/odoo14/prod
 # n'est d'ailleurs meme pas une brick -- c'est un repertoire local perime.
 #
-# Defini ici et non dans roles/odoo_backup/defaults : le play "verif" de
+# Defini ici et non dans roles/ansi_sauvegarde/odoo_backup/defaults : le play "verif" de
 # ansi_syncro.yaml le lit depuis le role odoo_migration, ou les defaults
 # d'odoo_backup ne sont pas en portee.
 sauvegarde_filestore_src: /mnt/odoo

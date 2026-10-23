@@ -1,6 +1,6 @@
 ---
 # Variables des reserves PostgreSQL (groupe db_replicas) : copies en lecture
-# seule du primaire odoodb1, par replication streaming (roles/pg_server,
+# seule du primaire odoodb1, par replication streaming (roles/ansi_odoo/pg_server,
 # tasks/replica.yaml).
 pg_conf_dir: "/etc/postgresql/{{ pg_version }}/main"
 pg_data_dir: "/var/lib/postgresql/{{ pg_version }}/main"

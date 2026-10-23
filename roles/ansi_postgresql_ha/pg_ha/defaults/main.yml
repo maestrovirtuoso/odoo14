@@ -1,0 +1,126 @@
+---
+# ===========================================================================
+# Valeurs par defaut du role pg_ha (Patroni + etcd + HAProxy).
+#
+# NE SONT PAS ICI, parce qu'Odoo et les sauvegardes s'en servent aussi
+# (group_vars/all/vars.yml) : pg_ha_enabled, pg_ha_haproxy_port et les deux
+# secrets pg_ha_superuser_password / pg_ha_rest_password.
+# ===========================================================================
+
+# Nom du cluster dans etcd (cles /service/<scope>/...). UNIQUE par cluster :
+# deux clusters de meme nom dans le meme etcd se disputeraient le meme
+# primaire.
+pg_ha_scope: odoo-pg
+
+# Les trois serveurs PostgreSQL, quel que soit leur role du moment
+# (inventory.yaml, groupe db_cluster).
+pg_ha_nodes: "{{ groups['db_cluster'] | default([]) }}"
+pg_ha_node_ips: "{{ pg_ha_nodes | map('extract', hostvars, 'ansible_host') | list }}"
+
+# Primaire de la REPRISE initiale : le serveur que pg_server a installe en
+# primaire et que visent les Odoo aujourd'hui. Ne sert qu'au tout premier
+# passage ; ensuite, c'est Patroni qui decide qui est primaire, et les groupes
+# db_containers / db_replicas ne decrivent plus que le placement d'origine.
+pg_ha_initial_primary: "{{ groups['db_containers'] | first }}"
+
+# Port PostgreSQL de chaque serveur. Odoo ne le vise plus directement en
+# haute disponibilite : il passe par HAProxy (pg_ha_haproxy_port).
+pg_ha_pg_port: 5432
+pg_ha_bin_dir: "/usr/lib/postgresql/{{ pg_version }}/bin"
+
+# --- Patroni -----------------------------------------------------------------
+# Chemin lu aussi par roles/ansi_odoo/pg_server : sa presence lui interdit de toucher
+# au serveur. Ne pas le changer sans changer pg_server.
+pg_ha_config_file: /etc/patroni/config.yml
+
+# Ou Patroni ECRIT postgresql.conf et pg_hba.conf. Distinct de la
+# configuration Debian ({{ pg_conf_dir }}), dont il inclut postgresql.conf
+# (custom_conf) pour garder les reglages poses par initdb (fuseau horaire,
+# langue, format des dates).
+pg_ha_config_dir: /etc/patroni/postgresql
+
+# Certificats lus par PostgreSQL et par Patroni (compte postgres).
+pg_ha_ssl_dir: /etc/patroni/ssl
+
+# API REST : HAProxy l'interroge pour trouver le primaire (GET, sans mot de
+# passe). Les actions (bascule, changement de configuration) exigent le
+# compte ci-dessous : elles permettent de modifier les parametres du serveur.
+pg_ha_rest_port: 8008
+pg_ha_rest_user: patroni
+
+# Delai d'attente des reserves au premier demarrage sous Patroni. Une reserve
+# videe (cluster etranger) est recopiee en entier depuis le primaire : compter
+# large pour une grosse base.
+pg_ha_attente_reserve_s: 1800
+
+# Retard maximal accepte par la verification finale, en Mo.
+pg_ha_retard_max_mo: 16
+
+# Configuration DYNAMIQUE, commune aux trois serveurs, stockee dans etcd.
+# Reappliquee a chaque passage (tasks/configuration.yaml) : changer une valeur
+# ici puis rejouer suffit. Les parametres qui exigent un redemarrage de
+# PostgreSQL (max_connections, shared_buffers...) sont signales en fin de
+# play mais PAS appliques : un redemarrage coupe la production, il se decide
+# a la main (docs/POSTGRESQL-PATRONI.md).
+#
+# Valeurs LITTERALES, sans {{ }} : un nombre passe dans un gabarit devient
+# une chaine, et la comparaison avec ce que renvoie Patroni echouerait a
+# chaque passage.
+pg_ha_dcs:
+  # Duree de vie du verrou du primaire. Un primaire qui ne le renouvelle pas
+  # pendant ttl secondes est considere comme perdu : une reserve est promue.
+  ttl: 30
+  loop_wait: 10
+  retry_timeout: 10
+  # Une reserve en retard de plus de 1 Mo de WAL n'est pas promue : elle
+  # ferait perdre les dernieres ecritures.
+  maximum_lag_on_failover: 1048576
+  postgresql:
+    # pg_rewind : un ancien primaire revient en reserve sans recopie complete.
+    use_pg_rewind: true
+    # Un slot par reserve, nomme comme elle : ce sont les slots odoodb2 et
+    # odoodb3 deja crees par pg_server, repris tels quels.
+    use_slots: true
+    parameters:
+      # Repris de roles/ansi_odoo/pg_server (defaults et templates).
+      max_connections: 200
+      shared_buffers: 256MB
+      password_encryption: scram-sha-256
+      wal_level: replica
+      hot_standby: "on"
+      max_wal_senders: 10
+      max_replication_slots: 10
+      max_slot_wal_keep_size: 2GB
+      # Exige par pg_rewind sur un cluster cree sans sommes de controle
+      # (cas des clusters Debian). Pris en compte au demarrage sous Patroni.
+      wal_log_hints: "on"
+
+# --- etcd --------------------------------------------------------------------
+pg_ha_etcd_client_port: 2379
+pg_ha_etcd_peer_port: 2380
+pg_ha_etcd_data_dir: /var/lib/etcd/odoo-pg
+pg_ha_etcd_ssl_dir: /etc/etcd/ssl
+
+# Autorite DISTINCTE de celle de PostgreSQL (roles/commun/pg_pki), sous pki/ donc
+# hors depot. etcd accepte tout client qui presente un certificat de SON
+# autorite : avec l'autorite commune, le certificat client d'un conteneur
+# Odoo ouvrirait etcd, donc la configuration de Patroni, donc les parametres
+# du serveur PostgreSQL.
+#
+# Ecrit a partir de inventory_dir et NON de pg_pki_dir : les taches passent
+# cette valeur a pg_pki SOUS LE NOM pg_pki_dir, qui se definirait alors a
+# partir de lui-meme (boucle de gabarit).
+pg_ha_etcd_pki_dir: "{{ inventory_dir }}/pki/etcd"
+pg_ha_etcd_ca_cn: prosys-etcd-ca
+
+pg_ha_etcdctl_env:
+  ETCDCTL_API: "3"
+  ETCDCTL_ENDPOINTS: "https://127.0.0.1:{{ pg_ha_etcd_client_port }}"
+  ETCDCTL_CACERT: "{{ pg_ha_etcd_ssl_dir }}/ca.crt"
+  ETCDCTL_CERT: "{{ pg_ha_etcd_ssl_dir }}/server.crt"
+  ETCDCTL_KEY: "{{ pg_ha_etcd_ssl_dir }}/server.key"
+
+# --- HAProxy -----------------------------------------------------------------
+# Page d'etat, sur la boucle locale seulement (pas de mot de passe a gerer) :
+#   ssh -L 7000:127.0.0.1:7000 root@<serveur>  puis  http://127.0.0.1:7000/
+pg_ha_haproxy_stats_port: 7000

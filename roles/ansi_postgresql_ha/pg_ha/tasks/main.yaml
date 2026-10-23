@@ -1,0 +1,66 @@
+---
+# ===========================================================================
+# Role pg_ha  -  execute DANS les trois conteneurs PostgreSQL (db_cluster)
+#
+# Haute disponibilite de la base partagee :
+#
+#   etcd     un membre par serveur, quorum de 2 sur 3. C'est le registre qui
+#            dit QUI est primaire : un seul serveur peut y tenir le verrou.
+#   Patroni  un par serveur. Il demarre et surveille PostgreSQL, renouvelle
+#            le verrou du primaire, et promeut une reserve si le primaire ne
+#            le renouvelle plus.
+#   HAProxy  un par serveur, port {{ pg_ha_haproxy_port }}. Il interroge
+#            Patroni sur les trois serveurs et n'envoie les connexions qu'au
+#            primaire du moment. Odoo vise les trois HAProxy (odoo_db_host).
+#
+# PREMIER PASSAGE : reprise du cluster installe par roles/ansi_odoo/pg_server (un
+# primaire, deux reserves en streaming) SANS copie ni perte de donnees.
+# Patroni adopte les repertoires de donnees existants (tasks/reprise.yaml).
+# PASSAGES SUIVANTS : remise en conformite seulement, sans coupure.
+#
+# A jouer sur les TROIS serveurs ensemble (playbooks/ansi_postgresql_ha.yaml,
+# any_errors_fatal, jamais de --limit) : etcd ne se forme qu'avec ses trois
+# membres, et la reprise suit un ordre strict, primaire puis reserves.
+#
+# L'ORDRE DES FICHIERS EST CONTRAIGNANT :
+#   preflight      tout ce qui peut faire echouer, AVANT la moindre modification
+#   paquets        installes sans demarrer leurs services
+#   etat           constat et decision de reprise ; un refus arrete tout ici,
+#                  avant que le moindre service ne soit configure ou arrete
+#   certificats    TLS de PostgreSQL et d'etcd, avant les services qui les lisent
+#   etcd           le quorum, avant Patroni qui ne fonctionne pas sans lui
+#   patroni        sa configuration, encore sans le demarrer
+#   reprise        PostgreSQL passe de Debian a Patroni, primaire d'abord
+#   configuration  mots de passe, roles SQL, configuration dynamique
+#   haproxy        le point d'entree, une fois le primaire connu
+#   verif          la preuve que l'ensemble fonctionne
+# ===========================================================================
+- name: Controles prealables
+  ansible.builtin.import_tasks: preflight.yaml
+
+- name: Paquets
+  ansible.builtin.import_tasks: paquets.yaml
+
+- name: Etat des serveurs et decision de reprise
+  ansible.builtin.import_tasks: etat.yaml
+
+- name: Certificats
+  ansible.builtin.import_tasks: certificats.yaml
+
+- name: etcd
+  ansible.builtin.import_tasks: etcd.yaml
+
+- name: Configuration de Patroni
+  ansible.builtin.import_tasks: patroni.yaml
+
+- name: Reprise de PostgreSQL par Patroni
+  ansible.builtin.import_tasks: reprise.yaml
+
+- name: Comptes, base et configuration dynamique
+  ansible.builtin.import_tasks: configuration.yaml
+
+- name: HAProxy
+  ansible.builtin.import_tasks: haproxy.yaml
+
+- name: Verification
+  ansible.builtin.import_tasks: verif.yaml

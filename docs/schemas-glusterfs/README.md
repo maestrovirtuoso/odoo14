@@ -35,11 +35,11 @@ Ouvrir [architecture-glusterfs-professionnelle.drawio](architecture-glusterfs-pr
 | --- | --- | --- |
 | Point d'entrée du volume | 192.168.36.8:/sre | [Variables communes](../../group_vars/all/vars.yml) |
 | Montage sur les hôtes | /mnt/odoo | [Variables Gluster](../../group_vars/gluster_bricks/vars.yml) |
-| Destination LXC | /var/lib/odoo | [Rôle de montage](../../roles/odoo_filestore/tasks/main.yaml) |
+| Destination LXC | /var/lib/odoo | [Rôle de montage](../../roles/ansi_odoo/odoo_filestore/tasks/main.yaml) |
 | Répertoire de données Odoo | /var/lib/odoo | [Variables Odoo](../../group_vars/odoo_containers/vars.yml) |
 | Montage avant installation Odoo | Étape 1bis/5 | [Déploiement Odoo](../../playbooks/ansi_odoo.yaml) |
 | Hôte et répertoire de sauvegarde | .36.21, /srv/sauvegardes | [Inventaire](../../inventory.yaml), [variables sauvegarde](../../group_vars/backup_host/vars.yml) |
-| Ordre et exclusions des archives | pg_dump puis archive hors sessions | [Script de sauvegarde](../../roles/odoo_backup/templates/odoo-sauvegarde.sh.j2) |
+| Ordre et exclusions des archives | pg_dump puis archive hors sessions | [Script de sauvegarde](../../roles/ansi_sauvegarde/odoo_backup/templates/odoo-sauvegarde.sh.j2) |
 
 Le rôle vérifie le type fuse.glusterfs sur l'hôte et dans le conteneur. Le montage représenté est la configuration cible ; les anciens montages éventuellement présents sur les serveurs n'ont pas été inspectés.
 

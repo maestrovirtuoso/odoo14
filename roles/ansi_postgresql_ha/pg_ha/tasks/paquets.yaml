@@ -1,0 +1,23 @@
+---
+# policy_rc_d 101 interdit aux scripts des paquets de demarrer un service.
+# Sans lui :
+#   - etcd demarrerait en cluster A UN MEMBRE dans son repertoire par defaut,
+#     qu'il faudrait ensuite effacer pour former le vrai cluster ;
+#   - HAProxy demarrerait sur sa configuration d'exemple ;
+#   - sur un conteneur neuf, le cluster PostgreSQL cree par Debian
+#     demarrerait, alors que c'est Patroni qui doit le faire.
+# Sur les serveurs deja installes par pg_server, PostgreSQL est deja la et
+# continue de tourner : rien ne change pour lui ici.
+- name: Installer PostgreSQL, Patroni, etcd et HAProxy sans demarrer leurs services
+  ansible.builtin.apt:
+    name:
+      - postgresql
+      - "postgresql-{{ pg_version }}"
+      - python3-psycopg2
+      - patroni
+      - python3-etcd
+      - etcd-server
+      - etcd-client
+      - haproxy
+    state: present
+    policy_rc_d: 101

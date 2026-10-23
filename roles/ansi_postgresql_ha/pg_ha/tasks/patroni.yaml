@@ -1,0 +1,37 @@
+---
+# ---------------------------------------------------------------------------
+# Configuration de Patroni, deposee SANS le demarrer : la reprise
+# (tasks/reprise.yaml) decide quand, et dans quel ordre.
+# ---------------------------------------------------------------------------
+- name: Repertoire ou Patroni ecrit la configuration de PostgreSQL
+  ansible.builtin.file:
+    path: "{{ pg_ha_config_dir }}"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0700"
+
+- name: Configuration de Patroni
+  ansible.builtin.template:
+    src: patroni.yml.j2
+    dest: "{{ pg_ha_config_file }}"
+    owner: root
+    group: postgres
+    mode: "0640"
+  notify: reload patroni
+
+- name: Unite systemd de Patroni
+  # Notre unite, et non celle du paquet : son chemin de configuration et son
+  # comportement a l'arret (KillMode) sont ceux que ce role suppose.
+  ansible.builtin.template:
+    src: patroni.service.j2
+    dest: /etc/systemd/system/patroni.service
+    owner: root
+    group: root
+    mode: "0644"
+  register: _pg_ha_unite
+
+- name: Recharger systemd apres modification de l'unite
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: _pg_ha_unite.changed

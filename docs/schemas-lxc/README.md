@@ -34,8 +34,8 @@ Le rôle ne permet pas une communication directe hôte / propre conteneur via l'
 - [inventory.yaml](../../inventory.yaml) : lxc_net_type=ipvlan, lxc_egress_nat=false.
 - [host_vars/192.168.36.21.yml](../../host_vars/192.168.36.21.yml) : carte, IP, passerelle et DNS d'odoo1.
 - [host_vars/192.168.33.21.yml](../../host_vars/192.168.33.21.yml) : paramètres d'odoodb1.
-- [roles/lxc_lan/defaults/main.yml](../../roles/lxc_lan/defaults/main.yml) : mode IPVLAN l2.
-- [roles/lxc_lan/tasks/main.yaml](../../roles/lxc_lan/tasks/main.yaml) : configuration LXC et systemd-networkd.
+- [roles/reseau-lxc/lxc_lan/defaults/main.yml](../../roles/reseau-lxc/lxc_lan/defaults/main.yml) : mode IPVLAN l2.
+- [roles/reseau-lxc/lxc_lan/tasks/main.yaml](../../roles/reseau-lxc/lxc_lan/tasks/main.yaml) : configuration LXC et systemd-networkd.
 - [group_vars/all/vars.yml](../../group_vars/all/vars.yml) : cible PostgreSQL et ports Odoo.
 
 Le routage aller et retour, les autorisations TCP/5432 et l'éventuel SNAT dans le réseau externe doivent être vérifiés sur l'infrastructure.

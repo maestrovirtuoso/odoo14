@@ -1,0 +1,131 @@
+---
+# ===========================================================================
+# Ce qui ne se fait que sur le PRIMAIRE du moment (et se replique tout seul
+# vers les reserves) : mots de passe, roles SQL, base partagee, et la
+# configuration dynamique d'etcd.
+#
+# Le primaire est demande a Patroni, jamais deduit de l'inventaire : apres
+# une bascule, ce n'est plus odoodb1.
+# ===========================================================================
+- name: Ce serveur est-il le primaire ?
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ pg_ha_rest_port }}/primary"
+    status_code: [200, 503]
+  register: _pg_ha_role_rest
+
+- name: Retenir le primaire
+  ansible.builtin.set_fact:
+    _pg_ha_primaire: >-
+      {{ dict(pg_ha_nodes | zip(pg_ha_nodes | map('extract', hostvars, ['_pg_ha_role_rest', 'status'])))
+         | dict2items | selectattr('value', 'equalto', 200) | map(attribute='key') | list }}
+
+- name: Il y a exactement un primaire
+  ansible.builtin.assert:
+    that: _pg_ha_primaire | length == 1
+    fail_msg: >-
+      Primaires selon Patroni : {{ _pg_ha_primaire }}. Voir
+      "patronictl -c {{ pg_ha_config_file }} list" sur un des serveurs.
+  run_once: true
+
+# ---------------------------------------------------------------------------
+# Comptes et base. Par la socket locale, en peer : ces taches ne dependent
+# ni de pg_hba ni d'un mot de passe. Memes regles que roles/ansi_odoo/pg_server.
+# ---------------------------------------------------------------------------
+- name: Comptes et base, sur le primaire seulement
+  when: inventory_hostname == _pg_ha_primaire | first
+  become: true
+  become_user: postgres
+  block:
+    - name: Le mot de passe du superutilisateur est-il deja en place ?
+      # Patroni ne le pose qu'en creant un cluster neuf, pas en reprenant un
+      # cluster existant (pg_server ne s'en servait pas : peer suffisait).
+      # Il en a besoin pour pg_rewind, a travers le reseau.
+      community.postgresql.postgresql_query:
+        login_host: 127.0.0.1
+        login_user: postgres
+        login_password: "{{ pg_ha_superuser_password }}"
+        db: postgres
+        query: SELECT 1
+      register: _pg_ha_mdp_su
+      changed_when: false
+      failed_when: false
+      no_log: true
+
+    - name: Poser le mot de passe du superutilisateur
+      # Requete plutot que postgresql_user : sans role_attr_flags, le module
+      # remet les attributs du role a leurs valeurs par defaut (voir
+      # roles/ansi_odoo/pg_server/tasks/primary.yaml) -- sur postgres, ce serait lui
+      # retirer SUPERUSER.
+      community.postgresql.postgresql_query:
+        db: postgres
+        query: "ALTER ROLE postgres PASSWORD %(mdp)s"
+        named_args:
+          mdp: "{{ pg_ha_superuser_password }}"
+      # failed_when: false ci-dessus : un echec de connexion se reconnait a
+      # l'absence de resultat, pas a "failed".
+      when: _pg_ha_mdp_su.query_result is not defined
+      no_log: true
+
+    - name: Role de replication
+      community.postgresql.postgresql_user:
+        name: "{{ pg_replication_user }}"
+        password: "{{ pg_replication_password }}"
+        role_attr_flags: "LOGIN,REPLICATION,NOSUPERUSER,NOCREATEDB,NOCREATEROLE"
+        state: present
+      no_log: true
+
+    - name: Role PostgreSQL odoo
+      # Pas de CREATEDB ni de SUPERUSER, comme dans pg_server.
+      community.postgresql.postgresql_user:
+        name: "{{ odoo_db_user }}"
+        password: "{{ odoo_db_password }}"
+        role_attr_flags: "LOGIN,NOSUPERUSER,NOCREATEDB,NOCREATEROLE"
+        state: present
+      no_log: true
+
+    - name: Base partagee
+      # owner = odoo : en PostgreSQL 15, seul le proprietaire de la base peut
+      # creer des objets dans le schema public (voir pg_server).
+      community.postgresql.postgresql_db:
+        name: "{{ odoo_shared_db }}"
+        owner: "{{ odoo_db_user }}"
+        encoding: UTF-8
+        template: template0
+        state: present
+
+# ---------------------------------------------------------------------------
+# Configuration dynamique : etcd doit refleter pg_ha_dcs.
+#
+# bootstrap.dcs (patroni.yml) n'est lu qu'a la creation du cluster. Sans
+# cette etape, changer pg_ha_dcs puis rejouer ne changerait rien, et rien ne
+# le dirait.
+#
+# Adresses explicites, sans delegate_to : n'importe quel membre lit et ecrit
+# la meme cle dans etcd, et sous delegate_to "ansible_host" designerait
+# encore le premier serveur de la play.
+# ---------------------------------------------------------------------------
+- name: Configuration dynamique actuelle
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[_pg_ha_primaire | first].ansible_host }}:{{ pg_ha_rest_port }}/config"
+    return_content: true
+  register: _pg_ha_dcs_actuel
+  run_once: true
+
+- name: Remettre la configuration dynamique en conformite
+  # PUT et non PATCH : la configuration entiere est remplacee par pg_ha_dcs,
+  # ce qui retire aussi une valeur posee a la main (patronictl edit-config)
+  # et oubliee depuis.
+  ansible.builtin.uri:
+    url: "http://{{ hostvars[_pg_ha_primaire | first].ansible_host }}:{{ pg_ha_rest_port }}/config"
+    method: PUT
+    body: "{{ pg_ha_dcs }}"
+    body_format: json
+    url_username: "{{ pg_ha_rest_user }}"
+    url_password: "{{ pg_ha_rest_password }}"
+    force_basic_auth: true
+    status_code: 200
+  run_once: true
+  when: _pg_ha_dcs_actuel.json != pg_ha_dcs
+  changed_when: true
+  # Le mot de passe de l'API apparaitrait sinon dans la sortie en -vvv.
+  no_log: true

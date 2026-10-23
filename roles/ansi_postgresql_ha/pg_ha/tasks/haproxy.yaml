@@ -1,0 +1,26 @@
+---
+# ---------------------------------------------------------------------------
+# HAProxy : sur chaque serveur, port {{ pg_ha_haproxy_port }}, vers le
+# primaire du moment.
+#
+# Un HAProxy par serveur, et non un seul : un HAProxy unique serait un point
+# de panne. Odoo connait les trois adresses (odoo_db_host) et libpq passe a
+# la suivante si l'une ne repond pas.
+# ---------------------------------------------------------------------------
+- name: Configuration de HAProxy
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: "0644"
+    # Une configuration refusee n'est jamais mise en place : HAProxy continue
+    # sur l'ancienne au lieu de s'arreter au rechargement.
+    validate: haproxy -c -f %s
+  notify: reload haproxy
+
+- name: HAProxy actif et demarre avec le serveur
+  ansible.builtin.systemd:
+    name: haproxy
+    state: started
+    enabled: true

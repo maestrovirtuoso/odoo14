@@ -1,0 +1,40 @@
+---
+# ===========================================================================
+# Role odoo_migration
+#
+# Ce role n'a PAS de comportement par defaut : il regroupe les etapes de
+# playbooks/ansi_syncro.yaml, chacune sous son propre point d'entree, pour que
+# le playbook ne contienne que de l'orchestration.
+#
+# Il s'appelle donc toujours avec tasks_from :
+#
+#   - name: <etape>
+#     ansible.builtin.import_role:
+#       name: odoo_migration
+#       tasks_from: <fichier>
+#
+# Points d'entree, dans l'ordre de la migration :
+#
+#   preflight_hotes         horloge et stockage des hotes
+#   preflight_uid           identite du compte odoo dans les conteneurs
+#   preflight_base          volume de pieces jointes a deplacer
+#   sauvegarde_base         pg_dump avant toute modification
+#   sauvegarde_filestore    archive du filestore local de chaque noeud
+#   arreter                 arret des instances
+#   attendre_conteneurs     retour SSH apres redemarrage LXC
+#   droits                  le filestore appartient au compte odoo
+#   fusion                  recuperer les anciens filestores locaux
+#   bilan                   VACUUM FULL et verification du sens
+#   demarrer                redemarrage et controles manuels
+#   verif                   chaque store_fname a-t-il son fichier ?
+#
+# Ce fichier echoue volontairement : l'ajouter a une section "roles:" serait
+# une erreur, et un silence la rendrait difficile a diagnostiquer.
+# ===========================================================================
+
+- name: Ce role exige un point d'entree explicite
+  ansible.builtin.fail:
+    msg: >-
+      odoo_migration n'a pas de tache par defaut. L'appeler avec
+      import_role + tasks_from (voir la liste en tete de
+      roles/ansi_syncro/odoo_migration/tasks/main.yaml), et non par la section "roles:".

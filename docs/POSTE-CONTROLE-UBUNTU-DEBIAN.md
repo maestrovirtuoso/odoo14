@@ -323,10 +323,11 @@ ansible-playbook playbooks/ansi_odoo.yaml --tags preflight --ask-vault-pass
 ansible -i ./inventory.yaml gluster_servers -m ping --ask-vault-pass
 ```
 
-La configuration PostgreSQL utilise Patroni et trois membres etcd pour
-gérer un primaire et deux répliques. Un
-cluster contenant des données applicatives est protégé contre une
-réinitialisation implicite ; les détails de préparation et de vérification
+La base peut passer en haute disponibilité : Patroni, trois membres etcd et
+un HAProxy par conteneur PostgreSQL (`pg_ha_enabled`, premier passage par
+`playbooks/ansi_postgresql_ha.yaml`). Un cluster contenant des données
+applicatives est repris sans recopie, et toute situation douteuse arrête le
+playbook avant modification ; les détails de préparation et de vérification
 figurent dans [POSTGRESQL-PATRONI.md](POSTGRESQL-PATRONI.md).
 
 Si les conteneurs n’existent pas encore, les créer :
@@ -349,7 +350,7 @@ ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass
 
 ```bash
 ansible odoo_containers --ask-vault-pass -m shell -a 'systemctl is-active odoo'
-ansible db_containers --ask-vault-pass -m shell -a 'systemctl is-active odoo14-patroni odoo14-etcd'
+ansible db_cluster --ask-vault-pass -m shell -a 'systemctl is-active patroni etcd haproxy'   # haute disponibilité
 ```
 
 Avec les IP actuelles, les interfaces Odoo sont accessibles sur :

@@ -1,0 +1,78 @@
+---
+# ---------------------------------------------------------------------------
+# Controles prealables. Rien n'est modifie avant la fin de ce fichier.
+# ---------------------------------------------------------------------------
+- name: Les trois serveurs sont dans la play, et seulement eux
+  # Sans les trois, etcd ne forme pas son quorum et la reprise ne peut pas
+  # verifier que les reserves appartiennent bien au cluster du primaire.
+  # Les noms servent aussi de nom de membre etcd et de slot de replication :
+  # PostgreSQL n'accepte que [a-z0-9_] dans un nom de slot.
+  ansible.builtin.assert:
+    that:
+      - pg_ha_nodes | length == 3
+      - (ansible_play_hosts_all | sort) == (pg_ha_nodes | sort)
+      - (ansible_play_hosts | sort) == (pg_ha_nodes | sort)
+      - pg_ha_node_ips | unique | length == 3
+      - pg_ha_initial_primary in pg_ha_nodes
+      - pg_ha_nodes | reject('match', '^[a-z0-9_]+$') | list | length == 0
+      # etcd est demarre en parallele sur les trois serveurs.
+      - ansible_forks | default(5) | int >= 3
+    fail_msg: >-
+      Jouer pg_ha sur les trois serveurs du groupe db_cluster ensemble, sans
+      --limit ni serial, avec au moins 3 forks. Groupe : {{ pg_ha_nodes }},
+      play : {{ ansible_play_hosts }}.
+  run_once: true
+
+- name: Les delais de Patroni sont coherents
+  # Patroni l'exige : un primaire doit pouvoir renouveler son verrou, avec
+  # deux tentatives, avant qu'il n'expire.
+  ansible.builtin.assert:
+    that:
+      - pg_ha_dcs.loop_wait | int + 2 * pg_ha_dcs.retry_timeout | int <= pg_ha_dcs.ttl | int
+    fail_msg: "loop_wait + 2 x retry_timeout doit rester <= ttl (pg_ha_dcs)."
+  run_once: true
+
+- name: Les secrets sont renseignes et distincts
+  # Trois usages, trois secrets : le mot de passe de replication circule dans
+  # la configuration des reserves, celui du superutilisateur ouvre tout, celui
+  # de l'API REST permet de declencher une bascule.
+  ansible.builtin.assert:
+    that:
+      # Pas de longueur minimale, et un meme secret possible pour le
+      # superutilisateur et l'API : choix du projet (lab).
+      - pg_replication_password | length > 0
+      - pg_ha_superuser_password != pg_replication_password
+      - pg_ha_superuser_password != odoo_db_password
+      # Les valeurs d'exemple de vault.yml.example.
+      - not (pg_ha_superuser_password is match('change-me'))
+      - not (pg_ha_rest_password is match('change-me'))
+    fail_msg: >-
+      Renseigner vault_pg_patroni_superuser_password et
+      vault_pg_patroni_rest_password (differents des mots de passe odoo et
+      replicator) dans group_vars/all/vault.yml.
+  no_log: true
+  run_once: true
+
+# ---------------------------------------------------------------------------
+# L'autorite de certification doit etre CELLE qui a signe les certificats
+# clients d'Odoo. Sans elle, pg_pki en creerait une nouvelle en silence : les
+# serveurs presenteraient des certificats qu'Odoo rejette (verify-full), et
+# toute la production s'arreterait a la premiere reconnexion.
+# ---------------------------------------------------------------------------
+- name: L'autorite PostgreSQL du projet est sur ce poste de controle
+  ansible.builtin.stat:
+    path: "{{ pg_pki_dir }}/ca.key"
+  register: _pg_ha_ca
+  delegate_to: localhost
+  become: false
+  run_once: true
+
+- name: Refuser de creer une nouvelle autorite par accident
+  ansible.builtin.assert:
+    that: _pg_ha_ca.stat.exists
+    fail_msg: >-
+      {{ pg_pki_dir }}/ca.key est absent. Lancer ce playbook depuis le poste
+      de controle qui a deploye la base (celui qui detient pki/ et le vault) :
+      une nouvelle autorite rendrait invalides les certificats clients deja
+      poses dans les conteneurs Odoo.
+  run_once: true

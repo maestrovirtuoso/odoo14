@@ -11,7 +11,7 @@ l#!/bin/bash
 #      passerelle et 8.8.8.8 joignables ;
 #   5. teste le conteneur depuis CE poste (ping + port 22).
 #
-# Equivalent du role roles/lxc_lan, sans Ansible. Rejouable.
+# Equivalent du role roles/reseau-lxc/lxc_lan, sans Ansible. Rejouable.
 # Reseau jetant les MAC inconnues -> ipvlan (MAC de l'hote). Voir
 # docs/BOOTSTRAP-CONTENEUR-MANUEL.md, section 1a.
 #

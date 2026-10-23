@@ -1,0 +1,60 @@
+---
+# ---------------------------------------------------------------------------
+# Retirer a Debian la gestion de PostgreSQL, pour que Patroni soit SEUL a le
+# demarrer et l'arreter.
+#
+# Deux gestionnaires sur le meme repertoire de donnees, c'est un "systemctl
+# restart postgresql" (ou une mise a jour du paquet) qui arrete le primaire
+# dans le dos de Patroni, voire un second postmaster lance a cote du sien.
+# ---------------------------------------------------------------------------
+- name: Arreter le PostgreSQL de Debian
+  # Arret "fast" de pg_ctlcluster : propre, sans perte. Les connexions en
+  # cours sont coupees ; Patroni redemarre le serveur juste apres.
+  # Pas de "enabled: false" : cette unite n'est pas activee par un lien
+  # mais generee au demarrage d'apres start.conf (ci-dessous), et systemctl
+  # disable echoue sur une unite generee.
+  ansible.builtin.systemd:
+    name: "postgresql@{{ pg_version }}-main"
+    state: stopped
+
+- name: Ne plus jamais le demarrer par Debian
+  # masked : meme un "systemctl start" explicite est refuse.
+  ansible.builtin.systemd:
+    name: "postgresql@{{ pg_version }}-main"
+    masked: true
+
+- name: Interdire aussi pg_ctlcluster et les scripts du paquet
+  # Lu par postgresql-common (demarrage, mises a jour du paquet). C'est aussi
+  # la MARQUE "serveur repris par Patroni" lue par tasks/etat.yaml : elle est
+  # posee avant le premier demarrage de Patroni, jamais apres.
+  ansible.builtin.copy:
+    dest: "{{ pg_conf_dir }}/start.conf"
+    content: |
+      # {{ ansible_managed }}
+      # Ce cluster est demarre par Patroni (/etc/patroni/config.yml), pas par Debian.
+      disabled
+    owner: postgres
+    group: postgres
+    mode: "0644"
+
+- name: Mettre de cote la configuration de pg_server
+  # postgresql.conf de Debian est inclus par Patroni (custom_conf), donc aussi
+  # son conf.d. Ces deux fichiers y reprendraient la main sur l'ecoute, les
+  # certificats et la replication : Patroni les ecrit desormais lui-meme. Ils
+  # sont renommes (et non effaces) pour garder une trace de l'ancien reglage.
+  ansible.builtin.command:
+    argv:
+      - mv
+      - "{{ pg_conf_dir }}/conf.d/{{ item }}.conf"
+      - "{{ pg_conf_dir }}/conf.d/{{ item }}.conf.avant-patroni"
+    removes: "{{ pg_conf_dir }}/conf.d/{{ item }}.conf"
+  loop:
+    - 10-prosys
+    - 20-replication
+
+- name: Effacer le mot de passe de replication de l'ancienne reserve
+  # En clair, et plus rien ne le lit : Patroni tient son propre fichier
+  # (/var/lib/postgresql/.pgpass_patroni).
+  ansible.builtin.file:
+    path: /var/lib/postgresql/.pgpass
+    state: absent

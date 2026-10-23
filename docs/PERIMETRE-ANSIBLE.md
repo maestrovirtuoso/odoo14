@@ -39,7 +39,7 @@ du bas.
 
 ### Le bind conteneur ↔ hôte
 
-[roles/odoo_filestore/tasks/main.yaml:131](../roles/odoo_filestore/tasks/main.yaml)
+[roles/ansi_odoo/odoo_filestore/tasks/main.yaml:131](../roles/ansi_odoo/odoo_filestore/tasks/main.yaml)
 
 ```yaml
 - name: Partager le filestore avec le conteneur
@@ -53,7 +53,7 @@ du bas.
 ```
 
 Source : `filestore_host_src: /mnt/odoo14`
-([defaults:28](../roles/odoo_filestore/defaults/main.yml)).
+([defaults:28](../roles/ansi_odoo/odoo_filestore/defaults/main.yml)).
 Destination : `var/lib/odoo/filestore`, **relative** — syntaxe de `fstab`,
 résolue depuis la racine du rootfs.
 
@@ -63,7 +63,7 @@ transposerait pas.
 
 ### Le chemin du filestore côté Odoo
 
-[roles/odoo14/templates/odoo.conf.j2:39](../roles/odoo14/templates/odoo.conf.j2)
+[roles/ansi_odoo/odoo14/templates/odoo.conf.j2:39](../roles/ansi_odoo/odoo14/templates/odoo.conf.j2)
 → `data_dir = {{ odoo_data_dir }}`
 [group_vars/odoo_containers/vars.yml:23](../group_vars/odoo_containers/vars.yml)
 → `/var/lib/odoo`
@@ -76,8 +76,8 @@ de l'empreinte SHA-1 du contenu.
 
 | Où | Fichier | Valeur |
 |---|---|---|
-| dans le conteneur | [roles/odoo_uid/defaults/main.yml:30](../roles/odoo_uid/defaults/main.yml) | `105 / 112` |
-| sur le volume | [roles/odoo_filestore/defaults/main.yml:65](../roles/odoo_filestore/defaults/main.yml) | `105 / 112` |
+| dans le conteneur | [roles/ansi_odoo/odoo_uid/defaults/main.yml:30](../roles/ansi_odoo/odoo_uid/defaults/main.yml) | `105 / 112` |
+| sur le volume | [roles/ansi_odoo/odoo_filestore/defaults/main.yml:65](../roles/ansi_odoo/odoo_filestore/defaults/main.yml) | `105 / 112` |
 
 Les deux **doivent** concorder. Les conteneurs sont privilégiés (aucun
 `lxc.idmap` dans le dépôt), donc les numéros traversent le bind sans
@@ -86,7 +86,7 @@ des noms.
 
 ### La récupération d'un filestore local laissé derrière
 
-[roles/odoo_filestore/tasks/main.yaml:95](../roles/odoo_filestore/tasks/main.yaml)
+[roles/ansi_odoo/odoo_filestore/tasks/main.yaml:95](../roles/ansi_odoo/odoo_filestore/tasks/main.yaml)
 
 `cp -a -n` depuis `/bricks/odoo14/prod` vers le volume : n'écrase jamais un
 fichier présent. Les noms étant des empreintes SHA-1, deux fichiers de même
@@ -94,7 +94,7 @@ nom sont identiques par construction.
 
 ### Le refus d'écrire dans une brique
 
-[roles/odoo_filestore/tasks/main.yaml:77](../roles/odoo_filestore/tasks/main.yaml)
+[roles/ansi_odoo/odoo_filestore/tasks/main.yaml:77](../roles/ansi_odoo/odoo_filestore/tasks/main.yaml)
 
 Si le chemin partagé contient `.glusterfs`, c'est une brique : le rôle
 s'arrête. Y faire écrire Odoo court-circuiterait la réplication et
@@ -106,7 +106,7 @@ corromprait l'index interne.
 
 ### Le montage FUSE
 
-[roles/odoo_filestore/tasks/main.yaml:49](../roles/odoo_filestore/tasks/main.yaml)
+[roles/ansi_odoo/odoo_filestore/tasks/main.yaml:49](../roles/ansi_odoo/odoo_filestore/tasks/main.yaml)
 
 ```yaml
 - name: Le filestore est bien servi par le volume GlusterFS
@@ -123,7 +123,7 @@ il ne la joue pas.
 C'est une décision explicite, inscrite en tête du fichier :
 
 ```
-roles/odoo_filestore/tasks/main.yaml:9
+roles/ansi_odoo/odoo_filestore/tasks/main.yaml:9
 #         |  mount -t glusterfs                <- FAIT A LA MAIN, pas ici
 ```
 
@@ -138,7 +138,7 @@ roles/odoo_filestore/tasks/main.yaml:9
 
 ### La vérification depuis l'intérieur du conteneur
 
-[roles/odoo_filestore/tasks/main.yaml:151](../roles/odoo_filestore/tasks/main.yaml)
+[roles/ansi_odoo/odoo_filestore/tasks/main.yaml:151](../roles/ansi_odoo/odoo_filestore/tasks/main.yaml)
 
 Validée sur un **marqueur stdout** (`FILESTORE_PARTAGE_OK`) et non sur le code
 retour : LXC 3.0.4 fait rendre 0 à `lxc-attach` même quand la commande interne
@@ -146,7 +146,7 @@ retour : LXC 3.0.4 fait rendre 0 à `lxc-attach` même quand la commande interne
 
 ### L'état du stockage, au préflight
 
-[roles/odoo_migration/tasks/preflight_hotes.yaml:44](../roles/odoo_migration/tasks/preflight_hotes.yaml)
+[roles/ansi_syncro/odoo_migration/tasks/preflight_hotes.yaml:44](../roles/ansi_syncro/odoo_migration/tasks/preflight_hotes.yaml)
 
 `findmnt --output FSTYPE,SOURCE,SIZE,AVAIL` — lecture seule, avant toute
 modification.
@@ -226,7 +226,7 @@ Aucune des deux n'est implémentée à ce jour.
 
 ```bash
 # Ce que le dépôt pose réellement
-grep -rn "lxc.mount.entry" roles/odoo_filestore/tasks/main.yaml
+grep -rn "lxc.mount.entry" roles/ansi_odoo/odoo_filestore/tasks/main.yaml
 
 # Ce qu'il refuse de poser
 grep -rn "mount -t glusterfs\|gluster volume create\|gluster peer probe" roles/ playbooks/

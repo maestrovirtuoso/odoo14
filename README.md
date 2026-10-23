@@ -189,7 +189,7 @@ déploiement.
 | **NetworkManager s'approprie `lxcbr0`** et le détruit faute de profil | `lxc-net` dit « success », le bridge n'existe pas, `lxc-start` échoue sur `Failed to attach veth` | `/etc/NetworkManager/conf.d/99-lxc-unmanaged.conf` + vérification explicite du bridge |
 | **`firewall-cmd --reload` purge les règles iptables de `lxc-net`** | Le conteneur perd son accès sortant, `apt` échoue | NAT redéclaré en règle **directe permanente** firewalld, réappliquée à chaque reload |
 | **Debian 11 est en fin de vie** (août 2026) | `Release` expiré, pool `bullseye-security` purgé, aucune archive sécurité | `Acquire::Check-Valid-Until "false"` + sources limitées à `main` + `updates` |
-| **Paquets résiduels en versions « security »** | `held broken packages` sur `perl`/`perl-base`, `gnupg`/`gpgv` | `roles/odoo14/files/apt-realign` rétrograde tout paquet dépassant la version téléchargeable, **en une seule transaction** |
+| **Paquets résiduels en versions « security »** | `held broken packages` sur `perl`/`perl-base`, `gnupg`/`gpgv` | `roles/ansi_odoo/odoo14/files/apt-realign` rétrograde tout paquet dépassant la version téléchargeable, **en une seule transaction** |
 | **`pkg.candidate` est trompeur** pour un paquet absent de tout dépôt | python-apt renvoie la version installée : la comparaison montre une égalité et le paquet est manqué | Comparaison sur `v.downloadable` |
 | **Le `.deb` Odoo ne dépend que de `postgresql-client`** | `service postgresql` n'existe pas | Serveur installé explicitement, **avant** Odoo |
 | **`postgresql_user` sans `role_attr_flags` réinitialise les attributs** | Le rôle `odoo` perd `CREATEDB` : `permission denied to create database` | `role_attr_flags: "LOGIN,CREATEDB"` déclaré explicitement |

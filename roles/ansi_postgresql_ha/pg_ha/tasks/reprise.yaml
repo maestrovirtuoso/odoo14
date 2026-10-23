@@ -1,0 +1,85 @@
+---
+# ===========================================================================
+# Reprise de PostgreSQL par Patroni, selon la decision de tasks/etat.yaml.
+#
+# Patroni ADOPTE un repertoire de donnees existant : demarre sur un cluster
+# deja initialise, il l'enregistre dans etcd (identifiant systeme compris) au
+# lieu de lancer initdb. Les reserves du meme cluster le suivent comme
+# reserves, sans recopie. C'est ce qui permet de passer de pg_server a
+# Patroni sans perdre ni recopier la base.
+#
+# Ordre :
+#   1. "primaire" et "demarrer" : Patroni demarre ;
+#   2. attendre que le cluster ait un primaire ;
+#   3. "reserve" et "recopie" : Patroni demarre, en reserve.
+#
+# Un Patroni demarre en premier sur une reserve abandonnerait : il refuse de
+# creer le cluster depuis un serveur en lecture seule. D'ou l'ordre 1, 2, 3.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# 1. Le primaire de la reprise, et les serveurs deja repris
+# ---------------------------------------------------------------------------
+- name: Primaire - retirer PostgreSQL a Debian
+  # Coupure pour Odoo, qui vise ce serveur en direct : de l'arret par Debian
+  # au redemarrage par Patroni, quelques secondes.
+  ansible.builtin.include_tasks: detacher_debian.yaml
+  when: _pg_ha_action == 'primaire'
+
+- name: Demarrer Patroni (primaire, et serveurs deja repris)
+  ansible.builtin.systemd:
+    name: patroni
+    state: started
+    enabled: true
+  when: _pg_ha_action in ['primaire', 'demarrer']
+
+# ---------------------------------------------------------------------------
+# 2. Un primaire, avant d'aller plus loin
+# ---------------------------------------------------------------------------
+- name: Le cluster a un primaire
+  # patronictl interroge etcd : il voit le cluster entier depuis n'importe
+  # quel serveur.
+  ansible.builtin.command: "patronictl -c {{ pg_ha_config_file }} list -f json"
+  register: _pg_ha_leader
+  until: >-
+    _pg_ha_leader.rc == 0
+    and (_pg_ha_leader.stdout | from_json | selectattr('Role', 'equalto', 'Leader')
+           | selectattr('State', 'equalto', 'running') | list | length) == 1
+  retries: 60
+  delay: 3
+  changed_when: false
+  run_once: true
+
+# ---------------------------------------------------------------------------
+# 3. Les reserves
+# ---------------------------------------------------------------------------
+- name: Reserves - retirer PostgreSQL a Debian
+  ansible.builtin.include_tasks: detacher_debian.yaml
+  when: _pg_ha_action in ['reserve', 'recopie']
+
+- name: Recopie - vider le cluster vide et etranger
+  # Patroni refuse de demarrer sur un identifiant different de celui du
+  # cluster ; sur un repertoire absent, il recopie le primaire
+  # (pg_basebackup). Le controle "aucune base" a ete fait dans etat.yaml.
+  ansible.builtin.file:
+    path: "{{ pg_data_dir }}"
+    state: absent
+  when: _pg_ha_action == 'recopie'
+
+- name: Reserves - demarrer Patroni
+  ansible.builtin.systemd:
+    name: patroni
+    state: started
+    enabled: true
+  when: _pg_ha_action in ['reserve', 'recopie']
+
+- name: Reserves - Patroni les declare reserves
+  # Une recopie complete peut prendre du temps : pg_ha_attente_reserve_s.
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ pg_ha_rest_port }}/replica"
+    status_code: 200
+  register: _pg_ha_reserve_ok
+  until: _pg_ha_reserve_ok.status == 200
+  retries: "{{ (pg_ha_attente_reserve_s | int / 5) | round(0, 'ceil') | int }}"
+  delay: 5
+  when: _pg_ha_action in ['reserve', 'recopie']

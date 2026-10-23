@@ -1,0 +1,100 @@
+---
+# ===========================================================================
+# Certificats, emis sur le poste de controle par roles/commun/pg_pki.
+#
+# PostgreSQL : signe par l'autorite du projet, celle dont les conteneurs Odoo
+# ont deja la racine (verify-full). Le certificat porte les TROIS adresses :
+# une connexion entree par le HAProxy de odoodb1 peut aboutir sur le primaire
+# odoodb2, qui doit alors prouver qu'il est bien "192.168.33.161", l'adresse
+# que le client a visee. NOUVEAU nom de fichier (pgha-*) : celui de pg_server
+# ne porte qu'une adresse, et pg_pki ne reemet jamais un certificat existant.
+#
+# etcd : autorite separee (voir pg_ha_etcd_pki_dir). Un seul certificat par
+# serveur sert aux deux sens : etcd le presente comme serveur, et Patroni et
+# les autres membres comme client.
+# ===========================================================================
+- name: Certificat PostgreSQL valable pour les trois adresses
+  ansible.builtin.include_role:
+    name: pg_pki
+    tasks_from: cert
+  vars:
+    pg_pki_name: "pgha-{{ inventory_hostname }}"
+    pg_pki_subject: "/CN={{ ansible_host }}"
+    pg_pki_extensions:
+      - "subjectAltName={{ (pg_ha_node_ips + ['127.0.0.1']) | map('regex_replace', '^', 'IP:') | join(',') }}"
+      - "extendedKeyUsage=serverAuth"
+
+- name: Certificat etcd du serveur, signe par l'autorite d'etcd
+  ansible.builtin.include_role:
+    name: pg_pki
+    tasks_from: cert
+  vars:
+    pg_pki_dir: "{{ pg_ha_etcd_pki_dir }}"
+    pg_pki_ca_cn: "{{ pg_ha_etcd_ca_cn }}"
+    pg_pki_name: "etcd-{{ inventory_hostname }}"
+    pg_pki_subject: "/CN={{ inventory_hostname }}"
+    pg_pki_extensions:
+      - "subjectAltName=IP:{{ ansible_host }},IP:127.0.0.1"
+      - "extendedKeyUsage=serverAuth,clientAuth"
+
+- name: Repertoire de Patroni
+  # 0750 root:postgres : config.yml contient les mots de passe. Patroni le
+  # lit sous le compte postgres, personne d'autre n'a a le lire.
+  ansible.builtin.file:
+    path: /etc/patroni
+    state: directory
+    owner: root
+    group: postgres
+    mode: "0750"
+
+- name: Repertoires des certificats
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.compte }}"
+    group: "{{ item.compte }}"
+    mode: "0750"
+  loop:
+    - { path: "{{ pg_ha_ssl_dir }}", compte: postgres }
+    - { path: "{{ pg_ha_etcd_ssl_dir }}", compte: etcd }
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Certificats de PostgreSQL et de Patroni (compte postgres)
+  # Cles en 0600 : PostgreSQL REFUSE de demarrer sur une cle lisible par
+  # d'autres que lui.
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ pg_ha_ssl_dir }}/{{ item.dest }}"
+    owner: postgres
+    group: postgres
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: "{{ pg_pki_dir }}/ca.crt", dest: ca.crt, mode: "0644" }
+    - { src: "{{ pg_pki_dir }}/pgha-{{ inventory_hostname }}.crt", dest: server.crt, mode: "0644" }
+    - { src: "{{ pg_pki_dir }}/pgha-{{ inventory_hostname }}.key", dest: server.key, mode: "0600" }
+    # Patroni, client d'etcd.
+    - { src: "{{ pg_ha_etcd_pki_dir }}/ca.crt", dest: etcd-ca.crt, mode: "0644" }
+    - { src: "{{ pg_ha_etcd_pki_dir }}/etcd-{{ inventory_hostname }}.crt", dest: etcd.crt, mode: "0644" }
+    - { src: "{{ pg_ha_etcd_pki_dir }}/etcd-{{ inventory_hostname }}.key", dest: etcd.key, mode: "0600" }
+  loop_control:
+    label: "{{ item.dest }}"
+  # Les parametres ssl_* sont relus au rechargement : pas de coupure.
+  notify: reload patroni
+
+- name: Certificats d'etcd (compte etcd)
+  # Pas de redemarrage automatique : ces fichiers ne changent qu'a la
+  # premiere emission, avant le demarrage d'etcd. Les renouveler plus tard se
+  # fait a la main, un membre a la fois (docs/POSTGRESQL-PATRONI.md).
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ pg_ha_etcd_ssl_dir }}/{{ item.dest }}"
+    owner: etcd
+    group: etcd
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: "{{ pg_ha_etcd_pki_dir }}/ca.crt", dest: ca.crt, mode: "0644" }
+    - { src: "{{ pg_ha_etcd_pki_dir }}/etcd-{{ inventory_hostname }}.crt", dest: server.crt, mode: "0644" }
+    - { src: "{{ pg_ha_etcd_pki_dir }}/etcd-{{ inventory_hostname }}.key", dest: server.key, mode: "0600" }
+  loop_control:
+    label: "{{ item.dest }}"

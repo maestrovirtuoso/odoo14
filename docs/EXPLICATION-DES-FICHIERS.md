@@ -59,7 +59,7 @@ passe du vault à chaque lancement.
 Les `PROSYS_*` sont propres au projet et relues côté playbooks avec
 `lookup('env', ...)` : `PROSYS_ODOO_VERSION` et `PROSYS_ODOO_INITIAL_DB` dans
 `group_vars/odoo_containers/vars.yml`, `PROSYS_ODOO_WEB_PORT` et
-`PROSYS_CONTROLLER_SSH_PUBKEY` dans `roles/odoo_net/defaults/main.yml`. Chacune
+`PROSYS_CONTROLLER_SSH_PUBKEY` dans `roles/inutilises/odoo_net/defaults/main.yml`. Chacune
 est filtrée par `| default(<valeur>, true)` : vide ou absente, c'est la valeur
 du fichier de variables qui s'applique — le `.env` ne peut donc rien casser s'il
 est incomplet.
@@ -133,7 +133,7 @@ C'est le retour à l'état initial des machines.
 
 ## Rôle `install` — création des conteneurs
 
-### `roles/install/tasks/main.yaml`
+### `roles/ansi2-snapchot/install/tasks/main.yaml`
 Installe les paquets LXC selon la famille de l'OS (Debian ou RedHat), passe
 SELinux en permissif sur Rocky, démarre `lxc-net`, puis crée et démarre les
 conteneurs Debian 11 listés dans `containers`. En cas d'échec de `lxc-create`,
@@ -146,7 +146,7 @@ un bloc `rescue` affiche le log LXC plutôt qu'une erreur opaque.
 S'exécute **sur les hôtes**. Prépare le terrain pour que les conteneurs soient
 joignables et disposent d'un accès sortant.
 
-### `roles/odoo_net/tasks/main.yaml`
+### `roles/inutilises/odoo_net/tasks/main.yaml`
 Le cœur du rôle, dans cet ordre précis :
 
 1. **Prérequis manuels** — la configuration du sous-réseau (`/etc/sysconfig/lxc-net`),
@@ -171,11 +171,11 @@ Toutes les vérifications faites dans le conteneur reposent sur un **marqueur
 imprimé sur stdout** (`NET_OK`, `IP_OK`, `BOOTSTRAP_SSH_OK`), jamais sur le code
 retour : `lxc-attach` en LXC 3.0.4 renvoie toujours 0, quoi qu'il arrive.
 
-### `roles/odoo_net/defaults/main.yml`
+### `roles/inutilises/odoo_net/defaults/main.yml`
 Nom du conteneur, nom du bridge, port web, et la clé publique du poste de
 contrôle (lue depuis `~/.ssh/id_rsa.pub`, surchargeable par `-e`).
 
-### `roles/odoo_net/handlers/main.yaml`
+### `roles/inutilises/odoo_net/handlers/main.yaml`
 Vide volontairement : les opérations sensibles sont appliquées en ligne dans
 `tasks/main.yaml` pour maîtriser leur ordre, un handler différé arriverait trop
 tard.
@@ -186,7 +186,7 @@ tard.
 
 S'exécute **dans les conteneurs**.
 
-### `roles/odoo14/tasks/main.yaml`
+### `roles/ansi_odoo/odoo14/tasks/main.yaml`
 Installe les dépendances, **PostgreSQL serveur** (le paquet Debian d'Odoo ne
 dépend que de `postgresql-client`), le dépôt nightly et Odoo, dépose la
 configuration, puis :
@@ -202,7 +202,7 @@ configuration, puis :
   existence de la base ne suffit pas : une base créée dont l'initialisation a
   échoué reste présente et vide, et Odoo répond 500 indéfiniment.
 
-### `roles/odoo14/tasks/purge_replication.yaml`
+### `roles/ansi_odoo/odoo14/tasks/purge_replication.yaml`
 Démantèle l'ancienne architecture répliquée. Le projet a d'abord déployé une
 réplication PostgreSQL streaming ; ce fichier efface tout ce qu'elle avait laissé
 sur les conteneurs :
@@ -223,14 +223,14 @@ sur les conteneurs :
 Idempotent : une fois le parc propre il ne signale plus aucun changement, et il
 rattrape un conteneur restauré depuis une sauvegarde antérieure.
 
-### `roles/odoo14/tasks/apt_sources.yaml`
+### `roles/ansi_odoo/odoo14/tasks/apt_sources.yaml`
 Assainit APT sur une Debian 11 en fin de vie : tolère les fichiers `Release`
 expirés, limite les sources à `main` + `updates` (aucun dépôt sécurité n'est plus
 exploitable), répare les paquets laissés en état incohérent, réaligne les
 versions, puis **simule** l'installation de tout ce que le rôle va demander. Un
 blocage se révèle ainsi avant toute modification.
 
-### `roles/odoo14/files/apt-realign`
+### `roles/ansi_odoo/odoo14/files/apt-realign`
 Script Python qui rétrograde tout paquet dont la version installée dépasse la
 plus récente **téléchargeable**, en une seule transaction apt. Deux pièges qu'il
 encode : `pkg.candidate` est inexploitable ici (pour un paquet absent de tout
@@ -238,23 +238,23 @@ dépôt, python-apt renvoie la version installée, la comparaison montre une ég
 et le paquet est manqué), et les paquets liés par une dépendance stricte comme
 `perl`/`perl-base` doivent bouger ensemble.
 
-### `roles/odoo14/templates/odoo.conf.j2`
+### `roles/ansi_odoo/odoo14/templates/odoo.conf.j2`
 Configuration d'Odoo. Connexion par socket Unix local, instance mono-base.
 `db_name` est indispensable avec `list_db = False` : sans lui Odoo ne peut ni
 lister ni déduire la base à servir, et répond 500.
 
-### `roles/odoo14/defaults/main.yml`
+### `roles/ansi_odoo/odoo14/defaults/main.yml`
 Valeurs par défaut du rôle, surchargées par `group_vars`. Contient aussi
 `debian_mirror`, qui permet de basculer sur `archive.debian.org`.
 
-### `roles/odoo14/handlers/main.yaml`
+### `roles/ansi_odoo/odoo14/handlers/main.yaml`
 Redémarrage d'Odoo et de PostgreSQL après modification de leur configuration.
 
 ---
 
 ## Rôle `odoo_cleanup` — remise à plat
 
-### `roles/odoo_cleanup/tasks/main.yaml`
+### `roles/nettoyage_odoo/odoo_cleanup/tasks/main.yaml`
 Arrête Odoo, libère les verrous `dpkg`/`apt` d'un lancement interrompu, termine
 la transaction en cours, répare ou supprime les paquets en état incohérent,
 réaligne les versions, vide le cache, et affiche un état de fin.
@@ -267,7 +267,7 @@ dépôt nightly et les reliquats de l'ancienne architecture répliquée.
 
 ## Rôle `cleanup` — désinstallation LXC
 
-### `roles/cleanup/tasks/main.yaml`
+### `roles/nettoyage/cleanup/tasks/main.yaml`
 Détruit les conteneurs, arrête et désactive les services LXC, désinstalle les
 paquets, supprime les répertoires créés, et rétablit SELinux en `enforcing`.
 Annule ce que le rôle `install` a fait.
