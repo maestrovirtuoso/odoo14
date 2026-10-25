@@ -1,0 +1,38 @@
+---
+# La configuration LXC (/dev/fuse, retrait du bind de l'hote) n'est lue qu'au
+# DEMARRAGE du conteneur : il faut un cycle complet.
+#
+# Les taches partagent le meme "listen" et s'executent dans l'ordre de ce
+# fichier, declenchees par "notify: redemarrer le conteneur".
+
+- name: Arreter le conteneur
+  ansible.builtin.command: "lxc-stop -n {{ lxc_container_name }}"
+  register: _fs_lxc_stop
+  # lxc-stop rend un code non nul si le conteneur etait deja arrete : l'etat
+  # vise est atteint, ce n'est pas une erreur.
+  changed_when: _fs_lxc_stop.rc == 0
+  failed_when: false
+  listen: redemarrer le conteneur
+
+- name: Demarrer le conteneur
+  ansible.builtin.command: "lxc-start -n {{ lxc_container_name }} -d"
+  register: _fs_lxc_start
+  changed_when: _fs_lxc_start.rc == 0
+  failed_when: false
+  listen: redemarrer le conteneur
+
+- name: Attendre que le conteneur soit RUNNING
+  ansible.builtin.command: "lxc-info -n {{ lxc_container_name }} -sH"
+  register: _fs_lxc_etat
+  until: _fs_lxc_etat.stdout | trim == "RUNNING"
+  retries: "{{ lxc_start_retries }}"
+  delay: "{{ lxc_start_delay }}"
+  changed_when: false
+  listen: redemarrer le conteneur
+
+# Lu par tasks/main.yaml : Odoo n'est relance que dans un conteneur qui vient
+# de redemarrer, comme le ferait son propre demarrage.
+- name: Retenir que le conteneur a redemarre
+  ansible.builtin.set_fact:
+    _fs_redemarre: true
+  listen: redemarrer le conteneur

@@ -8,8 +8,9 @@
 #   - trois conteneurs Odoo (192.168.36.161-163) sans serveur PostgreSQL ;
 #   - une base unique "prod" ;
 #   - un filestore COMMUN : le volume GlusterFS replique "sre", servi par
-#     192.168.36.8 hors du projet, monte sur chaque hote Odoo et passe a son
-#     conteneur sur /var/lib/odoo (role odoo_filestore) ;
+#     192.168.36.8 hors du projet, monte par chaque conteneur Odoo lui-meme
+#     sur /var/lib/odoo (playbooks/filestore-conteneur.yaml). Seul l'hote de
+#     sauvegarde le garde, en lecture seule, sur /mnt/odoo ;
 #   - pas de repartiteur de charge : chaque utilisateur vise une IP ;
 #   - en option (pg_ha_enabled), haute disponibilite de la base : Patroni,
 #     etcd et HAProxy dans les trois conteneurs PostgreSQL, Odoo passant par
@@ -34,6 +35,8 @@
 #       for h in 128 129 140 141; do ssh-copy-id root@192.168.96.$h; done
 #   - ansible-galaxy collection install -r requirements.yml
 #   - group_vars/all/vault.yml renseigne puis chiffre
+#   - le volume GlusterFS accepte les adresses des conteneurs Odoo
+#     (voir playbooks/filestore-conteneur.yaml)
 #
 # Lancement :
 #   ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass
@@ -119,23 +122,22 @@
     - role: chrony
       tags: [horloge]
 
-# Le filestore commun AVANT l'installation d'Odoo (play 3/5) : odoo14 refuse de
-# configurer une instance dont /var/lib/odoo n'est pas le volume GlusterFS, et
-# c'est voulu -- sans lui, chaque Odoo ecrirait ses pieces jointes sur son
-# disque local, sans erreur visible.
-# Redemarre les conteneurs Odoo au premier passage (lxc.mount.entry n'est lu
-# qu'au demarrage).
+# 1bis/5 - Le filestore commun AVANT l'installation d'Odoo (play 3/5) : odoo14
+# refuse de configurer une instance dont /var/lib/odoo n'est pas le volume
+# GlusterFS, et c'est voulu -- sans lui, chaque Odoo ecrirait ses pieces
+# jointes sur son disque local, sans erreur visible.
 #
-# Prerequis : les hotes Odoo joignent {{ gluster_server }}:24007 et les ports
-# de brique du volume. Pour la rejouer seule :
+# Chaque conteneur Odoo monte LUI-MEME le volume sre sur /var/lib/odoo, sans
+# passer par l'hote (playbooks/filestore-conteneur.yaml, trois plays). Au
+# premier passage, les conteneurs Odoo redemarrent UN A LA FOIS ; ensuite,
+# rien ne redemarre.
+#
+# Prerequis : les CONTENEURS Odoo joignent {{ gluster_server }}:24007 et les
+# ports de brique du volume, qui doit accepter leurs adresses (auth.allow).
+# Pour la rejouer seule :
 #   ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass --tags filestore
-# gather_facts: le role choisit le paquet client Gluster selon le systeme.
-- name: "1bis/5 - Filestore commun : volume sre monte et passe aux conteneurs"
-  hosts: gluster_bricks
-  gather_facts: true
+- import_playbook: filestore-conteneur.yaml
   tags: [filestore]
-  roles:
-    - odoo_filestore
 
 # Deux facons de servir la base, selon pg_ha_enabled (group_vars/all) :
 #   false  pg_server, plays 2/5 et 2bis/5 (primaire + reserves, bascule

@@ -37,11 +37,13 @@
     _contr_epoch: "{{ lookup('pipe', 'date -u +%s') }}"
 
 # --- Stockage --------------------------------------------------------------
-# Le filestore est le point de montage du volume GlusterFS {{ gluster_volume }},
-# pose par le role odoo_filestore au play 4/8. AVANT de couper quoi que ce
-# soit, on verifie que ce montage POURRA se faire, ou qu'il est deja la :
+# Le filestore est le volume GlusterFS {{ gluster_volume }}, monte par chaque
+# CONTENEUR au play 4/8 (playbooks/filestore-conteneur.yaml). Les hotes ne le
+# montent plus, sauf l'hote de sauvegarde, en lecture seule. AVANT de couper
+# quoi que ce soit, on verifie cote hote :
 #   - deja monte : il doit etre de type GlusterFS, et rien d'autre ;
-#   - pas encore monte : le serveur {{ gluster_server }} doit repondre.
+#   - pas monte : le serveur {{ gluster_server }} doit repondre. Le play 4/8
+#     refait ce controle depuis chaque conteneur.
 #
 # Le controle du seul chemin ne dit RIEN : un volume non monte laisse un
 # repertoire vide au meme endroit, et Odoo y ecrit sans se plaindre. C'est ce
@@ -69,11 +71,12 @@
       {{ filestore_host_src }} est monte sur {{ inventory_hostname }}, mais ce
       n'est pas un {{ filestore_fstype_attendu }}
       (findmnt : "{{ _pre_stockage.stdout | trim }}"). Le demonter avant la
-      migration : le play 4/8 y montera {{ gluster_server }}:/{{ gluster_volume }}.
+      migration : les conteneurs montent eux-memes
+      {{ gluster_server }}:/{{ gluster_volume }} au play 4/8.
     success_msg: >-
       {{ inventory_hostname }} : {{ filestore_host_src }}
       {{ ('servi par ' ~ (_pre_stockage.stdout | trim)) if _pre_stockage.rc == 0
-         else 'pas encore monte, le sera au play 4/8' }}
+         else "non monte sur l'hote, les conteneurs montent le volume au play 4/8" }}
 
 - name: Le serveur GlusterFS repond, si le volume reste a monter
   ansible.builtin.wait_for:
@@ -82,7 +85,7 @@
     timeout: 10
     msg: >-
       {{ gluster_server }}:24007 ne repond pas depuis {{ inventory_hostname }} :
-      le play 4/8 ne pourra pas monter le volume {{ gluster_volume }}, et la
-      migration s'arreterait instances deja coupees. Verifier le reseau et
-      le pare-feu avant de relancer.
+      ses conteneurs ne pourront sans doute pas monter le volume
+      {{ gluster_volume }} au play 4/8, et la migration s'arreterait instances
+      deja coupees. Verifier le reseau et le pare-feu avant de relancer.
   when: _pre_stockage.rc != 0

@@ -1,0 +1,81 @@
+---
+# ===========================================================================
+# Valeurs par defaut du role filestore_conteneur
+# (playbooks/filestore-conteneur.yaml).
+#
+# Le volume lui-meme est decrit dans group_vars/all/vars.yml : gluster_server,
+# gluster_volume, gluster_backup_servers. Le point de montage DANS le
+# conteneur est odoo_filestore (group_vars/odoo_containers), et celui de
+# l'HOTE filestore_host_src (group_vars/gluster_bricks).
+# ===========================================================================
+
+# Type attendu au point de montage. Verifier qu'un repertoire existe ne dit
+# RIEN : un volume non monte laisse un repertoire vide au meme endroit, et
+# Odoo y ecrit sans se plaindre (accident du 25/09/2026).
+filestore_type_attendu: fuse.glusterfs
+
+# Options de la ligne de fstab, dans le conteneur comme sur l'hote de
+# sauvegarde.
+#   _netdev : attendre le reseau au demarrage.
+#   backup-volfile-servers : a qui demander la description du volume si
+#   gluster_server ne repond pas au montage (vide aujourd'hui).
+filestore_options_montage: >-
+  {{ (['defaults', '_netdev']
+      + (['backup-volfile-servers=' ~ (gluster_backup_servers | default([]) | join(':'))]
+         if gluster_backup_servers | default([]) | length > 0 else []))
+     | join(',') }}
+
+# Noms des serveurs de briques. Le volume les declare par NOM : le client lit
+# sa description chez gluster_server, puis contacte chaque brique par ce nom.
+# Un nom que le conteneur ne resout pas en IPv4 fait echouer le montage, ou
+# le laisse monte mais illisible ("Transport endpoint is not connected").
+# Verifies AVANT toute coupure (play 1/3). Liste a confronter a
+# "gluster volume info sre" ; [] pour ne pas verifier.
+filestore_noms_briques:
+  - dev-glustervm1
+  - dev-glustervm2
+  - dev-glustervm3
+
+# Adresses a ecrire dans /etc/hosts du conteneur quand le DNS ne resout pas
+# ces noms : la meme liste que pour les hotes, gluster_hosts
+# (group_vars/gluster_bricks), lue chez l'hote du conteneur.
+filestore_gluster_hosts: >-
+  {{ (hostvars[lxc_host].gluster_hosts | default([]))
+     if lxc_host is defined and lxc_host in hostvars
+     else (gluster_hosts | default([])) }}
+
+# L'hote de sauvegarde GARDE le volume sur filestore_host_src, en LECTURE
+# SEULE : la sauvegarde y archive le filestore (sauvegarde_filestore_src).
+# Les autres hotes ne le montent plus du tout.
+filestore_hote_lecture_seule: "{{ inventory_hostname in (groups['backup_host'] | default([])) }}"
+
+# Dernier recours si AppArmor refuse le montage FUSE dans le conteneur
+# ("dmesg | grep -i apparmor" sur l'hote). Affaiblit l'isolation du
+# conteneur : a ne passer a true qu'apres avoir constate le refus. Repasser
+# a false ne remet PAS l'ancien profil : retirer la ligne a la main.
+filestore_lxc_apparmor_unconfined: false
+
+# Relancer Odoo dans un conteneur que la play 2/3 vient de redemarrer, pour
+# remettre ce noeud en service AVANT de passer au suivant. Faux quand Odoo
+# doit rester arrete (ansi_syncro.yaml, pendant la migration).
+filestore_relancer_odoo: true
+
+# Attente du montage par le conteneur apres son redemarrage.
+filestore_montage_essais: 15
+filestore_montage_delai: 4
+
+# Reliquat d'un ancien filestore local, verse dans le volume tant que l'hote
+# le monte encore en ecriture (au passage qui bascule cet hote). cp -a -n
+# n'ecrase jamais un fichier present : les noms sont des empreintes SHA-1 du
+# contenu, deux fichiers de meme nom sont identiques par construction.
+filestore_reliquat_local: /bricks/odoo14/prod
+filestore_recuperer_reliquat: true
+
+# UID/GID du compte odoo dans les conteneurs. Doivent correspondre au role
+# odoo_uid : un systeme de fichiers partage retient des NUMEROS, pas des noms.
+filestore_uid: 105
+filestore_gid: 112
+
+# Attente du conteneur en etat RUNNING apres redemarrage.
+lxc_start_retries: 100
+lxc_start_delay: 2

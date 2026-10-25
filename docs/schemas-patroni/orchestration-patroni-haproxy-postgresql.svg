@@ -1,0 +1,361 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+<title id="title">Orchestration Patroni HAProxy PostgreSQL</title><desc id="desc">Orchestration Patroni, HAProxy et PostgreSQL. Configuration du dépôt du 25 octobre 2026, serveurs non audités.</desc>
+<rect x="0" y="0" width="1600" height="1000" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<polyline points="20,0 20,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="40,0 40,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="60,0 60,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="80,0 80,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="100,0 100,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="120,0 120,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="140,0 140,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="160,0 160,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="180,0 180,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="200,0 200,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="220,0 220,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="240,0 240,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="260,0 260,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="280,0 280,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="300,0 300,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="320,0 320,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="340,0 340,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="360,0 360,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="380,0 380,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="400,0 400,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="420,0 420,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="440,0 440,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="460,0 460,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="480,0 480,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="500,0 500,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="520,0 520,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="540,0 540,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="560,0 560,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="580,0 580,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="600,0 600,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="620,0 620,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="640,0 640,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="660,0 660,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="680,0 680,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="700,0 700,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="720,0 720,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="740,0 740,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="760,0 760,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="780,0 780,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="800,0 800,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="820,0 820,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="840,0 840,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="860,0 860,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="880,0 880,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="900,0 900,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="920,0 920,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="940,0 940,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="960,0 960,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="980,0 980,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1000,0 1000,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1020,0 1020,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1040,0 1040,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1060,0 1060,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1080,0 1080,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1100,0 1100,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1120,0 1120,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1140,0 1140,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1160,0 1160,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1180,0 1180,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1200,0 1200,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1220,0 1220,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1240,0 1240,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1260,0 1260,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1280,0 1280,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1300,0 1300,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1320,0 1320,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1340,0 1340,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1360,0 1360,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1380,0 1380,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1400,0 1400,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1420,0 1420,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1440,0 1440,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1460,0 1460,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1480,0 1480,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1500,0 1500,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1520,0 1520,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1540,0 1540,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1560,0 1560,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1580,0 1580,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,20 1600,20" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,40 1600,40" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,60 1600,60" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,80 1600,80" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,100 1600,100" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,120 1600,120" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,140 1600,140" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,160 1600,160" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,180 1600,180" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,200 1600,200" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,220 1600,220" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,240 1600,240" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,260 1600,260" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,280 1600,280" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,300 1600,300" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,320 1600,320" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,340 1600,340" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,360 1600,360" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,380 1600,380" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,400 1600,400" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,420 1600,420" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,440 1600,440" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,460 1600,460" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,480 1600,480" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,500 1600,500" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,520 1600,520" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,540 1600,540" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,560 1600,560" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,580 1600,580" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,600 1600,600" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,620 1600,620" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,640 1600,640" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,660 1600,660" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,680 1600,680" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,700 1600,700" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,720 1600,720" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,740 1600,740" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,760 1600,760" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,780 1600,780" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,800 1600,800" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,820 1600,820" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,840 1600,840" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,860 1600,860" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,880 1600,880" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,900 1600,900" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,920 1600,920" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,940 1600,940" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,960 1600,960" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,980 1600,980" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<rect x="0" y="0" width="1600" height="138" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<rect x="60" y="21" width="1200" height="24" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" text-anchor="start">
+<tspan x="60" y="37.225">01 / ORCHESTRATION POSTGRESQL</tspan>
+</text>
+<rect x="60" y="53" width="1240" height="45" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="600" text-anchor="start">
+<tspan x="60" y="85.9">Patroni orchestre, HAProxy oriente le SQL</tspan>
+</text>
+<rect x="60" y="101" width="1260" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">
+<tspan x="60" y="118.7">Un agent Patroni par PostgreSQL ; etcd coordonne le leader ; HAProxy suit le rôle publié.</tspan>
+</text>
+<rect x="1340" y="48" width="200" height="46" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="1350" y="53" width="180" height="34" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="middle">
+<tspan x="1440" y="75.525">OPTION HA</tspan>
+</text>
+<polyline points="60,948 1540,948" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round"/>
+<rect x="60" y="960" width="1200" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start">
+<tspan x="60" y="976.725">Configuration du dépôt · 25 octobre 2026 · État des serveurs non audité</tspan>
+</text>
+<rect x="1400" y="960" width="140" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" text-anchor="end">
+<tspan x="1540" y="977.05">01 / 01</tspan>
+</text>
+<polyline points="0,138 1600,138" fill="none" stroke="#000000" stroke-width="1" stroke-linejoin="round"/>
+<rect x="945" y="142" width="595" height="24" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<defs><marker id="arrow-legend-access" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="960,154 1000,154" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-legend-access)"/>
+<rect x="1013" y="143" width="205" height="23" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start">
+<tspan x="1013" y="158.725">SQL / WAL</tspan>
+</text>
+<defs><marker id="arrow-legend-copy" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="1250,154 1290,154" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#arrow-legend-copy)"/>
+<rect x="1303" y="143" width="210" height="23" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start">
+<tspan x="1303" y="158.725">Pilotage / sondes</tspan>
+</text>
+<rect x="60" y="175" width="1480" height="60" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="85" y="190" width="1420" height="32" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="21" font-weight="600" text-anchor="start">
+<tspan x="85" y="212.825">MODE HA PRÉVU · pg_ha_enabled = false dans le dépôt · schéma explicatif, sans test sur les serveurs</tspan>
+</text>
+<rect x="60" y="280" width="340" height="110" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="83" y="306" width="46" height="36" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="83,315 129,315" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="89" y="310" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<rect x="95" y="310" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<rect x="100" y="310" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<rect x="90" y="322" width="11" height="12" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="107,323 122,323" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="107,328 122,328" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="107,334 118,334" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="106,341 106,347" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="98,347 114,347" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="150" y="290" width="230" height="32" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="start">
+<tspan x="150" y="313.475">Odoo / libpq</tspan>
+</text>
+<rect x="80" y="351" width="300" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="400" text-anchor="start">
+<tspan x="80" y="370.35">Connexions SQL en TLS</tspan>
+</text>
+<rect x="550" y="280" width="450" height="110" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="586" y="293" width="11" height="8" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="592,302 592,313" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="578,313 606,313" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="578,313 578,320" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="573" y="320" width="10" height="8" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="592,313 592,320" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="587" y="320" width="10" height="8" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="606,313 606,320" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="602" y="320" width="10" height="8" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="635" y="290" width="345" height="31" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="600" text-anchor="start">
+<tspan x="635" y="312.65">HAProxy choisi · TCP/5000</tspan>
+</text>
+<rect x="575" y="338" width="405" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">
+<tspan x="575" y="356.025">libpq choisit une des trois instances</tspan>
+</text>
+<rect x="575" y="368" width="405" height="19" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="400" text-anchor="start">
+<tspan x="575" y="382.05">.33.161 / .33.162 / .33.163 :5000</tspan>
+</text>
+<rect x="1140" y="280" width="400" height="110" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="1160" y="292" width="360" height="26" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="start">
+<tspan x="1160" y="309.875">LE RÔLE DÉTERMINE LA CIBLE SQL</tspan>
+</text>
+<rect x="1160" y="333" width="360" height="48" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">
+<tspan x="1160" y="351.05">HAProxy envoie les connexions</tspan>
+<tspan x="1160" y="374">au primaire indiqué par Patroni.</tspan>
+</text>
+<rect x="550" y="490" width="450" height="120" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="576,519 576,546" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="614,519 614,546" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="614,519 613,520 611,521 608,523 604,523 600,524 595,524 590,524 586,523 582,523 579,521 577,520 576,519 577,517 579,516 582,515 586,514 590,513 595,513 600,513 604,514 608,515 611,516 613,517 614,519" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="614,531 613,533 611,534 608,535 604,536 600,537 595,537 590,537 586,536 582,535 579,534 577,533 576,531" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="614,541 613,542 611,543 608,544 604,545 600,546 595,546 590,546 586,545 582,544 579,543 577,542 576,541" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="614,546 613,547 611,549 608,550 604,551 600,551 595,552 590,551 586,551 582,550 579,549 577,547 576,546" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="635" y="504" width="345" height="32" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="23" font-weight="600" text-anchor="start">
+<tspan x="635" y="527.475">PostgreSQL primaire</tspan>
+</text>
+<rect x="575" y="565" width="405" height="28" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="19" font-weight="400" text-anchor="start">
+<tspan x="575" y="585.175">Exemple : odoodb1 · .33.161:5432</tspan>
+</text>
+<rect x="1140" y="490" width="400" height="120" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="1166,519 1166,546" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1204,519 1204,546" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1204,519 1203,520 1201,521 1198,523 1194,523 1190,524 1185,524 1180,524 1176,523 1172,523 1169,521 1167,520 1166,519 1167,517 1169,516 1172,515 1176,514 1180,513 1185,513 1190,513 1194,514 1198,515 1201,516 1203,517 1204,519" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1204,531 1203,533 1201,534 1198,535 1194,536 1190,537 1185,537 1180,537 1176,536 1172,535 1169,534 1167,533 1166,531" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1204,541 1203,542 1201,543 1198,544 1194,545 1190,546 1185,546 1180,546 1176,545 1172,544 1169,543 1167,542 1166,541" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1204,546 1203,547 1201,549 1198,550 1194,551 1190,551 1185,552 1180,551 1176,551 1172,550 1169,549 1167,547 1166,546" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="1230" y="504" width="290" height="32" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="21" font-weight="600" text-anchor="start">
+<tspan x="1230" y="526.825">Répliques PostgreSQL</tspan>
+</text>
+<rect x="1160" y="553" width="360" height="45" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">
+<tspan x="1160" y="569.55">odoodb2 : .33.162</tspan>
+<tspan x="1160" y="592.5">odoodb3 : .33.163</tspan>
+</text>
+<defs><marker id="arrow-clients-to-haproxy" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="400,335 550,335" fill="none" stroke="#000000" stroke-width="3" stroke-linejoin="round" marker-end="url(#arrow-clients-to-haproxy)"/>
+<rect x="412" y="295" width="126" height="26" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="middle">
+<tspan x="475" y="312.875">SQL / TLS</tspan>
+</text>
+<defs><marker id="arrow-haproxy-to-primary" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="775,390 775,490" fill="none" stroke="#000000" stroke-width="3" stroke-linejoin="round" marker-end="url(#arrow-haproxy-to-primary)"/>
+<rect x="798" y="427" width="290" height="29" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">
+<tspan x="798" y="447.675">SQL vers TCP/5432</tspan>
+</text>
+<defs><marker id="arrow-wal-direct" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="1000,550 1140,550" fill="none" stroke="#000000" stroke-width="1.8" stroke-linejoin="round" marker-end="url(#arrow-wal-direct)"/>
+<rect x="1008" y="509" width="124" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" text-anchor="middle">
+<tspan x="1070" y="526.05">WAL directs</tspan>
+</text>
+<rect x="60" y="450" width="340" height="190" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="80" y="463" width="300" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="start">
+<tspan x="80" y="481.375">SONDES DE CHAQUE HAPROXY</tspan>
+</text>
+<rect x="80" y="509" width="300" height="103" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">
+<tspan x="80" y="531.6">GET /primary sur HTTP/8008</tspan>
+<tspan x="80" y="554.55">200 : primaire avec verrou</tspan>
+<tspan x="80" y="577.5">503 : réplique pour ce test</tspan>
+<tspan x="80" y="600.45">Une sonde sur chaque Patroni</tspan>
+</text>
+<rect x="550" y="725" width="450" height="115" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="576" y="738" width="32" height="37" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="580" y="743" width="23" height="7" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="584" y="746" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="589,747 600,747" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="580" y="754" width="23" height="7" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="584" y="756" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="589,757 600,757" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="580" y="764" width="23" height="7" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="584" y="767" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="589,767 600,767" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="635" y="737" width="345" height="32" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="600" text-anchor="start">
+<tspan x="635" y="760.8">Agents Patroni ×3</tspan>
+</text>
+<rect x="575" y="785" width="405" height="48" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">
+<tspan x="575" y="803.05">Un agent par PostgreSQL</tspan>
+<tspan x="575" y="826">Démarre, arrête et promeut localement</tspan>
+</text>
+<rect x="60" y="725" width="340" height="115" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="96" y="738" width="11" height="8" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="102,747 102,758" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="88,758 116,758" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="88,758 88,765" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="83" y="765" width="10" height="8" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="102,758 102,765" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="97" y="765" width="10" height="8" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="116,758 116,765" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="112" y="765" width="10" height="8" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="145" y="737" width="235" height="32" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="600" text-anchor="start">
+<tspan x="145" y="760.15">etcd · 3 membres</tspan>
+</text>
+<rect x="80" y="785" width="300" height="48" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="400" text-anchor="start">
+<tspan x="80" y="803.05">Verrou + configuration</tspan>
+<tspan x="80" y="826">Quorum 2/3 · pairs :2380</tspan>
+</text>
+<defs><marker id="arrow-haproxy-health" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="550,360 470,360 470,785 550,785" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#arrow-haproxy-health)"/>
+<rect x="408" y="651" width="128" height="43" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="600" text-anchor="middle">
+<tspan x="472" y="667.25">Sondes des</tspan>
+<tspan x="472" y="687.5">3 agents</tspan>
+</text>
+<defs><marker id="arrow-patroni-primary-control" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="775,725 775,610" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#arrow-patroni-primary-control)"/>
+<rect x="798" y="652" width="300" height="28" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="600" text-anchor="start">
+<tspan x="798" y="671.85">Pilote PostgreSQL local</tspan>
+</text>
+<defs><marker id="arrow-patroni-replica-control" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="1000,785 1340,785 1340,610" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#arrow-patroni-replica-control)"/>
+<rect x="1145" y="652" width="390" height="49" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="middle">
+<tspan x="1340" y="670.55">Chaque Patroni pilote uniquement</tspan>
+<tspan x="1340" y="693.5">son PostgreSQL local</tspan>
+</text>
+<defs><marker id="arrow-patroni-to-etcd" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="775,840 775,870 230,870 230,840" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#arrow-patroni-to-etcd)"/>
+<rect x="370" y="854" width="300" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600" text-anchor="middle">
+<tspan x="520" y="872.7">Coordination HTTPS :2379</tspan>
+</text>
+<rect x="60" y="910" width="1480" height="26" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="80" y="912" width="1440" height="22" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600" text-anchor="start">
+<tspan x="80" y="928.2">Patroni : pilotage des rôles · HAProxy : routage TCP · PostgreSQL : données et WAL · etcd : coordination du leader</tspan>
+</text>
+</svg>

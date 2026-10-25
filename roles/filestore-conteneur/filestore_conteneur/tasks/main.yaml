@@ -1,0 +1,440 @@
+---
+# ===========================================================================
+# Role filestore_conteneur  -  2/3 : HOTES Odoo, UN A LA FOIS (serial: 1)
+#
+# Pour l'hote courant et SON conteneur Odoo :
+#   1. donner /dev/fuse au conteneur (module, cgroup, peripherique) ;
+#   2. retirer le bind de l'hote ({{ filestore_host_src }} -> /var/lib/odoo) ;
+#   3. redemarrer le conteneur si sa configuration a change, ou s'il utilise
+#      encore le montage de l'hote ;
+#   4. PROUVER que le conteneur a monte le volume LUI-MEME, puis relancer
+#      Odoo et attendre son interface web ;
+#   5. verser un eventuel reliquat local, tant que l'hote voit le volume ;
+#   6. liberer l'hote : plus aucun montage, sauf l'hote de sauvegarde qui le
+#      garde en LECTURE SEULE pour archiver le filestore.
+#
+# Un echec a l'etape 4 arrete TOUT : cet hote garde son montage, les hotes
+# suivants ne sont pas touches, et Odoo reste arrete sur ce seul noeud.
+# ===========================================================================
+
+- name: Le conteneur Odoo de cet hote
+  # Le conteneur dont lxc_host designe cet hote (inventory.yaml).
+  ansible.builtin.set_fact:
+    _fs_conteneurs: >-
+      {{ groups['odoo_containers'] | default([])
+         | map('extract', hostvars)
+         | selectattr('lxc_host', 'defined')
+         | selectattr('lxc_host', 'equalto', inventory_hostname)
+         | map(attribute='inventory_hostname')
+         | list }}
+
+- name: Un conteneur Odoo, et un seul, sur cet hote
+  ansible.builtin.assert:
+    that:
+      - _fs_conteneurs | length == 1
+      - lxc_container_name is defined
+      - lxc_container_name | length > 0
+    fail_msg: >-
+      {{ inventory_hostname }} : {{ _fs_conteneurs | length }} conteneur(s)
+      du groupe odoo_containers ont lxc_host={{ inventory_hostname }} dans
+      inventory.yaml, et lxc_container_name est
+      {{ 'defini' if lxc_container_name is defined else 'absent' }}
+      (host_vars/{{ inventory_hostname }}.yml). Il en faut exactement un.
+
+- name: Ce que la suite utilise
+  ansible.builtin.set_fact:
+    _fs_ct: "{{ _fs_conteneurs | first }}"
+    _fs_ct_ip: "{{ hostvars[_fs_conteneurs | first].ansible_host }}"
+    _fs_point: "{{ hostvars[_fs_conteneurs | first].odoo_filestore | default('/var/lib/odoo') }}"
+    _fs_config: "/var/lib/lxc/{{ lxc_container_name }}/config"
+
+- name: Noms derives du point de montage
+  # /var/lib/odoo -> unite systemd var-lib-odoo.mount, journal du client
+  # var-lib-odoo.log. Chemin RELATIF pour lxc.mount.entry, qui le resout
+  # depuis la racine du conteneur.
+  ansible.builtin.set_fact:
+    _fs_point_relatif: "{{ _fs_point | regex_replace('^/', '') }}"
+    _fs_nom_unite: "{{ _fs_point | regex_replace('^/', '') | replace('/', '-') }}"
+
+- name: Le conteneur a ete prepare par la play 1/3
+  # Sans la ligne de fstab ni le client, le redemarrage qui suit laisserait
+  # le conteneur SANS volume. Arreter avant de couper quoi que ce soit.
+  # LXC 3.0.4 : lxc-attach renvoie TOUJOURS 0 -> validation par marqueur.
+  ansible.builtin.command:
+    argv:
+      - lxc-attach
+      - -n
+      - "{{ lxc_container_name }}"
+      - --
+      - sh
+      - -c
+      - |
+        [ -x /sbin/mount.glusterfs ] || [ -x /usr/sbin/mount.glusterfs ] || exit 0
+        awk '$2 == "{{ _fs_point }}" && $3 == "glusterfs"' /etc/fstab | grep -q . || exit 0
+        [ -f /etc/systemd/system/odoo.service.d/filestore-montage.conf ] || exit 0
+        echo CONTENEUR_PRET
+  register: _fs_pret
+  changed_when: false
+  failed_when: "'CONTENEUR_PRET' not in _fs_pret.stdout"
+
+# --- 1. /dev/fuse pour le conteneur ----------------------------------------
+- name: Version des cgroups de l'hote
+  # La cle LXC differe : lxc.cgroup2.* sur cgroup v2 (Debian 12),
+  # lxc.cgroup.* sur cgroup v1.
+  ansible.builtin.command: stat -fc %T /sys/fs/cgroup
+  register: _fs_cgroup
+  changed_when: false
+
+- name: Charger le module fuse
+  # Un conteneur ne peut pas charger de module : c'est l'hote qui le fait.
+  community.general.modprobe:
+    name: fuse
+    state: present
+
+- name: Charger fuse a chaque demarrage de l'hote
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/fuse.conf
+    content: "fuse\n"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Le peripherique /dev/fuse existe sur l'hote
+  ansible.builtin.stat:
+    path: /dev/fuse
+  register: _fs_dev_fuse
+
+- name: Refuser de continuer sans /dev/fuse
+  ansible.builtin.assert:
+    that:
+      - _fs_dev_fuse.stat.exists
+      - _fs_dev_fuse.stat.ischr | default(false)
+    fail_msg: >-
+      /dev/fuse absent sur {{ inventory_hostname }} malgre "modprobe fuse" :
+      le noyau de l'hote n'a pas FUSE. Rien n'a ete coupe.
+
+- name: Autoriser /dev/fuse au conteneur (cgroup)
+  ansible.builtin.lineinfile:
+    path: "{{ _fs_config }}"
+    regexp: '^lxc\.cgroup2?\.devices\.allow\s*=\s*c\s+10:229\s'
+    line: "{{ 'lxc.cgroup2' if 'cgroup2' in _fs_cgroup.stdout else 'lxc.cgroup' }}.devices.allow = c 10:229 rwm"
+    insertafter: EOF
+  notify: redemarrer le conteneur
+
+- name: Donner /dev/fuse au conteneur
+  ansible.builtin.lineinfile:
+    path: "{{ _fs_config }}"
+    regexp: '^lxc\.mount\.entry\s*=\s*/dev/fuse\s'
+    line: "lxc.mount.entry = /dev/fuse dev/fuse none bind,create=file 0 0"
+    insertafter: EOF
+  notify: redemarrer le conteneur
+
+- name: Lever le confinement AppArmor du conteneur, si demande
+  ansible.builtin.lineinfile:
+    path: "{{ _fs_config }}"
+    regexp: '^lxc\.apparmor\.profile\s*='
+    line: "lxc.apparmor.profile = unconfined"
+    insertafter: EOF
+  when: filestore_lxc_apparmor_unconfined | bool
+  notify: redemarrer le conteneur
+
+# --- 2. Retirer le bind de l'hote ------------------------------------------
+- name: Retirer le bind de l'hote sur le filestore du conteneur
+  # Ancien modele (role odoo_filestore) : l'hote montait le volume sur
+  # {{ filestore_host_src }} et le passait au conteneur par cette ligne.
+  # Laissee en place, elle poserait au demarrage le /mnt/odoo de l'hote,
+  # monte ou VIDE, sous le montage du conteneur.
+  ansible.builtin.lineinfile:
+    path: "{{ _fs_config }}"
+    regexp: '^lxc\.mount\.entry\s*=.*\s{{ _fs_point_relatif | regex_escape }}\s'
+    state: absent
+  notify: redemarrer le conteneur
+
+# --- 3. Le conteneur utilise-t-il encore le montage de l'hote ? ------------
+# Un bind retire de la configuration ne disparait qu'au redemarrage. Le type
+# ne les distingue pas (un bind d'un montage FUSE est aussi en
+# fuse.glusterfs) ; l'identifiant MAJ:MIN, si : le montage du conteneur a le
+# sien, un bind porte celui de l'hote.
+- name: Identifiant du montage de l'hote
+  ansible.builtin.command: "findmnt -n -o MAJ:MIN {{ filestore_host_src }}"
+  register: _fs_hote_id
+  changed_when: false
+  failed_when: false
+
+- name: Identifiant du montage vu par le conteneur
+  ansible.builtin.command:
+    argv:
+      - lxc-attach
+      - -n
+      - "{{ lxc_container_name }}"
+      - --
+      - findmnt
+      - -n
+      - -o
+      - "MAJ:MIN"
+      - "{{ _fs_point }}"
+  register: _fs_ct_id
+  changed_when: false
+  failed_when: false
+
+- name: Redemarrer le conteneur s'il utilise encore le montage de l'hote
+  ansible.builtin.debug:
+    msg: "{{ lxc_container_name }} utilise encore {{ filestore_host_src }} de l'hote : redemarrage."
+  when:
+    - _fs_hote_id.rc == 0
+    - _fs_hote_id.stdout | trim | length > 0
+    - (_fs_ct_id.stdout | trim) == (_fs_hote_id.stdout | trim)
+  changed_when: true
+  notify: redemarrer le conteneur
+
+- name: Appliquer la nouvelle configuration du conteneur
+  ansible.builtin.meta: flush_handlers
+
+# --- 4. Preuve : le conteneur a monte le volume LUI-MEME -------------------
+- name: Le conteneur monte le volume
+  block:
+    - name: Volume monte par le conteneur, et lisible
+      # Monte au demarrage par la ligne de fstab ; s'il manque (reseau
+      # tardif), chaque essai le tente de nouveau.
+      # MAJ:MIN different de celui de l'hote : c'est bien le montage du
+      # conteneur, et non un reste du bind.
+      # ls -A : un volume monte dont les briques sont injoignables passe le
+      # controle de type, puis echoue a la premiere lecture.
+      ansible.builtin.command:
+        argv:
+          - lxc-attach
+          - -n
+          - "{{ lxc_container_name }}"
+          - --
+          - sh
+          - -c
+          - |
+            findmnt -n -o FSTYPE {{ _fs_point }} | grep -qx {{ filestore_type_attendu }} || mount {{ _fs_point }} >/dev/null 2>&1
+            findmnt -n -o FSTYPE {{ _fs_point }} | grep -qx {{ filestore_type_attendu }} || exit 0
+            [ "$(findmnt -n -o MAJ:MIN {{ _fs_point }})" != "{{ _fs_hote_id.stdout | trim }}" ] || exit 0
+            ls -A {{ _fs_point }} >/dev/null && echo FILESTORE_CONTENEUR_OK
+      register: _fs_preuve
+      changed_when: false
+      until: "'FILESTORE_CONTENEUR_OK' in _fs_preuve.stdout"
+      retries: "{{ filestore_montage_essais }}"
+      delay: "{{ filestore_montage_delai }}"
+
+  rescue:
+    - name: Relever la cause dans le conteneur
+      ansible.builtin.command:
+        argv:
+          - lxc-attach
+          - -n
+          - "{{ lxc_container_name }}"
+          - --
+          - sh
+          - -c
+          - |
+            echo "== /dev/fuse"; ls -l /dev/fuse 2>&1
+            echo "== fstab"; grep -F " {{ _fs_point }} " /etc/fstab
+            echo "== montage"; findmnt {{ _fs_point }}
+            echo "== journal"; journalctl -u {{ _fs_nom_unite }}.mount -n 15 --no-pager 2>&1
+            echo "== client"; tail -n 15 /var/log/glusterfs/{{ _fs_nom_unite }}.log 2>&1
+      register: _fs_diag
+      changed_when: false
+      failed_when: false
+
+    - name: Relever les refus AppArmor de l'hote
+      ansible.builtin.shell: dmesg 2>/dev/null | grep -i 'apparmor="DENIED"' | tail -n 5
+      register: _fs_diag_aa
+      changed_when: false
+      failed_when: false
+
+    - name: Arreter la bascule sur cet hote
+      ansible.builtin.fail:
+        msg: >-
+          {{ lxc_container_name }} ({{ _fs_ct }}, {{ _fs_ct_ip }}) n'a pas
+          monte {{ gluster_server }}:/{{ gluster_volume }} sur {{ _fs_point }}.
+          Bascule arretee sur {{ inventory_hostname }} : son montage
+          {{ filestore_host_src }} est intact, et les hotes suivants n'ont pas
+          ete touches. Odoo reste arrete sur ce noeud, et c'est voulu : sans le
+          volume il ecrirait sur le disque local.
+          Causes possibles :
+          1. le volume refuse l'adresse {{ _fs_ct_ip }} ("gluster volume get
+          {{ gluster_volume }} auth.allow" sur un serveur) ;
+          2. un pare-feu bloque 24007 ou les ports de brique depuis {{ _fs_ct_ip }} ;
+          3. AppArmor refuse le montage FUSE (refus releves ci-dessous) :
+          -e filestore_lxc_apparmor_unconfined=true en dernier recours.
+          Releve du conteneur : {{ _fs_diag.stdout | default('') }}
+          Refus AppArmor : {{ _fs_diag_aa.stdout | default('') or 'aucun' }}.
+          Retour arriere de ce noeud : voir l'en-tete de
+          playbooks/filestore-conteneur.yaml.
+
+# --- Odoo, dans un conteneur qui vient de redemarrer -----------------------
+- name: Relancer Odoo dans le conteneur redemarre
+  # Au demarrage, Odoo attend le montage (RequiresMountsFor). Si celui-ci est
+  # arrive en retard, par l'essai ci-dessus, Odoo est reste en echec : le
+  # relancer remet ce noeud en service AVANT de passer au suivant.
+  # Seulement apres un redemarrage, et seulement s'il est active : un Odoo
+  # encore jamais configure, ou arrete expres, n'est pas demarre.
+  ansible.builtin.command:
+    argv:
+      - lxc-attach
+      - -n
+      - "{{ lxc_container_name }}"
+      - --
+      - sh
+      - -c
+      - |
+        if systemctl is-enabled --quiet odoo 2>/dev/null; then
+          systemctl is-active --quiet odoo || systemctl start odoo
+          if systemctl is-active --quiet odoo; then echo ODOO_ACTIF; else echo ODOO_EN_ECHEC; fi
+        else
+          echo ODOO_ABSENT
+        fi
+  register: _fs_odoo
+  changed_when: false
+  when:
+    - _fs_redemarre | default(false) | bool
+    - filestore_relancer_odoo | bool
+
+- name: Odoo a redemarre
+  ansible.builtin.assert:
+    that:
+      - "'ODOO_EN_ECHEC' not in _fs_odoo.stdout"
+    fail_msg: >-
+      Odoo ne redemarre pas dans {{ lxc_container_name }} ({{ _fs_ct }}),
+      alors que le volume y est monte. Voir "journalctl -u odoo -n 50" dans le
+      conteneur. Les hotes suivants n'ont pas ete touches.
+  when: _fs_odoo.stdout is defined
+
+- name: Attendre que l'interface web de ce noeud reponde
+  # Depuis le poste de controle : en ipvlan, l'hote ne joint pas son propre
+  # conteneur.
+  ansible.builtin.wait_for:
+    host: "{{ _fs_ct_ip }}"
+    port: 8069
+    timeout: 120
+    delay: 5
+  delegate_to: localhost
+  become: false
+  when:
+    - _fs_odoo.stdout is defined
+    - "'ODOO_ACTIF' in _fs_odoo.stdout"
+
+# --- 5. Reliquat local, tant que l'hote voit le volume en ecriture ---------
+- name: Etat du montage de l'hote
+  ansible.builtin.command: "findmnt -n -o FSTYPE,OPTIONS {{ filestore_host_src }}"
+  register: _fs_hote
+  changed_when: false
+  failed_when: false
+
+- name: Le montage de l'hote est-il le volume, et en ecriture ?
+  ansible.builtin.set_fact:
+    _fs_hote_monte: "{{ _fs_hote.rc == 0 and filestore_type_attendu in _fs_hote.stdout }}"
+    _fs_hote_rw: >-
+      {{ _fs_hote.rc == 0
+         and 'ro' not in ((_fs_hote.stdout.split() | last | default('')).split(',')) }}
+
+- name: Un reliquat de filestore local existe-t-il ?
+  ansible.builtin.stat:
+    path: "{{ filestore_reliquat_local }}"
+  register: _fs_reliquat
+
+- name: Verser le reliquat local dans le volume partage
+  # Au passage qui bascule cet hote seulement : ensuite, l'hote ne voit plus
+  # le volume, ou en lecture seule.
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      mkdir -p "{{ filestore_host_src }}/filestore/{{ odoo_shared_db }}"
+      cp -a -n "{{ filestore_reliquat_local }}/." \
+               "{{ filestore_host_src }}/filestore/{{ odoo_shared_db }}/"
+      echo "FICHIERS=$(find '{{ filestore_host_src }}/filestore/{{ odoo_shared_db }}' -type f -not -path '*/checklist/*' | wc -l)"
+    executable: /bin/bash
+  register: _fs_recup
+  changed_when: true
+  when:
+    - filestore_recuperer_reliquat | bool
+    - _fs_reliquat.stat.exists
+    - _fs_hote_monte | bool
+    - _fs_hote_rw | bool
+
+# --- 6. Liberer l'hote -----------------------------------------------------
+- name: Hote de sauvegarde - garder le volume, en lecture seule
+  when: filestore_hote_lecture_seule | bool
+  block:
+    - name: Demonter le montage encore en ecriture
+      # "mount -o remount,ro" n'est pas fiable sur un montage FUSE :
+      # demonter, puis remonter avec les nouvelles options.
+      ansible.posix.mount:
+        path: "{{ filestore_host_src }}"
+        state: unmounted
+      when: _fs_hote_rw | bool
+
+    - name: Monter le volume en lecture seule et l'inscrire dans /etc/fstab
+      ansible.posix.mount:
+        path: "{{ filestore_host_src }}"
+        src: "{{ gluster_server }}:/{{ gluster_volume }}"
+        fstype: glusterfs
+        opts: "{{ filestore_options_montage }},ro"
+        state: mounted
+
+    - name: Relever le montage de l'hote de sauvegarde
+      ansible.builtin.command: "findmnt -n -o FSTYPE,OPTIONS {{ filestore_host_src }}"
+      register: _fs_hote_ro
+      changed_when: false
+      failed_when: false
+
+    - name: Le volume est monte sur l'hote de sauvegarde, en lecture seule
+      ansible.builtin.assert:
+        that:
+          - _fs_hote_ro.rc == 0
+          - filestore_type_attendu in _fs_hote_ro.stdout
+          - "'ro' in ((_fs_hote_ro.stdout.split() | last | default('')).split(','))"
+        fail_msg: >-
+          {{ filestore_host_src }} sur {{ inventory_hostname }} :
+          "{{ _fs_hote_ro.stdout | trim }}". La sauvegarde a besoin du volume
+          ici, en lecture seule.
+        success_msg: >-
+          {{ inventory_hostname }} : {{ filestore_host_src }} en lecture seule,
+          pour la sauvegarde.
+
+- name: Autres hotes - plus aucun montage du volume
+  when: not (filestore_hote_lecture_seule | bool)
+  block:
+    - name: Demonter le volume de l'hote
+      ansible.posix.mount:
+        path: "{{ filestore_host_src }}"
+        state: unmounted
+      when: _fs_hote.rc == 0
+
+    - name: Ce qui reste sous l'ancien point de montage
+      ansible.builtin.find:
+        paths: "{{ filestore_host_src }}"
+        file_type: any
+        hidden: true
+      register: _fs_reste
+
+    - name: Refuser d'effacer des fichiers ecrits sous l'ancien point de montage
+      ansible.builtin.assert:
+        that:
+          - _fs_reste.matched | int == 0
+        fail_msg: >-
+          {{ filestore_host_src }} n'est plus monte sur {{ inventory_hostname }},
+          mais contient encore {{ _fs_reste.matched }} element(s) :
+          {{ _fs_reste.files | map(attribute='path') | list | join(', ') | truncate(300) }}.
+          Ils ont ete ecrits sur le disque de l'hote pendant une panne du
+          montage, et manquent sans doute au volume. Les comparer au volume,
+          les y verser au besoin, vider ce repertoire, puis relancer. Le
+          conteneur, lui, est deja bascule.
+
+    - name: Retirer le volume de /etc/fstab, et le point de montage
+      ansible.posix.mount:
+        path: "{{ filestore_host_src }}"
+        state: absent
+
+- name: Bascule de cet hote terminee
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} : {{ lxc_container_name }} ({{ _fs_ct }}) monte
+      lui-meme {{ gluster_server }}:/{{ gluster_volume }} sur {{ _fs_point }}.
+      {{ ('Hote : ' ~ filestore_host_src ~ ' garde en lecture seule pour la sauvegarde.')
+         if filestore_hote_lecture_seule | bool
+         else 'Hote : plus aucun montage du volume.' }}
+      {{ (_fs_recup.stdout | trim) if (_fs_recup.stdout is defined) else '' }}

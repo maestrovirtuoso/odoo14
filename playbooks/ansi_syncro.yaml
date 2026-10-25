@@ -12,17 +12,15 @@
 #
 #   odoo_migration   les 12 etapes propres a cette migration (tasks_from)
 #   odoo_uid         identite commune du compte odoo
-#   odoo_filestore   montage du volume sur l'hote, bind dans le conteneur
+#   filestore_conteneur  montage du volume PAR le conteneur
+#                        (playbooks/filestore-conteneur.yaml, play 4/8)
 #   odoo_dbinit      support de stockage et deplacement des pieces jointes
 #
 # ---------------------------------------------------------------------------
 # Architecture visee :
 #   192.168.36.8:/sre                   <- volume GlusterFS replique, HORS
 #         |                                projet (gluster_server/_volume)
-#         |  mount -t glusterfs         <- role odoo_filestore, play 4/8
-#         v
-#   /mnt/odoo                           <- HOTES Odoo .36.21 .36.22 .36.23
-#         |  lxc.mount.entry (bind)
+#         |  mount -t glusterfs, depuis le conteneur (play 4/8)
 #         v
 #   /var/lib/odoo                       <- CONTENEURS odoo1-3 (.36.161-163)
 #                                          filestore/ et sessions/ COMMUNS
@@ -32,8 +30,8 @@
 # y est une ligne avec un seul store_fname, et aucune colonne ne dit quel
 # noeud l'a ecrite.
 #
-# Le volume est MONTE par le role odoo_filestore (play 4/8), puis verifie :
-# le controle du type de systeme de fichiers reste le garde-fou central.
+# Le volume est MONTE par chaque conteneur (play 4/8), puis verifie : le
+# controle du type de systeme de fichiers reste le garde-fou central.
 #
 # COUPURE DE SERVICE : les instances sont arretees du play 2 au play 8.
 #
@@ -42,7 +40,8 @@
 #   2. arret, pour qu'aucun fichier ne soit ecrit pendant la migration ;
 #   3. UID alignes AVANT le stockage : un systeme de fichiers retient des
 #      NUMEROS, pas des noms ;
-#   4. bind du stockage, qui redemarre les conteneurs ;
+#   4. montage du stockage par les conteneurs, qui les redemarre au premier
+#      passage ;
 #   5. recuperation des anciens filestores AVANT la migration, sans quoi Odoo
 #      reecrirait des pieces jointes vides (voir tasks/fusion.yaml) ;
 #   6. migration, par le SEUL noeud primaire ;
@@ -50,15 +49,16 @@
 #
 # Prerequis :
 #   - volume GlusterFS "sre" DEMARRE sur 192.168.36.8, joignable depuis les
-#     hotes Odoo sur 24007 et sur les ports de brique de chaque serveur du
-#     volume (le montage lui-meme est fait par le play 4/8) ;
+#     CONTENEURS Odoo sur 24007 et sur les ports de brique de chaque serveur
+#     du volume, qui accepte leurs adresses (le montage est fait au play 4/8) ;
 #   - deploiement nominal deja joue (playbooks/ansi_odoo.yaml) ;
 #   - UID cible pose dans roles/ansi_odoo/odoo_uid/defaults/main.yml.
 #
 # Etat des lieux SEUL, sans rien modifier ni couper le service :
 #   ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass --tags preflight
 #
-# Bascule du stockage SEULE (verification du montage, recuperation, bind) :
+# Bascule du stockage SEULE (montage par les conteneurs, recuperation,
+# verification) :
 #   ansible-playbook playbooks/ansi_syncro.yaml -k --ask-vault-pass --tags filestore
 #
 # Recuperation des anciens filestores SEULE, sans coupure :
@@ -146,19 +146,21 @@
     - odoo_uid
 
 # ---------------------------------------------------------------------------
-# 4/8 - Bind du volume partage dans le conteneur.
+# 4/8 - Le volume partage, monte par chaque conteneur lui-meme.
+#
+# playbooks/filestore-conteneur.yaml : client GlusterFS et ligne de fstab dans
+# les conteneurs, /dev/fuse, retrait de l'ancien bind de l'hote, recuperation
+# d'un eventuel reliquat local, puis verification. Sans effet si la bascule
+# est deja faite (ansi_odoo.yaml la joue aussi).
+#
+# Tag "filestore" : joue la seule bascule du stockage, sans la migration des
+# pieces jointes ni le VACUUM FULL.
+# filestore_relancer_odoo=false : Odoo reste arrete jusqu'au play 8/8.
 # ---------------------------------------------------------------------------
-- name: "4/8 - Brancher le filestore du conteneur sur le volume partage"
-  hosts: gluster_bricks
-  gather_facts: true
-  roles:
-    # Tag "filestore" : joue la seule bascule du stockage -- montage du volume
-    # sre sur l'hote et verification de son type, recuperation d'un eventuel
-    # reliquat local, puis bind sur /var/lib/odoo -- sans la migration des
-    # pieces jointes ni le VACUUM FULL.
-    # Breve coupure : le conteneur est redemarre pour appliquer le bind.
-    - role: odoo_filestore
-      tags: [filestore]
+- import_playbook: filestore-conteneur.yaml
+  vars:
+    filestore_relancer_odoo: false
+  tags: [filestore]
 
 - name: "4/8 - Attendre le retour des conteneurs redemarres"
   hosts: odoo_containers

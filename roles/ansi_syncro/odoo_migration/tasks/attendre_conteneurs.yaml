@@ -2,7 +2,7 @@
 # ===========================================================================
 # odoo_migration : attendre le retour des conteneurs redemarres.
 #
-# Le role odoo_filestore redemarre le conteneur pour appliquer
+# Le role filestore_conteneur redemarre le conteneur pour appliquer
 # lxc.mount.entry : la connexion Ansible est donc coupee entre les deux plays.
 # ===========================================================================
 

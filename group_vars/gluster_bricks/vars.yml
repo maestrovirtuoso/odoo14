@@ -20,10 +20,11 @@
 
 # Point de montage du volume GlusterFS {{ gluster_volume }} SUR L'HOTE.
 #
-# Le role odoo_filestore y monte {{ gluster_server }}:/{{ gluster_volume }}
-# (group_vars/all), puis le passe au conteneur en bind sur /var/lib/odoo. Il
-# sert aussi a l'HOTE DE SAUVEGARDE, qui doit lire le filestore pour
-# l'archiver (cf. sauvegarde_filestore_src, qui doit valoir la meme chose).
+# Les conteneurs Odoo montent desormais le volume EUX-MEMES
+# (playbooks/filestore-conteneur.yaml) : les hotes ne le montent plus, sauf
+# l'HOTE DE SAUVEGARDE, qui le garde ici en LECTURE SEULE pour archiver le
+# filestore (cf. sauvegarde_filestore_src, qui doit valoir la meme chose).
+# Sur les autres hotes, ce chemin ne sert plus qu'a retirer l'ancien montage.
 #
 # /mnt/odoo et non /mnt/odoo14 : c'est le chemin que declare deja le /etc/fstab
 # des hotes. /mnt/odoo14 n'existe sur aucun d'eux.
@@ -57,9 +58,10 @@ filestore_fstype_attendu: fuse.glusterfs
 # se connecte a gluster_server pour lire la description du volume, puis
 # contacte chaque brique par ce nom. Si le nom ne resout qu'en IPv6 lien-local
 # (fe80::...), inutilisable sans interface, le montage echoue.
-# Renseigner les IPv4 ici : elles sont ecrites dans /etc/hosts des hotes.
-# Laisser vide si le DNS resout deja ces noms en IPv4
-# (getent ahostsv4 dev-glustervm1).
+# Renseigner les IPv4 ici : elles sont ecrites dans /etc/hosts des
+# CONTENEURS Odoo (role filestore_conteneur, qui lit cette liste chez l'hote
+# de chaque conteneur). Laisser vide si le DNS resout deja ces noms en IPv4
+# (getent ahostsv4 dev-glustervm1, depuis un conteneur).
 #
 # gluster_hosts:
 #   - { ip: 192.168.36.8,  name: dev-glustervm1 }

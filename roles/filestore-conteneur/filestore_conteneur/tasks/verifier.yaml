@@ -1,0 +1,82 @@
+---
+# ===========================================================================
+# Role filestore_conteneur  -  3/3 : verifier DANS les conteneurs Odoo
+#
+# Apres la bascule de tous les hotes : le volume est monte par le conteneur,
+# il accepte l'ecriture, et sa racine appartient au compte odoo.
+# ===========================================================================
+
+- name: Le conteneur repond en SSH
+  # La play 2/3 vient peut-etre de le redemarrer.
+  ansible.builtin.wait_for_connection:
+    timeout: 180
+
+- name: Le volume est monte par le conteneur
+  # Normalement deja fait a son demarrage (fstab) : sans effet dans ce cas.
+  ansible.posix.mount:
+    path: "{{ odoo_filestore }}"
+    src: "{{ gluster_server }}:/{{ gluster_volume }}"
+    fstype: glusterfs
+    opts: "{{ filestore_options_montage }}"
+    state: mounted
+
+- name: Relever le systeme de fichiers du filestore
+  ansible.builtin.command: "findmnt -n -o FSTYPE,SOURCE {{ odoo_filestore }}"
+  register: _fs_type
+  changed_when: false
+  failed_when: false
+
+- name: Le filestore est servi par le volume GlusterFS
+  # LE GARDE-FOU CENTRAL : verifier le TYPE, pas l'existence du repertoire.
+  ansible.builtin.assert:
+    that:
+      - _fs_type.rc == 0
+      - filestore_type_attendu in _fs_type.stdout
+    fail_msg: >-
+      {{ odoo_filestore }} n'est pas un montage {{ filestore_type_attendu }}
+      sur {{ inventory_hostname }} (findmnt : "{{ _fs_type.stdout | trim }}").
+      Voir /var/log/glusterfs/ dans le conteneur.
+    success_msg: "{{ inventory_hostname }} : {{ _fs_type.stdout | trim }}"
+
+# Pas de test "est-ce une brique ?" (stat de .glusterfs) : le client FUSE
+# refuse tout acces a .glusterfs, donc ce test echouerait justement quand le
+# montage est correct. Le controle de type suffit : une brique est en xfs ou
+# ext4, jamais en fuse.glusterfs.
+
+- name: Le conteneur ecrit dans le volume
+  # Un montage peut etre en place et refuser l'ecriture : quorum de briques
+  # perdu, volume en lecture seule, auth.allow.
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      f="{{ odoo_filestore }}/.essai-ecriture-{{ inventory_hostname }}"
+      echo ok > "$f"
+      rm -f "$f"
+      echo ECRITURE_OK
+  register: _fs_ecriture
+  changed_when: false
+  failed_when: "'ECRITURE_OK' not in _fs_ecriture.stdout"
+
+- name: Le volume et son filestore appartiennent au compte odoo
+  # Par NUMERO : le volume retient des numeros, et le compte odoo n'existe
+  # pas encore dans un conteneur neuf. Jamais recursif : un chown -R sur un
+  # volume reseau repasserait sur chaque fichier.
+  # run_once : le volume est le meme vu des trois conteneurs.
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ filestore_uid }}"
+    group: "{{ filestore_gid }}"
+    mode: "0750"
+  loop:
+    - "{{ odoo_filestore }}"
+    - "{{ odoo_filestore }}/filestore"
+    - "{{ odoo_filestore }}/filestore/{{ odoo_shared_db }}"
+  run_once: true
+
+- name: Filestore partage en place
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }} monte lui-meme
+      {{ gluster_server }}:/{{ gluster_volume }} sur {{ odoo_filestore }}.
+      Une piece jointe ecrite ici est visible depuis les autres instances.

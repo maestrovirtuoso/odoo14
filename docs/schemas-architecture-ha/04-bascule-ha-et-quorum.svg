@@ -1,0 +1,379 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+<title id="title">04 - Bascule HA et limites de disponibilité</title><desc id="desc">Architecture Odoo actuelle et option haute disponibilité PostgreSQL. Configuration du dépôt du 25 octobre 2026, serveurs non audités.</desc>
+<rect x="0" y="0" width="1600" height="1000" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<polyline points="20,0 20,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="40,0 40,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="60,0 60,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="80,0 80,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="100,0 100,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="120,0 120,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="140,0 140,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="160,0 160,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="180,0 180,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="200,0 200,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="220,0 220,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="240,0 240,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="260,0 260,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="280,0 280,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="300,0 300,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="320,0 320,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="340,0 340,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="360,0 360,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="380,0 380,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="400,0 400,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="420,0 420,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="440,0 440,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="460,0 460,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="480,0 480,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="500,0 500,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="520,0 520,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="540,0 540,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="560,0 560,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="580,0 580,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="600,0 600,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="620,0 620,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="640,0 640,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="660,0 660,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="680,0 680,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="700,0 700,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="720,0 720,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="740,0 740,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="760,0 760,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="780,0 780,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="800,0 800,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="820,0 820,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="840,0 840,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="860,0 860,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="880,0 880,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="900,0 900,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="920,0 920,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="940,0 940,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="960,0 960,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="980,0 980,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1000,0 1000,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1020,0 1020,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1040,0 1040,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1060,0 1060,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1080,0 1080,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1100,0 1100,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1120,0 1120,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1140,0 1140,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1160,0 1160,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1180,0 1180,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1200,0 1200,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1220,0 1220,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1240,0 1240,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1260,0 1260,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1280,0 1280,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1300,0 1300,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1320,0 1320,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1340,0 1340,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1360,0 1360,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1380,0 1380,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1400,0 1400,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1420,0 1420,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1440,0 1440,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1460,0 1460,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1480,0 1480,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1500,0 1500,1000" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="1520,0 1520,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1540,0 1540,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1560,0 1560,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="1580,0 1580,1000" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,20 1600,20" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,40 1600,40" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,60 1600,60" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,80 1600,80" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,100 1600,100" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,120 1600,120" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,140 1600,140" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,160 1600,160" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,180 1600,180" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,200 1600,200" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,220 1600,220" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,240 1600,240" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,260 1600,260" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,280 1600,280" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,300 1600,300" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,320 1600,320" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,340 1600,340" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,360 1600,360" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,380 1600,380" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,400 1600,400" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,420 1600,420" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,440 1600,440" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,460 1600,460" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,480 1600,480" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,500 1600,500" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,520 1600,520" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,540 1600,540" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,560 1600,560" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,580 1600,580" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,600 1600,600" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,620 1600,620" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,640 1600,640" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,660 1600,660" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,680 1600,680" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,700 1600,700" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,720 1600,720" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,740 1600,740" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,760 1600,760" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,780 1600,780" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,800 1600,800" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,820 1600,820" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,840 1600,840" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,860 1600,860" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,880 1600,880" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,900 1600,900" fill="none" stroke="#000000" stroke-width="0.35" stroke-linejoin="round"/>
+<polyline points="0,920 1600,920" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,940 1600,940" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,960 1600,960" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<polyline points="0,980 1600,980" fill="none" stroke="#000000" stroke-width="0.18" stroke-linejoin="round"/>
+<rect x="0" y="0" width="1600" height="138" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<rect x="60" y="21" width="1200" height="24" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="600" text-anchor="start">
+<tspan x="60" y="37.225">04 / SCÉNARIO HA PRÉVU</tspan>
+</text>
+<rect x="60" y="53" width="1240" height="45" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="600" text-anchor="start">
+<tspan x="60" y="85.9">Panne du primaire : élection puis reconnexion</tspan>
+</text>
+<rect x="60" y="101" width="1260" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">
+<tspan x="60" y="118.7">Scénario illustratif sous Patroni ; il ne décrit pas un test de panne exécuté sur les serveurs.</tspan>
+</text>
+<rect x="1340" y="48" width="200" height="46" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="1350" y="53" width="180" height="34" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="middle">
+<tspan x="1440" y="75.525">OPTION HA</tspan>
+</text>
+<polyline points="60,948 1540,948" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round"/>
+<rect x="60" y="960" width="1200" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start">
+<tspan x="60" y="976.725">Configuration du dépôt · 25 octobre 2026 · État des serveurs non audité</tspan>
+</text>
+<rect x="1400" y="960" width="140" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" text-anchor="end">
+<tspan x="1540" y="977.05">04 / 04</tspan>
+</text>
+<polyline points="0,138 1600,138" fill="none" stroke="#000000" stroke-width="1" stroke-linejoin="round"/>
+<rect x="945" y="142" width="595" height="24" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5"/>
+<defs><marker id="arrow-legend-access" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="960,154 1000,154" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-legend-access)"/>
+<rect x="1013" y="143" width="205" height="23" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start">
+<tspan x="1013" y="158.725">Accès / étapes</tspan>
+</text>
+<defs><marker id="arrow-legend-copy" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="1250,154 1290,154" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#arrow-legend-copy)"/>
+<rect x="1303" y="143" width="210" height="23" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="400" text-anchor="start">
+<tspan x="1303" y="158.725">WAL / contrôle</tspan>
+</text>
+<rect x="60" y="175" width="1480" height="60" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="85" y="189" width="1420" height="33" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="21" font-weight="600" text-anchor="start">
+<tspan x="85" y="212.325">HA NON ACTIVÉE · exemple : perte d&apos;odoodb1 et promotion conditionnelle d&apos;odoodb2</tspan>
+</text>
+<rect x="60" y="285" width="420" height="210" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="88" y="314" width="42" height="49" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="94" y="320" width="31" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="98" y="324" width="3" height="3" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="105,324 119,324" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="94" y="333" width="31" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="98" y="337" width="3" height="3" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="105,338 119,338" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="94" y="347" width="31" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="98" y="351" width="3" height="3" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<polyline points="105,352 119,352" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="80,309 138,367" fill="none" stroke="#000000" stroke-width="3" stroke-linejoin="round"/>
+<polyline points="138,309 80,367" fill="none" stroke="#000000" stroke-width="3" stroke-linejoin="round"/>
+<rect x="150" y="297" width="305" height="30" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600" text-anchor="start">
+<tspan x="150" y="318.5">odoodb1 · INDISPONIBLE</tspan>
+</text>
+<rect x="150" y="340" width="305" height="37" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="600" text-anchor="start">
+<tspan x="150" y="366.95">192.168.33.161</tspan>
+</text>
+<rect x="85" y="394" width="370" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">
+<tspan x="85" y="412.7">PostgreSQL, Patroni et etcd indisponibles.</tspan>
+</text>
+<rect x="85" y="438" width="370" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">
+<tspan x="85" y="455.7">HAProxy local également perdu ici.</tspan>
+</text>
+<rect x="590" y="285" width="420" height="210" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="617,323 617,354" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="661,323 661,354" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="661,323 660,324 658,326 654,327 650,328 645,329 639,329 633,329 628,328 624,327 620,326 618,324 617,323 618,321 620,319 624,318 628,317 633,316 639,316 645,316 650,317 654,318 658,319 660,321 661,323" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="661,337 660,339 658,340 654,342 650,343 645,343 639,343 633,343 628,343 624,342 620,340 618,339 617,337" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="661,348 660,350 658,351 654,352 650,353 645,354 639,354 633,354 628,353 624,352 620,351 618,350 617,348" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="661,354 660,356 658,357 654,359 650,360 645,360 639,361 633,360 628,360 624,359 620,357 618,356 617,354" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="680" y="297" width="305" height="30" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600" text-anchor="start">
+<tspan x="680" y="318.5">odoodb2 · PRIMAIRE ÉLU</tspan>
+</text>
+<rect x="680" y="340" width="305" height="37" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="600" text-anchor="start">
+<tspan x="680" y="366.95">192.168.33.162</tspan>
+</text>
+<rect x="615" y="394" width="370" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">
+<tspan x="615" y="412.7">Promotion par Patroni sous conditions.</tspan>
+</text>
+<rect x="615" y="438" width="370" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">
+<tspan x="615" y="455.7">etcd2 et etcd3 : majorité disponible.</tspan>
+</text>
+<rect x="1120" y="285" width="420" height="210" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="1147,323 1147,354" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1191,323 1191,354" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1191,323 1190,324 1188,326 1184,327 1180,328 1175,329 1169,329 1163,329 1158,328 1154,327 1150,326 1148,324 1147,323 1148,321 1150,319 1154,318 1158,317 1163,316 1169,316 1175,316 1180,317 1184,318 1188,319 1190,321 1191,323" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1191,337 1190,339 1188,340 1184,342 1180,343 1175,343 1169,343 1163,343 1158,343 1154,342 1150,340 1148,339 1147,337" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1191,348 1190,350 1188,351 1184,352 1180,353 1175,354 1169,354 1163,354 1158,353 1154,352 1150,351 1148,350 1147,348" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1191,354 1190,356 1188,357 1184,359 1180,360 1175,360 1169,361 1163,360 1158,360 1154,359 1150,357 1148,356 1147,354" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="1210" y="297" width="305" height="30" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600" text-anchor="start">
+<tspan x="1210" y="318.5">odoodb3 · RÉPLIQUE</tspan>
+</text>
+<rect x="1210" y="340" width="305" height="37" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="600" text-anchor="start">
+<tspan x="1210" y="366.95">192.168.33.163</tspan>
+</text>
+<rect x="1145" y="394" width="370" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">
+<tspan x="1145" y="412.7">Suit le nouveau primaire en streaming.</tspan>
+</text>
+<rect x="1145" y="438" width="370" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">
+<tspan x="1145" y="455.7">HAProxy et etcd restent disponibles.</tspan>
+</text>
+<defs><marker id="arrow-new-wal" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="1010,390 1120,390" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" stroke-dasharray="8 6" marker-end="url(#arrow-new-wal)"/>
+<rect x="1014" y="344" width="102" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600" text-anchor="middle">
+<tspan x="1065" y="362.7">WAL</tspan>
+</text>
+<rect x="60" y="550" width="420" height="100" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="83" y="571" width="42" height="33" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="83,580 125,580" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="88" y="575" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<rect x="94" y="575" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<rect x="99" y="575" width="2" height="2" rx="0" fill="#000000" stroke="#000000" stroke-width="1.5"/>
+<rect x="89" y="586" width="10" height="11" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="105,587 119,587" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="105,592 119,592" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="105,597 115,597" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="104,604 104,609" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="96,609 112,609" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="145" y="562" width="310" height="29" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600" text-anchor="start">
+<tspan x="145" y="583">Clients Odoo</tspan>
+</text>
+<rect x="145" y="606" width="310" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">
+<tspan x="145" y="623.7">Réessai sur une adresse disponible.</tspan>
+</text>
+<rect x="590" y="550" width="420" height="100" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="628" y="569" width="12" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="634,578 634,590" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="618,590 650,590" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="618,590 618,597" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="613" y="597" width="10" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="634,590 634,597" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="629" y="597" width="10" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="650,590 650,597" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="644" y="597" width="10" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="680" y="562" width="305" height="29" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="19" font-weight="600" text-anchor="start">
+<tspan x="680" y="582.675">HAProxy .33.162 / .33.163</tspan>
+</text>
+<rect x="680" y="606" width="305" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="400" text-anchor="start">
+<tspan x="680" y="623.7">Cible : le primaire courant.</tspan>
+</text>
+<rect x="1120" y="550" width="420" height="100" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="1158" y="569" width="12" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="1164,578 1164,590" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1148,590 1180,590" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<polyline points="1148,590 1148,597" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="1143" y="597" width="10" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="1164,590 1164,597" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="1159" y="597" width="10" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<polyline points="1180,590 1180,597" fill="none" stroke="#000000" stroke-width="2" stroke-linejoin="round"/>
+<rect x="1174" y="597" width="10" height="9" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="1210" y="562" width="305" height="29" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600" text-anchor="start">
+<tspan x="1210" y="583">QUORUM : 2 SUR 3</tspan>
+</text>
+<rect x="1210" y="606" width="305" height="25" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">
+<tspan x="1210" y="623.375">Deux membres doivent communiquer.</tspan>
+</text>
+<defs><marker id="arrow-clients-reconnect" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="480,600 590,600" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-clients-reconnect)"/>
+<defs><marker id="arrow-proxy-to-new-primary" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="800,550 800,495" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-proxy-to-new-primary)"/>
+<rect x="825" y="508" width="360" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="600" text-anchor="start">
+<tspan x="825" y="526.7">SQL relayé vers .33.162:5432</tspan>
+</text>
+<rect x="60" y="705" width="1480" height="165" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="85" y="714" width="1420" height="26" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600" text-anchor="start">
+<tspan x="85" y="731.55">ENCHAÎNEMENT ATTENDU, À VALIDER PAR DES TESTS</tspan>
+</text>
+<rect x="85" y="750" width="320" height="95" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="101" y="758" width="288" height="28" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="start">
+<tspan x="101" y="777.525">1 · Perte du primaire</tspan>
+</text>
+<rect x="101" y="798" width="288" height="39" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">
+<tspan x="101" y="812.25">Sessions SQL coupées</tspan>
+<tspan x="101" y="832.5">ou connexions en erreur</tspan>
+</text>
+<defs><marker id="arrow-failover-arrow-0" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="405,795 455,795" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-failover-arrow-0)"/>
+<rect x="455" y="750" width="320" height="95" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="471" y="758" width="288" height="28" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="start">
+<tspan x="471" y="777.525">2 · Verrou et élection</tspan>
+</text>
+<rect x="471" y="798" width="288" height="39" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">
+<tspan x="471" y="812.25">Majorité etcd et réserve</tspan>
+<tspan x="471" y="832.5">éligible nécessaires</tspan>
+</text>
+<defs><marker id="arrow-failover-arrow-1" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="775,795 825,795" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-failover-arrow-1)"/>
+<rect x="825" y="750" width="320" height="95" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="841" y="758" width="288" height="28" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="start">
+<tspan x="841" y="777.525">3 · Promotion + routage</tspan>
+</text>
+<rect x="841" y="798" width="288" height="39" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">
+<tspan x="841" y="812.25">Patroni promeut ; HAProxy</tspan>
+<tspan x="841" y="832.5">repère le nouveau primaire</tspan>
+</text>
+<defs><marker id="arrow-failover-arrow-2" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 1 L11 6 L0 11 Z" fill="#000000"/></marker></defs>
+<polyline points="1145,795 1195,795" fill="none" stroke="#000000" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow-failover-arrow-2)"/>
+<rect x="1195" y="750" width="320" height="95" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="1211" y="758" width="288" height="28" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="start">
+<tspan x="1211" y="777.525">4 · Reconnexion Odoo</tspan>
+</text>
+<rect x="1211" y="798" width="288" height="39" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="400" text-anchor="start">
+<tspan x="1211" y="812.25">Les clients ouvrent de</tspan>
+<tspan x="1211" y="832.5">nouvelles connexions SQL</tspan>
+</text>
+<rect x="60" y="895" width="1480" height="35" rx="0" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+<rect x="80" y="899" width="1440" height="27" fill="#FFFFFF" stroke="none"/>
+<text fill="#000000" font-family="Segoe UI, Arial, sans-serif" font-size="17" font-weight="600" text-anchor="start">
+<tspan x="80" y="918.025">Asynchrone : pertes possibles · pas de fencing matériel · durée à mesurer · certificats de sauvegarde HA à compléter.</tspan>
+</text>
+</svg>

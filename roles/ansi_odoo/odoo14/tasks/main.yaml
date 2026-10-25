@@ -282,9 +282,9 @@
       conteneur, sans erreur visible --
       la panne ne se decouvrirait qu'en ouvrant depuis un autre noeud une
       piece jointe creee ici.
-      Le volume est monte sur l'hote {{ lxc_host | default('porteur') }} et
-      passe au conteneur par le role odoo_filestore : jouer d'abord la play
-      1bis/5 de ansi_odoo.yaml (--tags filestore).
+      Le volume est monte par le conteneur lui-meme
+      (playbooks/filestore-conteneur.yaml) : le jouer d'abord, seul ou par
+      ansi_odoo.yaml --tags filestore.
       Pour un conteneur volontairement isole, poser
       odoo_exiger_filestore_partage=false.
     success_msg: "{{ _odoo_fs_monte.stdout | trim }}"

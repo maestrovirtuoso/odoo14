@@ -1,0 +1,111 @@
+---
+# ===========================================================================
+# Role filestore_conteneur  -  1/3 : preparer les CONTENEURS Odoo
+#
+# SANS COUPURE : rien n'est monte ni redemarre ici. Pendant la bascule,
+# /var/lib/odoo porte encore le bind de l'hote ; le conteneur montera le
+# volume lui-meme a son prochain demarrage, que la play 2/3 declenche apres
+# lui avoir donne /dev/fuse.
+#
+# Tout ce qui peut faire echouer le montage est verifie ICI, avant la moindre
+# coupure : client installe, noms des briques, port 24007.
+# ===========================================================================
+
+- name: Installer le client GlusterFS
+  # Paquet de Debian 12 (client 10.x). Un client plus ancien que les serveurs
+  # fonctionne en general, mais le montage echoue si le volume utilise une
+  # option qu'il ne connait pas : comparer avec "gluster --version" sur
+  # {{ gluster_server }} en cas d'echec.
+  ansible.builtin.apt:
+    name: glusterfs-client
+    state: present
+
+- name: Resoudre les serveurs Gluster en IPv4 (/etc/hosts du conteneur)
+  ansible.builtin.blockinfile:
+    path: /etc/hosts
+    marker: "# {mark} ANSIBLE filestore_conteneur : serveurs Gluster"
+    block: |
+      {% for h in filestore_gluster_hosts %}
+      {{ h.ip }} {{ h.name }}
+      {% endfor %}
+  when: filestore_gluster_hosts | length > 0
+
+- name: Resoudre les noms des serveurs de briques
+  ansible.builtin.command: "getent ahostsv4 {{ item }}"
+  loop: "{{ filestore_noms_briques }}"
+  register: _fs_noms
+  changed_when: false
+  failed_when: false
+
+- name: Refuser un conteneur qui ne trouverait pas les briques
+  ansible.builtin.assert:
+    that:
+      - _fs_noms.results | rejectattr('rc', 'equalto', 0) | list | length == 0
+    fail_msg: >-
+      {{ inventory_hostname }} ne resout pas en IPv4 :
+      {{ _fs_noms.results | rejectattr('rc', 'equalto', 0) | map(attribute='item') | join(', ') }}.
+      Le volume {{ gluster_volume }} designe ses briques par ces noms : sans
+      eux, le montage echouerait apres la coupure. Rien n'a ete coupe.
+      Declarer leurs adresses dans gluster_hosts
+      (group_vars/gluster_bricks/vars.yml), ou corriger filestore_noms_briques
+      d'apres "gluster volume info {{ gluster_volume }}".
+    success_msg: "{{ inventory_hostname }} : briques resolues"
+  when: filestore_noms_briques | length > 0
+
+- name: Le serveur GlusterFS repond depuis le conteneur
+  # Depuis le CONTENEUR, et non plus depuis l'hote : c'est lui qui se
+  # connecte desormais. Un pare-feu ou un auth.allow regle sur les adresses
+  # des hotes le refuse.
+  ansible.builtin.wait_for:
+    host: "{{ gluster_server }}"
+    port: 24007
+    timeout: 10
+    msg: >-
+      {{ gluster_server }}:24007 ne repond pas depuis {{ inventory_hostname }}
+      ({{ ansible_host }}). Les serveurs GlusterFS doivent accepter les
+      adresses des CONTENEURS : pare-feu, et "gluster volume get
+      {{ gluster_volume }} auth.allow". Rien n'a ete coupe.
+
+- name: Le point de montage existe
+  # Sans proprietaire ni droits : pendant la bascule, ce repertoire est la
+  # racine du volume, vue a travers le bind de l'hote. La play 3/3 les pose.
+  ansible.builtin.file:
+    path: "{{ odoo_filestore }}"
+    state: directory
+
+- name: Inscrire le volume dans le /etc/fstab du conteneur
+  # state present : la ligne seulement, sans monter. Le montage se fera au
+  # redemarrage du conteneur (play 2/3).
+  ansible.posix.mount:
+    path: "{{ odoo_filestore }}"
+    src: "{{ gluster_server }}:/{{ gluster_volume }}"
+    fstype: glusterfs
+    opts: "{{ filestore_options_montage }}"
+    state: present
+
+- name: Repertoire des complements systemd d'Odoo
+  # Cree ici : sur un conteneur neuf, le role odoo14 n'est pas encore passe.
+  ansible.builtin.file:
+    path: /etc/systemd/system/odoo.service.d
+    state: directory
+    mode: "0755"
+
+- name: Odoo attend le volume, et ne demarre pas sans lui
+  # RequiresMountsFor ordonne Odoo APRES le montage et l'exige : si le volume
+  # ne monte pas, Odoo ne demarre pas, au lieu d'ecrire sur le disque local.
+  # La garde AssertPathIsMountPoint du role odoo14 reste en place a cote.
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/odoo.service.d/filestore-montage.conf
+    content: |
+      # Gere par Ansible (roles/filestore-conteneur/filestore_conteneur) - toute modification sera perdue.
+      [Unit]
+      RequiresMountsFor={{ odoo_filestore }}
+    owner: root
+    group: root
+    mode: "0644"
+  register: _fs_complement
+
+- name: Recharger systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: _fs_complement is changed

@@ -1,0 +1,101 @@
+---
+# ===========================================================================
+# Filestore commun : chaque conteneur Odoo monte LUI-MEME le volume GlusterFS
+# "sre" sur /var/lib/odoo, sans passer par l'hote.
+#
+#   avant : 192.168.36.8:/sre -> /mnt/odoo (HOTE) -> bind -> /var/lib/odoo
+#   apres : 192.168.36.8:/sre ----------------------------> /var/lib/odoo
+#                                                           (CONTENEUR)
+#
+# Le conteneur monte le VOLUME, jamais une brique : une brique est un
+# repertoire d'un serveur GlusterFS, y ecrire directement contourne la
+# replication. Le client monte le volume, puis parle lui-meme aux briques.
+#
+# POURQUOI : un hote dont le montage echouait au demarrage passait au
+# conteneur un /mnt/odoo VIDE. Le bind faisait de /var/lib/odoo un point de
+# montage, la garde systemd d'Odoo le laissait demarrer, et il ecrivait sur le
+# disque local (accident du 25/09/2026). Monte par le conteneur, le volume est
+# la ou il n'y est pas, et Odoo ne demarre que s'il y est (RequiresMountsFor).
+#
+# TROIS PLAYS, dans cet ordre :
+#   1/3  conteneurs, en parallele, SANS coupure : client GlusterFS, noms des
+#        briques, port 24007, ligne de fstab, Odoo attend le montage ;
+#   2/3  hotes, UN A LA FOIS : /dev/fuse donne au conteneur, bind de l'hote
+#        retire, redemarrage du conteneur, preuve qu'il a monte le volume
+#        lui-meme, Odoo relance, puis l'hote est libere. Coupure d'Odoo sur ce
+#        seul noeud pendant que les deux autres servent. Un echec arrete tout
+#        sur cet hote, sans toucher aux suivants ;
+#   3/3  conteneurs : type du montage, ecriture, proprietaire du volume.
+#
+# L'hote de sauvegarde (groupe backup_host, 192.168.36.21) GARDE /mnt/odoo, en
+# LECTURE SEULE : la sauvegarde y archive le filestore. Les deux autres hotes
+# ne montent plus rien.
+#
+# Rejouable : un second passage ne redemarre aucun conteneur et ne change
+# rien. Joue aussi par ansi_odoo.yaml (1bis/5) et ansi_syncro.yaml (4/8), a
+# la place de l'ancien role odoo_filestore.
+#
+# PREREQUIS, hors projet, sur un serveur GlusterFS :
+#   gluster volume info sre             # noms des briques : filestore_noms_briques
+#   gluster volume status sre           # ports des briques (49152 et suivants)
+#   gluster volume get sre auth.allow   # "*", ou les adresses des CONTENEURS
+# Les conteneurs 192.168.36.161 a 163 doivent joindre 24007 et les ports de
+# brique. La play 1/3 verifie le port 24007 et les noms des briques avant
+# toute coupure.
+#
+# Lancement :
+#   ansible-playbook playbooks/filestore-conteneur.yaml --ask-vault-pass
+# (ajouter -k si les hotes demandent un mot de passe SSH)
+#
+# Ne pas utiliser --limit : la play 2/3 exige que la play 1/3 ait prepare le
+# conteneur de l'hote, et le verifie avant de couper.
+#
+# AppArmor : si le montage FUSE est refuse dans le conteneur (le message
+# d'echec cite les refus de l'hote), dernier recours :
+#   ansible-playbook playbooks/filestore-conteneur.yaml --ask-vault-pass \
+#     -e filestore_lxc_apparmor_unconfined=true
+#
+# RETOUR ARRIERE d'un noeud (hote H, conteneur devodoo14), a la main :
+#   1. dans le conteneur : retirer la ligne /var/lib/odoo de /etc/fstab ;
+#   2. sur H : remettre dans /var/lib/lxc/devodoo14/config la ligne
+#        lxc.mount.entry = /mnt/odoo var/lib/odoo none bind,create=dir 0 0
+#      remonter le volume sur /mnt/odoo (mount -t glusterfs
+#      192.168.36.8:/sre /mnt/odoo), puis redemarrer le conteneur.
+# ===========================================================================
+
+- name: "1/3 - Conteneurs Odoo : client GlusterFS, sans coupure"
+  hosts: odoo_containers
+  gather_facts: true
+  roles:
+    # Sources APT coherentes avant d'installer le client, comme pour tout
+    # paquet de ces conteneurs (meme role que odoo14 et pg_ha).
+    - role: base_debian
+      vars:
+        apt_validate_packages:
+          - glusterfs-client
+  tasks:
+    - name: Preparer le montage du volume dans le conteneur
+      ansible.builtin.import_role:
+        name: filestore_conteneur
+        tasks_from: conteneur
+
+# Un hote a la fois : seul son conteneur est coupe pendant la bascule. Si un
+# hote echoue, serial arrete la suite : les hotes restants gardent leur
+# ancien montage, et leur Odoo continue de servir.
+- name: "2/3 - Hotes Odoo, un a la fois : /dev/fuse, redemarrage, hote libere"
+  hosts: gluster_bricks
+  gather_facts: false
+  serial: 1
+  roles:
+    - filestore_conteneur
+
+- name: "3/3 - Conteneurs Odoo : verification du volume"
+  hosts: odoo_containers
+  # Pas de collecte : un conteneur que la play 2/3 vient de redemarrer peut
+  # ne pas repondre encore. La premiere tache l'attend.
+  gather_facts: false
+  tasks:
+    - name: Verifier le volume dans le conteneur
+      ansible.builtin.import_role:
+        name: filestore_conteneur
+        tasks_from: verifier

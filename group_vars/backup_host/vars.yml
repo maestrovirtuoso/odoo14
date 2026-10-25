@@ -58,9 +58,9 @@ sauvegarde_dir_local: "./sauvegardes"
 # pg_dump, et la derniere archive de filestore datait du 25/09/2026 alors que
 # les dumps de base etaient quotidiens.
 #
-# Sur .128, l'hote de sauvegarde, cette ligne de fstab est COMMENTEE : il faut
-# la decommenter puis "mount -a". Le montage n'est pas gere par Ansible, a la
-# demande ; le script verifie seulement, et refuse de continuer sinon.
+# Le montage est gere par playbooks/filestore-conteneur.yaml : sur l'hote de
+# sauvegarde, et sur lui seul, le volume reste monte ici en LECTURE SEULE.
+# Le script de sauvegarde verifie seulement, et refuse de continuer sinon.
 #
 # JAMAIS /bricks : une brick contient l'index interne .glusterfs, et la lire
 # court-circuite la couche qui garantit une vue coherente. /bricks/odoo14/prod
