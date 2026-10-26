@@ -159,6 +159,16 @@
     - role: pg_server
       when: not (pg_ha_enabled | bool)
 
+# etcd sur les hotes des conteneurs PostgreSQL (groupe etcd_cluster), avant
+# Patroni. Meme play que dans playbooks/ansi_postgresql_ha.yaml.
+- name: "2ter/5 - etcd sur les hotes (haute disponibilite)"
+  hosts: etcd_cluster
+  gather_facts: true
+  any_errors_fatal: true
+  roles:
+    - role: etcd_hotes
+      when: pg_ha_enabled | bool
+
 # Les trois serveurs ENSEMBLE : etcd et la reprise par Patroni l'exigent.
 # Meme play que playbooks/ansi_postgresql_ha.yaml ; sur un cluster deja sous
 # Patroni, elle ne fait que verifier et remettre en conformite.

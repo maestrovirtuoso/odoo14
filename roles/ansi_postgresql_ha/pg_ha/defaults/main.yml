@@ -96,6 +96,21 @@ pg_ha_dcs:
       wal_log_hints: "on"
 
 # --- etcd --------------------------------------------------------------------
+# Ou tourne etcd :
+#   groupe etcd_cluster present  sur les HOTES (roles/ansi_postgresql_ha/etcd_hotes),
+#                                declares par leur IP ; ce role n'installe
+#                                plus etcd dans les conteneurs ;
+#   sinon                        dans les conteneurs PostgreSQL (tasks/etcd.yaml).
+# Voir docs/ETCD-EXTERNE.md.
+pg_ha_etcd_externe: "{{ (groups['etcd_cluster'] | default([])) | length > 0 }}"
+pg_ha_etcd_ips: "{{ groups['etcd_cluster'] if pg_ha_etcd_externe | bool else pg_ha_node_ips }}"
+
+# Serveur PostgreSQL a redemarrer en PRIMAIRE lors du passage de Patroni aux
+# etcd des hotes, quand aucun ne s'est arrete en primaire (tous en reserve,
+# par exemple apres une perte de quorum). A passer en -e si le playbook le
+# demande. Voir tasks/etat.yaml.
+pg_ha_primaire_migration: ""
+
 pg_ha_etcd_client_port: 2379
 pg_ha_etcd_peer_port: 2380
 pg_ha_etcd_data_dir: /var/lib/etcd/odoo-pg

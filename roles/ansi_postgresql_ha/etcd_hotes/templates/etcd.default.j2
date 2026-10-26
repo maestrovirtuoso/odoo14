@@ -1,0 +1,32 @@
+# {{ ansible_managed }}
+#
+# Membre {{ etcd_hotes_nom }} du registre de Patroni, sur l'HOTE
+# {{ inventory_hostname }} (et non dans son conteneur PostgreSQL). Lu par
+# l'unite etcd.service du paquet Debian (EnvironmentFile) : chaque variable
+# ETCD_X correspond a l'option --x d'etcd.
+
+ETCD_NAME="{{ etcd_hotes_nom }}"
+ETCD_DATA_DIR="{{ etcd_hotes_data_dir }}"
+
+ETCD_LISTEN_PEER_URLS="https://{{ inventory_hostname }}:{{ etcd_hotes_peer_port }}"
+ETCD_INITIAL_ADVERTISE_PEER_URLS="https://{{ inventory_hostname }}:{{ etcd_hotes_peer_port }}"
+ETCD_LISTEN_CLIENT_URLS="https://{{ inventory_hostname }}:{{ etcd_hotes_client_port }},https://127.0.0.1:{{ etcd_hotes_client_port }}"
+ETCD_ADVERTISE_CLIENT_URLS="https://{{ inventory_hostname }}:{{ etcd_hotes_client_port }}"
+
+# Composition initiale, derivee de l'inventaire. Ignoree une fois le
+# repertoire de donnees initialise.
+ETCD_INITIAL_CLUSTER="{% for h in etcd_hotes_noeuds %}etcd-{{ h | replace('.', '-') }}=https://{{ h }}:{{ etcd_hotes_peer_port }}{{ '' if loop.last else ',' }}{% endfor %}"
+ETCD_INITIAL_CLUSTER_STATE="new"
+ETCD_INITIAL_CLUSTER_TOKEN="{{ etcd_hotes_jeton }}"
+
+# TLS avec certificat client EXIGE, pour les clients (Patroni) comme entre
+# membres. Ecrire dans etcd, c'est pouvoir changer les parametres de
+# PostgreSQL via Patroni.
+ETCD_CERT_FILE="{{ etcd_hotes_ssl_dir }}/server.crt"
+ETCD_KEY_FILE="{{ etcd_hotes_ssl_dir }}/server.key"
+ETCD_TRUSTED_CA_FILE="{{ etcd_hotes_ssl_dir }}/ca.crt"
+ETCD_CLIENT_CERT_AUTH="true"
+ETCD_PEER_CERT_FILE="{{ etcd_hotes_ssl_dir }}/server.crt"
+ETCD_PEER_KEY_FILE="{{ etcd_hotes_ssl_dir }}/server.key"
+ETCD_PEER_TRUSTED_CA_FILE="{{ etcd_hotes_ssl_dir }}/ca.crt"
+ETCD_PEER_CLIENT_CERT_AUTH="true"

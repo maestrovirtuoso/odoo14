@@ -120,6 +120,17 @@ odoodb3 ansible_host=192.168.33.163 lxc_host=192.168.33.23
 db_containers
 db_replicas
 
+# Membres etcd, le registre de Patroni : les HOTES des conteneurs
+# PostgreSQL, et non les conteneurs (roles/ansi_postgresql_ha/etcd_hotes).
+# Ainsi, arreter deux conteneurs PostgreSQL laisse les trois etcd en vie, et
+# le dernier PostgreSQL peut rester primaire (docs/ETCD-EXTERNE.md).
+# Declares PAR LEUR IP : la liste sert directement d'adresses. Retirer ce
+# groupe remet etcd dans les conteneurs.
+[etcd_cluster]
+192.168.33.21
+192.168.33.22
+192.168.33.23
+
 [lxc_containers:children]
 odoo_containers
 db_containers

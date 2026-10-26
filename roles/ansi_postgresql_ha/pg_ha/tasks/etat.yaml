@@ -7,7 +7,8 @@
 # /etc/patroni/config.yml n'existe pas encore, et pg_server (qui refuse de
 # toucher a un serveur qui l'a) reste utilisable.
 #
-# Rien n'est arrete ici : tout se lit sur disque.
+# Rien n'est arrete ici, tout se lit sur disque, SAUF lors d'un passage de
+# Patroni a d'autres etcd (voir "Migration" plus bas).
 # ===========================================================================
 - name: Ce serveur a-t-il deja ete repris par Patroni ?
   # Marque posee par tasks/detacher_debian.yaml JUSTE AVANT le premier
@@ -31,6 +32,93 @@
       {{ pg_conf_dir }}/postgresql.conf absent sur {{ inventory_hostname }} :
       le cluster Debian {{ pg_version }}/main n'existe pas (pg_lsclusters).
       Le recreer (pg_createcluster {{ pg_version }} main) puis relancer.
+
+# ---------------------------------------------------------------------------
+# Passage de Patroni a d'autres etcd (en pratique : des conteneurs vers les
+# hotes, groupe etcd_cluster, docs/ETCD-EXTERNE.md).
+#
+# Le nouvel etcd est VIDE : le premier Patroni qui y demarre cree le cluster
+# et devient primaire. Il faut donc que ce soit le vrai primaire, sinon une
+# reserve en retard prendrait sa place et des ecritures seraient perdues.
+# D'ou : arreter Patroni (donc PostgreSQL) partout, les reserves d'abord et
+# le primaire en dernier, puis traiter le tout comme une PREMIERE reprise
+# dont le primaire est celui-la. COUPURE pour Odoo jusqu'au redemarrage.
+#
+# Seule exception a "rien n'est arrete dans ce fichier" ; le primaire est
+# designe AVANT tout arret, et un doute arrete le playbook avant.
+# ---------------------------------------------------------------------------
+- name: Configuration actuelle de Patroni
+  ansible.builtin.slurp:
+    src: "{{ pg_ha_config_file }}"
+  register: _pg_ha_config_actuelle
+  # Absente avant la premiere reprise : rien a migrer.
+  failed_when: false
+
+- name: Patroni vise-t-il deja les bons etcd ?
+  ansible.builtin.set_fact:
+    _pg_ha_etcd_a_changer: >-
+      {{ _pg_ha_repris_cmd.rc == 0 and _pg_ha_config_actuelle.content is defined
+         and ((_pg_ha_config_actuelle.content | b64decode | from_yaml).etcd3.hosts | default([]) | sort)
+             != (pg_ha_etcd_ips | map('regex_replace', '$', ':' ~ pg_ha_etcd_client_port) | sort | list) }}
+
+- name: Faut-il basculer Patroni vers d'autres etcd ?
+  ansible.builtin.set_fact:
+    _pg_ha_migration: >-
+      {{ pg_ha_nodes | map('extract', hostvars, '_pg_ha_etcd_a_changer') | map('bool') | select | list | length > 0 }}
+
+- name: Migration - qui est primaire, avant tout arret ?
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:{{ pg_ha_rest_port }}/primary"
+    status_code: [200, 503]
+  register: _pg_ha_role_avant
+  # Patroni arrete ou injoignable : pas primaire.
+  failed_when: false
+  when: _pg_ha_migration | bool
+
+- name: Migration - primaire designe
+  ansible.builtin.set_fact:
+    _pg_ha_primaire_migration: >-
+      {{ pg_ha_primaire_migration if pg_ha_primaire_migration | length > 0 else
+         (dict(pg_ha_nodes | zip(pg_ha_nodes | map('extract', hostvars, ['_pg_ha_role_avant', 'status'])))
+          | dict2items | selectattr('value', 'equalto', 200) | map(attribute='key') | list
+          | first | default('')) }}
+  when: _pg_ha_migration | bool
+
+- name: Migration - refuser sans primaire certain
+  # Perte de quorum, par exemple : Patroni a remis tout le monde en lecture
+  # seule, et rien ne dit qui a les donnees les plus recentes. Comparer
+  # "Latest checkpoint location" (pg_controldata) sur les trois, puis
+  # relancer avec -e pg_ha_primaire_migration=<le plus avance>.
+  ansible.builtin.assert:
+    that: _pg_ha_primaire_migration in pg_ha_nodes
+    fail_msg: >-
+      Passage de Patroni aux etcd des hotes : aucun primaire en service, et
+      pg_ha_primaire_migration n'est pas donne. Rien n'a ete arrete. Sur
+      chaque serveur : sudo -u postgres {{ pg_ha_bin_dir }}/pg_controldata
+      {{ pg_data_dir }} | grep -E 'state|TimeLineID|checkpoint location',
+      puis relancer avec -e pg_ha_primaire_migration=<serveur le plus avance>
+      (docs/ETCD-EXTERNE.md).
+  run_once: true
+  when: _pg_ha_migration | bool
+
+- name: Migration - arreter Patroni sur les reserves
+  # Arreter Patroni arrete PostgreSQL proprement. La coupure commence ici.
+  ansible.builtin.systemd:
+    name: patroni
+    state: stopped
+  when:
+    - _pg_ha_migration | bool
+    - inventory_hostname != _pg_ha_primaire_migration
+
+- name: Migration - puis sur le primaire, en dernier
+  # En dernier : les reserves ont tout recu, et le primaire s'arrete en
+  # "shut down", ce que la decision ci-dessous verifie.
+  ansible.builtin.systemd:
+    name: patroni
+    state: stopped
+  when:
+    - _pg_ha_migration | bool
+    - inventory_hostname == _pg_ha_primaire_migration
 
 - name: Etat du repertoire de donnees (pg_controldata)
   # Lit le fichier de controle sur disque : fonctionne serveur arrete comme
@@ -86,13 +174,19 @@
          | dict2items | selectattr('value') | map(attribute='key') | list }}
 
 - name: Identifiant systeme du cluster
-  # Celui d'un serveur deja repris si le cluster existe ; sinon, celui du
-  # primaire de la reprise.
+  # Premiere reprise, ou passage a d'autres etcd (tout repart d'un etcd
+  # vide) : le primaire de la reprise est pg_ha_initial_primary, ou celui
+  # designe pour la migration. Sinon, un serveur deja repris fait foi.
   ansible.builtin.set_fact:
-    _pg_ha_premiere_reprise: "{{ _pg_ha_deja_repris | length == 0 }}"
+    _pg_ha_premiere_reprise: "{{ _pg_ha_deja_repris | length == 0 or _pg_ha_migration | bool }}"
+    _pg_ha_primaire_reprise: >-
+      {{ _pg_ha_primaire_migration if _pg_ha_migration | bool else pg_ha_initial_primary }}
+
+- name: Identifiant de reference
+  ansible.builtin.set_fact:
     _pg_ha_sysid_ref: >-
-      {{ hostvars[_pg_ha_deja_repris | first if _pg_ha_deja_repris | length > 0
-                  else pg_ha_initial_primary]._pg_ha_sysid }}
+      {{ hostvars[_pg_ha_primaire_reprise if _pg_ha_premiere_reprise | bool
+                  else _pg_ha_deja_repris | first]._pg_ha_sysid }}
 
 - name: Ce que devient ce serveur
   # demarrer   deja repris : Patroni le gere, il suffit qu'il tourne.
@@ -106,14 +200,19 @@
   ansible.builtin.set_fact:
     _pg_ha_action: >-
       {%- set en_reserve = _pg_ha_etat in ['in archive recovery', 'shut down in recovery'] -%}
-      {%- if _pg_ha_repris | bool -%}demarrer
-      {%- elif _pg_ha_premiere_reprise | bool and inventory_hostname == pg_ha_initial_primary -%}
-        {{- 'primaire' if _pg_ha_etat in ['in production', 'shut down'] else 'refus' -}}
+      {%- set migration = _pg_ha_migration | bool -%}
+      {%- if _pg_ha_repris | bool and not migration -%}demarrer
+      {%- elif _pg_ha_premiere_reprise | bool and inventory_hostname == _pg_ha_primaire_reprise -%}
+        {#- Un primaire designe a la main pour la migration peut s'etre arrete
+            en reserve (perte de quorum) : Patroni le promouvra. -#}
+        {{- 'primaire' if _pg_ha_etat in ['in production', 'shut down']
+              or (migration and pg_ha_primaire_migration | length > 0) else 'refus' -}}
       {%- elif _pg_ha_sysid != '' and _pg_ha_sysid == _pg_ha_sysid_ref -%}
         {#- A la premiere reprise, un serveur du meme cluster qui n'est PAS en
             recuperation est un second primaire : il a diverge. Une fois le
-            cluster sous Patroni, pg_rewind sait le rattraper. -#}
-        {{- 'reserve' if en_reserve or not (_pg_ha_premiere_reprise | bool) else 'refus' -}}
+            cluster sous Patroni (ou en migration, ou il l'a deja ete),
+            pg_rewind sait le rattraper. -#}
+        {{- 'reserve' if en_reserve or migration or not (_pg_ha_premiere_reprise | bool) else 'refus' -}}
       {%- elif not (_pg_ha_donnees | bool) and _pg_ha_sysid_ref != '' -%}recopie
       {%- else -%}refus
       {%- endif -%}
@@ -132,9 +231,10 @@
     fail_msg: >-
       {{ inventory_hostname }} : etat "{{ _pg_ha_etat }}", identifiant
       {{ _pg_ha_sysid or 'aucun' }}, alors que le cluster est
-      {{ _pg_ha_sysid_ref or 'inconnu' }}. Aucun service n'a ete arrete ni
-      configure, aucune donnee touchee. Cas possibles : le primaire de
-      l'inventaire ({{ pg_ha_initial_primary }}) est en realite une reserve ;
+      {{ _pg_ha_sysid_ref or 'inconnu' }}. Aucun service n'a ete configure,
+      aucune donnee touchee ({{ 'Patroni a ete ARRETE pour la migration : relancer apres correction'
+      if _pg_ha_migration | bool else 'aucun service arrete' }}). Cas possibles : le primaire de
+      la reprise ({{ _pg_ha_primaire_reprise }}) est en realite une reserve ;
       une reserve a ete promue et a diverge ; ce serveur porte les donnees
       d'un autre cluster. Sauvegarder, comprendre, puis corriger a la main
       (docs/POSTGRESQL-PATRONI.md, "Reprise refusee").

@@ -9,15 +9,13 @@
 # Sur les serveurs deja installes par pg_server, PostgreSQL est deja la et
 # continue de tourner : rien ne change pour lui ici.
 - name: Installer PostgreSQL, Patroni, etcd et HAProxy sans demarrer leurs services
+  # etcd-server n'est installe dans les conteneurs que si etcd y tourne
+  # (pas de groupe etcd_cluster). python3-etcd, lui, est le client de
+  # Patroni : toujours necessaire.
   ansible.builtin.apt:
-    name:
-      - postgresql
-      - "postgresql-{{ pg_version }}"
-      - python3-psycopg2
-      - patroni
-      - python3-etcd
-      - etcd-server
-      - etcd-client
-      - haproxy
+    name: >-
+      {{ ['postgresql', 'postgresql-' ~ pg_version, 'python3-psycopg2',
+          'patroni', 'python3-etcd', 'haproxy']
+         + ([] if pg_ha_etcd_externe | bool else ['etcd-server', 'etcd-client']) }}
     state: present
     policy_rc_d: 101

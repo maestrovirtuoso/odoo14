@@ -1,0 +1,150 @@
+---
+# ===========================================================================
+# Role etcd_hotes  -  execute sur les HOTES des conteneurs PostgreSQL
+# (groupe etcd_cluster), jamais dans les conteneurs.
+#
+# Pourquoi sur les hotes : tant qu'etcd vit dans les conteneurs PostgreSQL,
+# arreter deux de ces conteneurs arrete aussi deux etcd sur trois. Le quorum
+# est perdu, et le dernier PostgreSQL se met en lecture seule. Sur les hotes,
+# etcd survit a l'arret des conteneurs : le dernier PostgreSQL peut rester
+# primaire. Voir docs/ETCD-EXTERNE.md.
+#
+# Reseau ipvlan : un conteneur ne joint pas son propre hote. Chaque Patroni
+# n'atteint donc que DEUX de ces trois etcd ; cela lui suffit.
+# ===========================================================================
+- name: Trois hotes etcd, Debian, joues ensemble
+  ansible.builtin.assert:
+    that:
+      - etcd_hotes_noeuds | length == 3
+      - (ansible_play_hosts | sort) == (etcd_hotes_noeuds | sort)
+      - ansible_os_family == 'Debian'
+      - ansible_forks | default(5) | int >= 3
+    fail_msg: >-
+      Le groupe etcd_cluster doit compter trois hotes Debian, declares par leur
+      IP, joues ensemble (sans --limit, au moins 3 forks). Groupe :
+      {{ etcd_hotes_noeuds }}, play : {{ ansible_play_hosts }}.
+  run_once: true
+
+- name: Installer etcd sans le demarrer
+  # policy_rc_d 101 : le paquet demarrerait sinon un etcd a un seul membre.
+  ansible.builtin.apt:
+    name:
+      - etcd-server
+      - etcd-client
+    state: present
+    update_cache: true
+    policy_rc_d: 101
+
+# ---------------------------------------------------------------------------
+# Certificats, emis sur le poste de controle par roles/commun/pg_pki, avec
+# l'autorite d'etcd (pki/etcd). Un seul certificat par hote : etcd le
+# presente comme serveur, et aux autres membres comme client.
+# ---------------------------------------------------------------------------
+- name: Certificat etcd de l'hote
+  ansible.builtin.include_role:
+    name: pg_pki
+    tasks_from: cert
+  vars:
+    pg_pki_dir: "{{ etcd_hotes_pki_dir }}"
+    pg_pki_ca_cn: "{{ etcd_hotes_ca_cn }}"
+    pg_pki_name: "etcd-hote-{{ inventory_hostname }}"
+    pg_pki_subject: "/CN={{ etcd_hotes_nom }}"
+    pg_pki_extensions:
+      - "subjectAltName=IP:{{ inventory_hostname }},IP:127.0.0.1"
+      - "extendedKeyUsage=serverAuth,clientAuth"
+
+- name: Repertoire des certificats
+  ansible.builtin.file:
+    path: "{{ etcd_hotes_ssl_dir }}"
+    state: directory
+    owner: etcd
+    group: etcd
+    mode: "0750"
+
+- name: Certificats d'etcd
+  # Pas de redemarrage automatique : ils ne changent qu'a la premiere
+  # emission, avant le premier demarrage.
+  ansible.builtin.copy:
+    src: "{{ etcd_hotes_pki_dir }}/{{ item.src }}"
+    dest: "{{ etcd_hotes_ssl_dir }}/{{ item.dest }}"
+    owner: etcd
+    group: etcd
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: ca.crt, dest: ca.crt, mode: "0644" }
+    - { src: "etcd-hote-{{ inventory_hostname }}.crt", dest: server.crt, mode: "0644" }
+    - { src: "etcd-hote-{{ inventory_hostname }}.key", dest: server.key, mode: "0600" }
+  loop_control:
+    label: "{{ item.dest }}"
+
+# ---------------------------------------------------------------------------
+# Configuration et demarrage
+# ---------------------------------------------------------------------------
+- name: etcd tourne-t-il deja ?
+  ansible.builtin.command: systemctl is-active etcd
+  register: _etcd_hotes_avant
+  changed_when: false
+  failed_when: false
+
+- name: Configuration d'etcd
+  ansible.builtin.template:
+    src: etcd.default.j2
+    dest: /etc/default/etcd
+    owner: root
+    group: root
+    mode: "0644"
+  register: _etcd_hotes_conf
+
+- name: Demarrer etcd sur les trois hotes EN MEME TEMPS
+  # Un membre neuf attend les deux autres, et systemd attend qu'il soit pret :
+  # une seule tache, executee en parallele sur les trois hotes.
+  ansible.builtin.systemd:
+    name: etcd
+    state: started
+    enabled: true
+
+- name: Appliquer une configuration modifiee, un hote a la fois
+  # Redemarrer les trois ensemble ferait perdre le quorum, donc le primaire.
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      systemctl restart etcd
+      for i in $(seq 30); do
+        etcdctl endpoint health --cluster >/dev/null 2>&1 && exit 0
+        sleep 2
+      done
+      echo "etcd n'a pas rejoint le cluster apres son redemarrage" >&2
+      exit 1
+  environment: "{{ etcd_hotes_etcdctl_env }}"
+  throttle: 1
+  when:
+    - _etcd_hotes_conf.changed
+    - _etcd_hotes_avant.stdout == 'active'
+
+- name: Le cluster etcd est sain, avec ses trois membres
+  ansible.builtin.command: etcdctl endpoint health --cluster
+  environment: "{{ etcd_hotes_etcdctl_env }}"
+  register: _etcd_hotes_sante
+  until: _etcd_hotes_sante.rc == 0
+  retries: 30
+  delay: 2
+  changed_when: false
+
+- name: Membres declares
+  ansible.builtin.command: etcdctl member list -w json
+  environment: "{{ etcd_hotes_etcdctl_env }}"
+  register: _etcd_hotes_membres
+  changed_when: false
+  run_once: true
+
+- name: Refuser un cluster etcd qui ne serait pas celui de l'inventaire
+  # Un membre en trop compte dans le quorum : avec quatre membres declares,
+  # en perdre deux fige le cluster.
+  ansible.builtin.assert:
+    that:
+      - (_etcd_hotes_membres.stdout | from_json).members | map(attribute='name') | sort | list
+        == etcd_hotes_noeuds | map('replace', '.', '-') | map('regex_replace', '^', 'etcd-') | sort | list
+    fail_msg: >-
+      Membres etcd : {{ (_etcd_hotes_membres.stdout | from_json).members | map(attribute='name') | list }}.
+      Retirer les membres en trop (etcdctl member remove) avant de continuer.
+  run_once: true

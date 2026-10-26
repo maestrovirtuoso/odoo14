@@ -1,0 +1,36 @@
+---
+# ===========================================================================
+# Valeurs par defaut du role etcd_hotes : etcd, registre de Patroni, sur les
+# HOTES des conteneurs PostgreSQL (groupe etcd_cluster de inventory.yaml).
+# Explication : docs/ETCD-EXTERNE.md.
+#
+# Les membres sont declares PAR LEUR IP dans l'inventaire : inventory_hostname
+# sert directement d'adresse.
+# ===========================================================================
+etcd_hotes_noeuds: "{{ groups['etcd_cluster'] | default([]) }}"
+
+# Nom de membre : l'IP avec des tirets (etcd-192-168-33-21).
+etcd_hotes_nom: "etcd-{{ inventory_hostname | replace('.', '-') }}"
+
+# Ports : les MEMES que pg_ha_etcd_client_port / pg_ha_etcd_peer_port
+# (roles/ansi_postgresql_ha/pg_ha), que Patroni utilise pour joindre etcd.
+etcd_hotes_client_port: 2379
+etcd_hotes_peer_port: 2380
+etcd_hotes_data_dir: /var/lib/etcd/odoo-pg
+etcd_hotes_ssl_dir: /etc/etcd/ssl
+
+# Jeton DIFFERENT de celui des etcd poses dans les conteneurs (odoo-pg) : les
+# deux clusters ne peuvent pas se melanger pendant la migration.
+etcd_hotes_jeton: odoo-pg-hotes
+
+# MEME autorite que pg_ha (pki/etcd) : les certificats clients de Patroni,
+# deja poses dans les conteneurs, sont signes par elle.
+etcd_hotes_pki_dir: "{{ inventory_dir }}/pki/etcd"
+etcd_hotes_ca_cn: prosys-etcd-ca
+
+etcd_hotes_etcdctl_env:
+  ETCDCTL_API: "3"
+  ETCDCTL_ENDPOINTS: "https://127.0.0.1:{{ etcd_hotes_client_port }}"
+  ETCDCTL_CACERT: "{{ etcd_hotes_ssl_dir }}/ca.crt"
+  ETCDCTL_CERT: "{{ etcd_hotes_ssl_dir }}/server.crt"
+  ETCDCTL_KEY: "{{ etcd_hotes_ssl_dir }}/server.key"

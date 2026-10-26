@@ -28,13 +28,31 @@
 #   - entre les trois conteneurs PostgreSQL : 2379, 2380 (etcd), 8008
 #     (Patroni), 5432 ; depuis le reseau Odoo : 5000 (HAProxy).
 #
+# etcd SUR LES HOTES (groupe etcd_cluster, docs/ETCD-EXTERNE.md) : si Patroni
+# utilise encore les etcd des conteneurs, le playbook le bascule sur ceux des
+# hotes. Coupure d'environ une minute : les trois PostgreSQL sont arretes,
+# reserves d'abord, puis redemarres, primaire d'abord. Si aucun primaire
+# n'est evident (perte de quorum), le playbook s'arrete et demande lequel
+# redemarrer en premier :
+#   ... --ask-vault-pass -e pg_ha_primaire_migration=odoodb2
+#
 # Lancement :
 #   ansible-playbook playbooks/ansi_postgresql_ha.yaml --ask-vault-pass
 #
 # Ne JAMAIS utiliser --limit : etcd et la reprise exigent les trois serveurs
 # ensemble (le role le verifie).
 # ===========================================================================
-- name: "PostgreSQL haute disponibilite : etcd, Patroni, HAProxy"
+# etcd sur les HOTES des conteneurs PostgreSQL (groupe etcd_cluster), avant
+# Patroni qui ne fonctionne pas sans lui. Sans ce groupe dans l'inventaire,
+# cette play ne vise personne et pg_ha pose etcd dans les conteneurs.
+- name: "PostgreSQL haute disponibilite : etcd sur les hotes"
+  hosts: etcd_cluster
+  gather_facts: true
+  any_errors_fatal: true
+  roles:
+    - etcd_hotes
+
+- name: "PostgreSQL haute disponibilite : Patroni, HAProxy"
   hosts: db_cluster
   gather_facts: true
   # Un serveur en echec arrete les trois : une reprise a moitie faite sur

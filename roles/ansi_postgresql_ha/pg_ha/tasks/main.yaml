@@ -47,14 +47,31 @@
 - name: Certificats
   ansible.builtin.import_tasks: certificats.yaml
 
+# etcd dans les conteneurs seulement sans groupe etcd_cluster. Avec lui,
+# etcd tourne sur les hotes (roles/ansi_postgresql_ha/etcd_hotes, play
+# precedente du playbook).
 - name: etcd
   ansible.builtin.import_tasks: etcd.yaml
+  when: not (pg_ha_etcd_externe | bool)
 
 - name: Configuration de Patroni
   ansible.builtin.import_tasks: patroni.yaml
 
 - name: Reprise de PostgreSQL par Patroni
   ansible.builtin.import_tasks: reprise.yaml
+
+- name: Arreter l'ancien etcd des conteneurs
+  # Seulement APRES la reprise : Patroni utilise desormais les etcd des
+  # hotes. Laisse en route, l'ancien cluster ne servirait a rien et
+  # tromperait quiconque le consulterait.
+  ansible.builtin.shell:
+    cmd: |
+      if systemctl is-active -q etcd || systemctl is-enabled -q etcd; then
+        systemctl disable --now etcd && echo arrete
+      fi
+  register: _pg_ha_etcd_conteneur
+  changed_when: "'arrete' in _pg_ha_etcd_conteneur.stdout"
+  when: pg_ha_etcd_externe | bool
 
 - name: Comptes, base et configuration dynamique
   ansible.builtin.import_tasks: configuration.yaml

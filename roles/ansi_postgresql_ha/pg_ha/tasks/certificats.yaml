@@ -54,9 +54,9 @@
     owner: "{{ item.compte }}"
     group: "{{ item.compte }}"
     mode: "0750"
-  loop:
-    - { path: "{{ pg_ha_ssl_dir }}", compte: postgres }
-    - { path: "{{ pg_ha_etcd_ssl_dir }}", compte: etcd }
+  loop: >-
+    {{ [{'path': pg_ha_ssl_dir, 'compte': 'postgres'}]
+       + ([] if pg_ha_etcd_externe | bool else [{'path': pg_ha_etcd_ssl_dir, 'compte': 'etcd'}]) }}
   loop_control:
     label: "{{ item.path }}"
 
@@ -98,3 +98,5 @@
     - { src: "{{ pg_ha_etcd_pki_dir }}/etcd-{{ inventory_hostname }}.key", dest: server.key, mode: "0600" }
   loop_control:
     label: "{{ item.dest }}"
+  # etcd sur les hotes : plus de serveur etcd dans ce conteneur.
+  when: not (pg_ha_etcd_externe | bool)

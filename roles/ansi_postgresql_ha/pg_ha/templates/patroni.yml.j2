@@ -16,9 +16,12 @@ restapi:
     username: {{ pg_ha_rest_user | to_json }}
     password: {{ pg_ha_rest_password | to_json }}
 
+# Sur les hotes si le groupe etcd_cluster existe, sinon dans les conteneurs
+# (pg_ha_etcd_ips). Sur les hotes, ce conteneur ne joint pas l'etcd de son
+# propre hote (ipvlan) : les deux autres suffisent.
 etcd3:
   hosts:
-{% for ip in pg_ha_node_ips %}
+{% for ip in pg_ha_etcd_ips %}
     - {{ (ip ~ ':' ~ pg_ha_etcd_client_port) | to_json }}
 {% endfor %}
   protocol: https
