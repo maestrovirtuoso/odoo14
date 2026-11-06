@@ -1,22 +1,27 @@
 ---
+# Tag "principal" : sans tag de play, Ansible collecte les faits de tous les
+# hotes meme avec --tags supervision. Avec lui, ce play est saute en entier.
 - name: Installer un conteneur LXC Debian 12 (bookworm) sur les VM Gluster
   hosts: gluster_servers
   gather_facts: true
+  tags: principal
   vars_files:
     - ../common/group_vars/local_dev.yml
   roles:
     - install
 
-# Conteneur de supervision, en plus de devodoo14 sur 192.168.36.21.
+# Conteneur de supervision ([supervision_containers]), cree sur son hote
+# lxc_host, a cote du conteneur principal de celui-ci.
 # Le role install ne cree que "containers", soit [lxc_container_name], que
 # host_vars fixe a devodoo14. La variable de play prime sur host_vars : ce
 # play ne voit que "supervision" et ne touche pas a devodoo14.
-- name: Installer le conteneur LXC de supervision sur 192.168.36.21
-  hosts: supervision_host
+- name: Installer le conteneur LXC de supervision
+  hosts: "{{ hostvars[groups['supervision_containers'] | first].lxc_host }}"
   gather_facts: true
+  tags: supervision
   vars_files:
     - ../common/group_vars/local_dev.yml
   vars:
-    lxc_container_name: supervision
+    lxc_container_name: "{{ groups['supervision_containers'] | first }}"
   roles:
     - install

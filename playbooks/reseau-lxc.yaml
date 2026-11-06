@@ -47,11 +47,33 @@
 # Procedure manuelle equivalente : docs/BOOTSTRAP-CONTENEUR-MANUEL.md.
 # ===========================================================================
 
+# Tag "principal" : sans tag de play, Ansible collecte les faits de tous les
+# hotes meme avec --tags supervision. Avec lui, ce play est saute en entier.
 - name: "Reseau : exposer les conteneurs LXC sur le LAN"
   hosts: gluster_servers
   gather_facts: true
+  tags: principal
   vars_files:
     # Fournit "containers", derive de lxc_container_name (host_vars/<ip>.yml).
     - ../common/group_vars/local_dev.yml
+  roles:
+    - lxc_lan
+
+# Conteneur de supervision ([supervision_containers]), joue sur son hote
+# lxc_host. lxc_lan ne gere que lxc_container_name et ct_ip, que host_vars
+# fixe pour devodoo14. Les variables de play priment sur host_vars : ce play
+# ne configure et ne redemarre que "supervision". Carte, passerelle, DNS et
+# mode ipvlan restent ceux de l'hote (host_vars/<lxc_host>.yml).
+#
+# Lui seul, sans toucher aux autres conteneurs :
+#   ansible-playbook -i inventory.yaml playbooks/reseau-lxc.yaml --tags supervision
+- name: "Reseau : exposer le conteneur de supervision sur le LAN"
+  hosts: "{{ hostvars[groups['supervision_containers'] | first].lxc_host }}"
+  gather_facts: true
+  tags: supervision
+  vars:
+    supervision_ct: "{{ groups['supervision_containers'] | first }}"
+    lxc_container_name: "{{ supervision_ct }}"
+    ct_ip: "{{ hostvars[supervision_ct].ansible_host }}"
   roles:
     - lxc_lan
