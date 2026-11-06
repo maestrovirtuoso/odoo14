@@ -1,0 +1,185 @@
+---
+# ===========================================================================
+# Relance de Patroni quand il tourne avec une ANCIENNE liste etcd.
+#
+# Patroni ne lit sa section etcd3 (adresses, certificats) qu'a son
+# DEMARRAGE : le reload que declenche un config.yml modifie ne la change pas.
+# Un fichier corrige sans relance laisse donc Patroni sur les anciennes
+# adresses, et son journal se remplit de :
+#   ERROR - Failed to get list of machines from https://<ancienne IP>:2379/v2
+#
+# A chaque demarrage, l'unite (templates/patroni.service.j2) copie config.yml
+# dans pg_ha_config_chargee : c'est ce que Patroni a reellement charge. Un
+# serveur dont la copie n'a pas la section etcd3 du fichier, ou qui n'a pas
+# de copie (Patroni demarre avant cette unite), est relance ici :
+#   - cluster EN PAUSE : un Patroni arrete laisse PostgreSQL tourner, et
+#     KillMode=process empeche systemd de l'arreter a sa place. Ni bascule ni
+#     coupure : seul Patroni redemarre ;
+#   - un serveur a la fois, primaire en dernier ;
+#   - chaque relance est prouvee (files/relancer_patroni.py) : Patroni
+#     revient, joint etcd, et PostgreSQL garde son heure de demarrage ;
+#   - la pause n'est levee que si c'est ce passage qui l'a posee.
+#
+# Si le playbook s'arrete ici, le cluster RESTE EN PAUSE : lire le message,
+# regler la cause, lever la pause (patronictl -c /etc/patroni/config.yml
+# resume), puis rejouer.
+# ===========================================================================
+- name: Configuration etcd chargee par Patroni, comparee au fichier
+  # a_jour    Patroni tourne avec la section etcd3 du fichier ;
+  # perimee   la section a change depuis son demarrage ;
+  # inconnue  pas de copie : Patroni a demarre avant l'unite qui la fait.
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import sys, yaml
+        def etcd3(chemin):
+            with open(chemin) as f:
+                return (yaml.safe_load(f) or {}).get('etcd3')
+        try:
+            charge = etcd3(sys.argv[2])
+        except FileNotFoundError:
+            print('inconnue')
+        else:
+            print('a_jour' if charge == etcd3(sys.argv[1]) else 'perimee')
+      - "{{ pg_ha_config_file }}"
+      - "{{ pg_ha_config_chargee }}"
+  register: _pg_ha_etcd3_charge
+  changed_when: false
+
+- name: Serveurs dont Patroni est a relancer
+  ansible.builtin.set_fact:
+    _pg_ha_a_relancer: >-
+      {{ dict(pg_ha_nodes | zip(pg_ha_nodes | map('extract', hostvars, ['_pg_ha_etcd3_charge', 'stdout'])))
+         | dict2items | rejectattr('value', 'equalto', 'a_jour') | map(attribute='key') | list }}
+
+- name: Relancer Patroni, cluster en pause
+  when: _pg_ha_a_relancer | length > 0
+  block:
+    - name: Serveurs concernes
+      ansible.builtin.debug:
+        msg: >-
+          Patroni ne tourne pas avec la liste etcd de config.yml sur
+          {{ _pg_ha_a_relancer | join(', ') }} : relance en pause, sans
+          toucher a PostgreSQL.
+      run_once: true
+
+    - name: Ce serveur est-il le primaire ?
+      ansible.builtin.uri:
+        url: "http://{{ ansible_host }}:{{ pg_ha_rest_port }}/primary"
+        status_code: [200, 503]
+      register: _pg_ha_role_relance
+
+    - name: Retenir le primaire
+      ansible.builtin.set_fact:
+        _pg_ha_chef: >-
+          {{ dict(pg_ha_nodes | zip(pg_ha_nodes | map('extract', hostvars, ['_pg_ha_role_relance', 'status'])))
+             | dict2items | selectattr('value', 'equalto', 200) | map(attribute='key') | list }}
+
+    - name: Il y a exactement un primaire
+      ansible.builtin.assert:
+        that: _pg_ha_chef | length == 1
+        fail_msg: >-
+          Primaires selon Patroni : {{ _pg_ha_chef }}. Rien n'a ete relance.
+          Voir "patronictl -c {{ pg_ha_config_file }} list".
+      run_once: true
+
+    - name: Configuration dynamique avant la relance
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[_pg_ha_chef | first].ansible_host }}:{{ pg_ha_rest_port }}/config"
+        return_content: true
+      register: _pg_ha_dcs_avant
+      run_once: true
+
+    - name: Mettre le cluster en pause
+      # La requete de "patronictl pause". Une pause deja posee (maintenance en
+      # cours) est gardee telle quelle, et ne sera pas levee a la fin.
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[_pg_ha_chef | first].ansible_host }}:{{ pg_ha_rest_port }}/config"
+        method: PATCH
+        body: {pause: true}
+        body_format: json
+        url_username: "{{ pg_ha_rest_user }}"
+        url_password: "{{ pg_ha_rest_password }}"
+        force_basic_auth: true
+      run_once: true
+      when: not (_pg_ha_dcs_avant.json.pause | default(false) | bool)
+      changed_when: true
+      no_log: true
+
+    - name: Chaque Patroni voit la pause
+      # Preuve que les trois lisent le meme etcd. Un Patroni qui ne la voit
+      # pas arreterait son PostgreSQL en s'arretant : on refuse avant.
+      ansible.builtin.uri:
+        url: "http://{{ ansible_host }}:{{ pg_ha_rest_port }}/patroni"
+      register: _pg_ha_vu_pause
+      until: (_pg_ha_vu_pause.json | default({})).pause | default(false) | bool
+      retries: 15
+      delay: 2
+      failed_when: false
+
+    - name: Refuser de relancer un Patroni qui ne voit pas la pause
+      ansible.builtin.assert:
+        that: (_pg_ha_vu_pause.json | default({})).pause | default(false) | bool
+        fail_msg: >-
+          {{ inventory_hostname }} ne voit pas la pause : son Patroni ne lit pas
+          le meme etcd que les autres, ou ne le joint plus. Rien n'a ete
+          relance, le cluster reste en pause. Voir "journalctl -u patroni" sur
+          {{ inventory_hostname }}, et docs/POSTGRESQL-PATRONI.md (Depannage).
+
+    - name: Relancer Patroni sur les reserves, une a la fois
+      ansible.builtin.script: >-
+        relancer_patroni.py http://{{ ansible_host }}:{{ pg_ha_rest_port }}
+        {{ pg_ha_attente_relance_s }}
+      args:
+        executable: python3
+      throttle: 1
+      when:
+        - inventory_hostname in _pg_ha_a_relancer
+        - inventory_hostname not in _pg_ha_chef
+
+    - name: Relancer Patroni sur le primaire, en dernier
+      # Son API REST se tait quelques secondes. HAProxy ne l'ecarte qu'apres
+      # trois controles manques (inter 3s fall 3) : la relance prend moins.
+      ansible.builtin.script: >-
+        relancer_patroni.py http://{{ ansible_host }}:{{ pg_ha_rest_port }}
+        {{ pg_ha_attente_relance_s }}
+      args:
+        executable: python3
+      when:
+        - inventory_hostname in _pg_ha_a_relancer
+        - inventory_hostname in _pg_ha_chef
+
+    - name: Lever la pause posee par ce passage
+      # La requete de "patronictl resume" : null retire la cle.
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[_pg_ha_chef | first].ansible_host }}:{{ pg_ha_rest_port }}/config"
+        method: PATCH
+        body: {pause: null}
+        body_format: json
+        url_username: "{{ pg_ha_rest_user }}"
+        url_password: "{{ pg_ha_rest_password }}"
+        force_basic_auth: true
+      run_once: true
+      when: not (_pg_ha_dcs_avant.json.pause | default(false) | bool)
+      changed_when: true
+      no_log: true
+
+    - name: Chaque Patroni a repris la bascule automatique
+      ansible.builtin.uri:
+        url: "http://{{ ansible_host }}:{{ pg_ha_rest_port }}/patroni"
+      register: _pg_ha_vu_reprise
+      until: not ((_pg_ha_vu_reprise.json | default({})).pause | default(false) | bool)
+      retries: 15
+      delay: 2
+      when: not (_pg_ha_dcs_avant.json.pause | default(false) | bool)
+
+    - name: Pause trouvee en place, conservee
+      ansible.builtin.debug:
+        msg: >-
+          Le cluster etait deja en pause avant ce passage : elle est conservee.
+          La lever une fois la maintenance finie :
+          patronictl -c {{ pg_ha_config_file }} resume
+      run_once: true
+      when: _pg_ha_dcs_avant.json.pause | default(false) | bool

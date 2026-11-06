@@ -1,0 +1,3319 @@
+[
+    {
+        "slug":  "01-architecture-globale-ha",
+        "title":  "Architecture globale : Odoo et PostgreSQL HA",
+        "subtitle":  "Trois instances applicatives, trois nœuds de données et un filestore partagé.",
+        "tag":  "HA ACTIVÉE",
+        "sources":  "inventory.yaml · group_vars/all/vars.yml · playbooks/ansi_odoo.yaml",
+        "commands":  [
+                         [
+                             "box",
+                             "apps",
+                             60,
+                             270,
+                             620,
+                             800,
+                             "APPLICATION · 192.168.36.0/24"
+                         ],
+                         [
+                             "card",
+                             "users",
+                             100,
+                             360,
+                             540,
+                             130,
+                             "Utilisateurs Odoo",
+                             "Accès aux instances · HTTP :8069 / bus :8072",
+                             "browser"
+                         ],
+                         [
+                             "card",
+                             "app0",
+                             100,
+                             550,
+                             540,
+                             120,
+                             "odoo1 · 192.168.36.161",
+                             "/opt/odoo14-venv · Python 3.8 · cron unique",
+                             "container"
+                         ],
+                         [
+                             "card",
+                             "app1",
+                             100,
+                             700,
+                             540,
+                             120,
+                             "odoo2 · 192.168.36.162",
+                             "/opt/odoo14-venv · Python 3.8",
+                             "container"
+                         ],
+                         [
+                             "card",
+                             "app2",
+                             100,
+                             850,
+                             540,
+                             120,
+                             "odoo3 · 192.168.36.163",
+                             "/opt/odoo14-venv · Python 3.8",
+                             "container"
+                         ],
+                         [
+                             "card",
+                             "router",
+                             750,
+                             650,
+                             260,
+                             200,
+                             "Routage L3",
+                             "Entre les réseaux|SNAT externe|192.168.33.254",
+                             "router"
+                         ],
+                         [
+                             "box",
+                             "dbzone",
+                             1080,
+                             270,
+                             1260,
+                             800,
+                             "DONNÉES · 192.168.33.0/24"
+                         ],
+                         [
+                             "card",
+                             "proxies",
+                             1120,
+                             360,
+                             1180,
+                             130,
+                             "Trois endpoints HAProxy · TCP/5000",
+                             "192.168.33.161, 192.168.33.162, 192.168.33.163 · sélection par libpq",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "db0",
+                             1120,
+                             640,
+                             380,
+                             340,
+                             "odoodb1",
+                             ".33.161 · PostgreSQL 15|Primaire (exemple) · :5432|Patroni :8008|etcd :2379 / :2380|HAProxy :5000",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "db1",
+                             1520,
+                             640,
+                             380,
+                             340,
+                             "odoodb2",
+                             ".33.162 · PostgreSQL 15|Réplique · :5432|Patroni :8008|etcd :2379 / :2380|HAProxy :5000",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "db2",
+                             1920,
+                             640,
+                             380,
+                             340,
+                             "odoodb3",
+                             ".33.163 · PostgreSQL 15|Réplique · :5432|Patroni :8008|etcd :2379 / :2380|HAProxy :5000",
+                             "database"
+                         ],
+                         [
+                             "edge",
+                             "appsql",
+                             [
+                                 [
+                                     640,
+                                     760
+                                 ],
+                                 [
+                                     750,
+                                     760
+                                 ]
+                             ],
+                             false,
+                             "app1",
+                             "router",
+                             3.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "sql1",
+                             "SQL / TLS",
+                             650,
+                             700,
+                             100,
+                             54,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "routerproxy",
+                             [
+                                 [
+                                     1010,
+                                     750
+                                 ],
+                                 [
+                                     1040,
+                                     750
+                                 ],
+                                 [
+                                     1040,
+                                     425
+                                 ],
+                                 [
+                                     1120,
+                                     425
+                                 ]
+                             ],
+                             false,
+                             "router",
+                             "proxies",
+                             3.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "proxydb0",
+                             [
+                                 [
+                                     1310,
+                                     490
+                                 ],
+                                 [
+                                     1310,
+                                     640
+                                 ]
+                             ],
+                             false,
+                             "proxies",
+                             "db0",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "route",
+                             "Primaire : cible SQL · Répliques : WAL uniquement",
+                             1450,
+                             540,
+                             800,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "storage",
+                             60,
+                             1140,
+                             1120,
+                             170,
+                             "GlusterFS externe · volume sre",
+                             "Montage direct dans chaque LXC Odoo : /var/lib/odoo|Description : 192.168.36.8:24007 ; puis serveurs de briques",
+                             "folder"
+                         ],
+                         [
+                             "card",
+                             "coord",
+                             1240,
+                             1140,
+                             1100,
+                             170,
+                             "Coordination et réplication",
+                             "Patroni ↔ etcd : verrou du leader · quorum 2/3|PostgreSQL primaire → répliques : WAL directs asynchrones",
+                             "network"
+                         ],
+                         [
+                             "edge",
+                             "mount",
+                             [
+                                 [
+                                     370,
+                                     1140
+                                 ],
+                                 [
+                                     370,
+                                     1070
+                                 ]
+                             ],
+                             false,
+                             "storage",
+                             "apps",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "CONFIGURATION ACTUELLE · pg_ha_enabled = true",
+                             "Le primaire peut être n’importe lequel des trois nœuds. Le placement odoodb1 est illustratif ; cette vue décrit les fichiers du projet.",
+                             ""
+                         ],
+                         [
+                             "edge",
+                             "walreplica1",
+                             [
+                                 [
+                                     1310,
+                                     980
+                                 ],
+                                 [
+                                     1310,
+                                     1020
+                                 ],
+                                 [
+                                     1710,
+                                     1020
+                                 ],
+                                 [
+                                     1710,
+                                     980
+                                 ]
+                             ],
+                             false,
+                             "db0",
+                             "db1",
+                             1.8,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "walreplica2",
+                             [
+                                 [
+                                     1310,
+                                     980
+                                 ],
+                                 [
+                                     1310,
+                                     1040
+                                 ],
+                                 [
+                                     2110,
+                                     1040
+                                 ],
+                                 [
+                                     2110,
+                                     980
+                                 ]
+                             ],
+                             false,
+                             "db0",
+                             "db2",
+                             1.8,
+                             true
+                         ],
+                         [
+                             "text",
+                             "sqllabel",
+                             "SQL",
+                             1150,
+                             540,
+                             140,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ]
+                     ]
+    },
+    {
+        "slug":  "02-deploiement-hotes-lxc",
+        "title":  "Déploiement : hôtes Debian et conteneurs LXC",
+        "subtitle":  "Six hôtes déclarés ; chaque conteneur possède une adresse LAN via IPVLAN L2.",
+        "tag":  "DÉPLOIEMENT",
+        "sources":  "inventory.yaml · host_vars/*.yml · playbooks/filestore-conteneur.yaml",
+        "commands":  [
+                         [
+                             "box",
+                             "host00",
+                             60,
+                             270,
+                             720,
+                             450,
+                             "HÔTE DEBIAN 12 · 192.168.36.21"
+                         ],
+                         [
+                             "text",
+                             "nic00",
+                             "enp5s0 · IPVLAN L2 · MAC hôte partagée",
+                             90,
+                             370,
+                             660,
+                             45,
+                             24,
+                             false,
+                             "left"
+                         ],
+                         [
+                             "card",
+                             "lxc00",
+                             90,
+                             450,
+                             660,
+                             220,
+                             "odoo1 · 192.168.36.161",
+                             "Debian 12 · Odoo 14 · Python 3.8|Venv local : /opt/odoo14-venv|GlusterFS monté dans le conteneur",
+                             "container"
+                         ],
+                         [
+                             "box",
+                             "host01",
+                             840,
+                             270,
+                             720,
+                             450,
+                             "HÔTE DEBIAN 12 · 192.168.36.22"
+                         ],
+                         [
+                             "text",
+                             "nic01",
+                             "enp5s0 · IPVLAN L2 · MAC hôte partagée",
+                             870,
+                             370,
+                             660,
+                             45,
+                             24,
+                             false,
+                             "left"
+                         ],
+                         [
+                             "card",
+                             "lxc01",
+                             870,
+                             450,
+                             660,
+                             220,
+                             "odoo2 · 192.168.36.162",
+                             "Debian 12 · Odoo 14 · Python 3.8|Venv local : /opt/odoo14-venv|GlusterFS monté dans le conteneur",
+                             "container"
+                         ],
+                         [
+                             "box",
+                             "host02",
+                             1620,
+                             270,
+                             720,
+                             450,
+                             "HÔTE DEBIAN 12 · 192.168.36.23"
+                         ],
+                         [
+                             "text",
+                             "nic02",
+                             "enp5s0 · IPVLAN L2 · MAC hôte partagée",
+                             1650,
+                             370,
+                             660,
+                             45,
+                             24,
+                             false,
+                             "left"
+                         ],
+                         [
+                             "card",
+                             "lxc02",
+                             1650,
+                             450,
+                             660,
+                             220,
+                             "odoo3 · 192.168.36.163",
+                             "Debian 12 · Odoo 14 · Python 3.8|Venv local : /opt/odoo14-venv|GlusterFS monté dans le conteneur",
+                             "container"
+                         ],
+                         [
+                             "box",
+                             "host10",
+                             60,
+                             780,
+                             720,
+                             450,
+                             "HÔTE DEBIAN 12 · 192.168.33.21"
+                         ],
+                         [
+                             "text",
+                             "nic10",
+                             "enp1s0 · IPVLAN L2 · MAC hôte partagée",
+                             90,
+                             880,
+                             660,
+                             45,
+                             24,
+                             false,
+                             "left"
+                         ],
+                         [
+                             "card",
+                             "lxc10",
+                             90,
+                             960,
+                             660,
+                             220,
+                             "odoodb1 · 192.168.33.161",
+                             "Debian 12 · PostgreSQL 15|Patroni + etcd + HAProxy|Données PostgreSQL locales",
+                             "container"
+                         ],
+                         [
+                             "box",
+                             "host11",
+                             840,
+                             780,
+                             720,
+                             450,
+                             "HÔTE DEBIAN 12 · 192.168.33.22"
+                         ],
+                         [
+                             "text",
+                             "nic11",
+                             "enp1s0 · IPVLAN L2 · MAC hôte partagée",
+                             870,
+                             880,
+                             660,
+                             45,
+                             24,
+                             false,
+                             "left"
+                         ],
+                         [
+                             "card",
+                             "lxc11",
+                             870,
+                             960,
+                             660,
+                             220,
+                             "odoodb2 · 192.168.33.162",
+                             "Debian 12 · PostgreSQL 15|Patroni + etcd + HAProxy|Données PostgreSQL locales",
+                             "container"
+                         ],
+                         [
+                             "box",
+                             "host12",
+                             1620,
+                             780,
+                             720,
+                             450,
+                             "HÔTE DEBIAN 12 · 192.168.33.23"
+                         ],
+                         [
+                             "text",
+                             "nic12",
+                             "enp1s0 · IPVLAN L2 · MAC hôte partagée",
+                             1650,
+                             880,
+                             660,
+                             45,
+                             24,
+                             false,
+                             "left"
+                         ],
+                         [
+                             "card",
+                             "lxc12",
+                             1650,
+                             960,
+                             660,
+                             220,
+                             "odoodb3 · 192.168.33.163",
+                             "Debian 12 · PostgreSQL 15|Patroni + etcd + HAProxy|Données PostgreSQL locales",
+                             "container"
+                         ],
+                         [
+                             "text",
+                             "routes",
+                             "Routage externe entre 192.168.36.0/24 et 192.168.33.0/24 · HAProxy :5000",
+                             320,
+                             735,
+                             1760,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "DOMAINES DE PANNE",
+                             "Les hôtes sont distincts dans l’inventaire ; leur placement physique n’est pas décrit. L’accès hôte → propre LXC via IPVLAN nécessite un chemin adapté.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "03-orchestration-patroni",
+        "title":  "Patroni orchestre le rôle de chaque PostgreSQL",
+        "subtitle":  "Les données circulent entre PostgreSQL ; les décisions de rôle passent par Patroni et etcd.",
+        "tag":  "ORCHESTRATION",
+        "sources":  "roles/ansi_postgresql_ha/pg_ha/templates/{patroni.yml,haproxy.cfg}.j2",
+        "commands":  [
+                         [
+                             "card",
+                             "clients",
+                             60,
+                             290,
+                             560,
+                             150,
+                             "Odoo / libpq",
+                             "Trois adresses HAProxy ; SQL avec TLS",
+                             "browser"
+                         ],
+                         [
+                             "card",
+                             "proxy",
+                             900,
+                             290,
+                             600,
+                             150,
+                             "HAProxy choisi · TCP/5000",
+                             "Une instance parmi les trois",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "policy",
+                             1780,
+                             290,
+                             560,
+                             150,
+                             "Contrôle du rôle",
+                             "GET /primary sur chacun des agents|200 : primaire détenteur du verrou",
+                             ""
+                         ],
+                         [
+                             "card",
+                             "primary",
+                             900,
+                             650,
+                             600,
+                             160,
+                             "PostgreSQL primaire",
+                             "Exemple : odoodb1 · .33.161:5432",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "replicas",
+                             1780,
+                             650,
+                             560,
+                             160,
+                             "PostgreSQL répliques",
+                             "odoodb2 + odoodb3 · TCP/5432",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "patroni",
+                             900,
+                             1080,
+                             600,
+                             180,
+                             "Patroni ×3 · API :8008",
+                             "Un agent indépendant par nœud|Chaque agent pilote son PostgreSQL local",
+                             "server"
+                         ],
+                         [
+                             "card",
+                             "etcd",
+                             60,
+                             1080,
+                             560,
+                             180,
+                             "etcd ×3 · quorum 2/3",
+                             "Verrou du leader + configuration|Clients HTTPS :2379 · pairs :2380",
+                             "network"
+                         ],
+                         [
+                             "edge",
+                             "sqlin",
+                             [
+                                 [
+                                     620,
+                                     365
+                                 ],
+                                 [
+                                     900,
+                                     365
+                                 ]
+                             ],
+                             false,
+                             "clients",
+                             "proxy",
+                             4,
+                             true
+                         ],
+                         [
+                             "text",
+                             "sqlinl",
+                             "SQL / TLS",
+                             645,
+                             310,
+                             230,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "sqlout",
+                             [
+                                 [
+                                     1200,
+                                     440
+                                 ],
+                                 [
+                                     1200,
+                                     650
+                                 ]
+                             ],
+                             false,
+                             "proxy",
+                             "primary",
+                             4,
+                             true
+                         ],
+                         [
+                             "text",
+                             "sqloutl",
+                             "TCP/5432",
+                             1230,
+                             520,
+                             240,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "wal",
+                             [
+                                 [
+                                     1500,
+                                     730
+                                 ],
+                                 [
+                                     1780,
+                                     730
+                                 ]
+                             ],
+                             false,
+                             "primary",
+                             "replicas",
+                             2,
+                             true
+                         ],
+                         [
+                             "text",
+                             "wall",
+                             "WAL directs",
+                             1515,
+                             675,
+                             250,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "health",
+                             [
+                                 [
+                                     900,
+                                     400
+                                 ],
+                                 [
+                                     780,
+                                     400
+                                 ],
+                                 [
+                                     780,
+                                     1170
+                                 ],
+                                 [
+                                     900,
+                                     1170
+                                 ]
+                             ],
+                             true,
+                             "proxy",
+                             "patroni",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "healthl",
+                             "Sondes :8008",
+                             640,
+                             860,
+                             270,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "local1",
+                             [
+                                 [
+                                     1200,
+                                     1080
+                                 ],
+                                 [
+                                     1200,
+                                     810
+                                 ]
+                             ],
+                             true,
+                             "patroni",
+                             "primary",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "local1l",
+                             "Pilotage local",
+                             1230,
+                             930,
+                             270,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "local2",
+                             [
+                                 [
+                                     1500,
+                                     1170
+                                 ],
+                                 [
+                                     2060,
+                                     1170
+                                 ],
+                                 [
+                                     2060,
+                                     810
+                                 ]
+                             ],
+                             true,
+                             "patroni",
+                             "replicas",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "local2l",
+                             "Un agent par PostgreSQL",
+                             1710,
+                             1000,
+                             600,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "dcs",
+                             [
+                                 [
+                                     900,
+                                     1210
+                                 ],
+                                 [
+                                     620,
+                                     1210
+                                 ]
+                             ],
+                             true,
+                             "patroni",
+                             "etcd",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "dcsl",
+                             "HTTPS :2379",
+                             635,
+                             1155,
+                             250,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "RÔLES DES COMPOSANTS",
+                             "Patroni supervise et coordonne ; HAProxy route le TCP ; PostgreSQL exécute et réplique ; etcd conserve l’état de coordination.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "04-connexion-odoo-haproxy",
+        "title":  "Connexion Odoo : du venv au primaire courant",
+        "subtitle":  "libpq essaie les endpoints dans l’ordre et garde une connexion vers un serveur acceptant les écritures.",
+        "tag":  "CONNEXIONS SQL",
+        "sources":  "group_vars/all/vars.yml · templates/haproxy.cfg.j2 · roles/ansi_odoo/odoo14/tasks/main.yaml",
+        "commands":  [
+                         [
+                             "card",
+                             "odoo",
+                             60,
+                             290,
+                             650,
+                             190,
+                             "Odoo 14 dans le venv",
+                             "psycopg2 → libpq|PGTARGETSESSIONATTRS=read-write|PGSSLMODE=verify-full",
+                             "browser"
+                         ],
+                         [
+                             "card",
+                             "hosts",
+                             980,
+                             290,
+                             1360,
+                             190,
+                             "db_host : liste des trois adresses ; db_port :5000",
+                             "192.168.33.161,192.168.33.162,192.168.33.163|Le choix du proxy dépend de sa disponibilité ; le primaire est sélectionné par HAProxy.",
+                             "network"
+                         ],
+                         [
+                             "edge",
+                             "open",
+                             [
+                                 [
+                                     710,
+                                     385
+                                 ],
+                                 [
+                                     980,
+                                     385
+                                 ]
+                             ],
+                             false,
+                             "odoo",
+                             "hosts",
+                             3,
+                             true
+                         ],
+                         [
+                             "text",
+                             "openl",
+                             "Nouvelle connexion",
+                             710,
+                             320,
+                             270,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "hp0",
+                             60,
+                             650,
+                             720,
+                             150,
+                             "HAProxy sur odoodb1",
+                             ".33.161:5000 · TCP transparent|Sondes vers les trois agents Patroni :8008",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "hp1",
+                             840,
+                             650,
+                             720,
+                             150,
+                             "HAProxy sur odoodb2",
+                             ".33.162:5000 · TCP transparent|Sondes vers les trois agents Patroni :8008",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "hp2",
+                             1620,
+                             650,
+                             720,
+                             150,
+                             "HAProxy sur odoodb3",
+                             ".33.163:5000 · TCP transparent|Sondes vers les trois agents Patroni :8008",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "pg",
+                             800,
+                             1080,
+                             800,
+                             180,
+                             "Primaire PostgreSQL courant · :5432",
+                             "Toutes les lectures et écritures Odoo|Certificat serveur vérifié + certificat client Odoo",
+                             "database"
+                         ],
+                         [
+                             "edge",
+                             "select0",
+                             [
+                                 [
+                                     1140,
+                                     480
+                                 ],
+                                 [
+                                     1140,
+                                     550
+                                 ],
+                                 [
+                                     420,
+                                     550
+                                 ],
+                                 [
+                                     420,
+                                     650
+                                 ]
+                             ],
+                             true,
+                             "hosts",
+                             "hp0",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "route0",
+                             [
+                                 [
+                                     420,
+                                     800
+                                 ],
+                                 [
+                                     420,
+                                     930
+                                 ],
+                                 [
+                                     1000,
+                                     930
+                                 ],
+                                 [
+                                     1000,
+                                     1080
+                                 ]
+                             ],
+                             false,
+                             "hp0",
+                             "pg",
+                             3,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "select1",
+                             [
+                                 [
+                                     1490,
+                                     480
+                                 ],
+                                 [
+                                     1490,
+                                     570
+                                 ],
+                                 [
+                                     1200,
+                                     570
+                                 ],
+                                 [
+                                     1200,
+                                     650
+                                 ]
+                             ],
+                             true,
+                             "hosts",
+                             "hp1",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "route1",
+                             [
+                                 [
+                                     1200,
+                                     800
+                                 ],
+                                 [
+                                     1200,
+                                     960
+                                 ],
+                                 [
+                                     1200,
+                                     960
+                                 ],
+                                 [
+                                     1200,
+                                     1080
+                                 ]
+                             ],
+                             false,
+                             "hp1",
+                             "pg",
+                             3,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "select2",
+                             [
+                                 [
+                                     1840,
+                                     480
+                                 ],
+                                 [
+                                     1840,
+                                     590
+                                 ],
+                                 [
+                                     1980,
+                                     590
+                                 ],
+                                 [
+                                     1980,
+                                     650
+                                 ]
+                             ],
+                             true,
+                             "hosts",
+                             "hp2",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "route2",
+                             [
+                                 [
+                                     1980,
+                                     800
+                                 ],
+                                 [
+                                     1980,
+                                     990
+                                 ],
+                                 [
+                                     1400,
+                                     990
+                                 ],
+                                 [
+                                     1400,
+                                     1080
+                                 ]
+                             ],
+                             false,
+                             "hp2",
+                             "pg",
+                             3,
+                             true
+                         ],
+                         [
+                             "text",
+                             "tls",
+                             "TLS PostgreSQL de bout en bout · HAProxy ne termine pas le TLS",
+                             400,
+                             1010,
+                             1600,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "APRÈS UNE BASCULE",
+                             "HAProxy ferme les sessions attachées à une cible retirée. Les clients doivent se reconnecter ; les transactions en cours ne sont pas transférées.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "05-replication-postgresql",
+        "title":  "Réplication : un primaire et deux répliques",
+        "subtitle":  "La réplication physique WAL reste asynchrone ; le quorum etcd ne vaut pas acquittement des écritures.",
+        "tag":  "RÉPLICATION",
+        "sources":  "roles/ansi_postgresql_ha/pg_ha/defaults/main.yml",
+        "commands":  [
+                         [
+                             "card",
+                             "primary",
+                             60,
+                             400,
+                             660,
+                             330,
+                             "PostgreSQL primaire",
+                             "Lectures et écritures Odoo|Production des WAL|Slots physiques gérés par Patroni|Exemple : odoodb1",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "replica1",
+                             1180,
+                             290,
+                             1160,
+                             220,
+                             "Réplique PostgreSQL · odoodb2",
+                             "Réception puis rejeu des WAL · lecture seule|Connexion de réplication TLS · TCP/5432",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "replica2",
+                             1180,
+                             680,
+                             1160,
+                             220,
+                             "Réplique PostgreSQL · odoodb3",
+                             "Réception puis rejeu des WAL · lecture seule|Les répliques ne reçoivent pas les requêtes Odoo",
+                             "database"
+                         ],
+                         [
+                             "edge",
+                             "wal1",
+                             [
+                                 [
+                                     720,
+                                     490
+                                 ],
+                                 [
+                                     920,
+                                     490
+                                 ],
+                                 [
+                                     920,
+                                     400
+                                 ],
+                                 [
+                                     1180,
+                                     400
+                                 ]
+                             ],
+                             false,
+                             "primary",
+                             "replica1",
+                             3,
+                             true
+                         ],
+                         [
+                             "text",
+                             "w1",
+                             "WAL asynchrones",
+                             740,
+                             345,
+                             420,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "wal2",
+                             [
+                                 [
+                                     720,
+                                     640
+                                 ],
+                                 [
+                                     920,
+                                     640
+                                 ],
+                                 [
+                                     920,
+                                     790
+                                 ],
+                                 [
+                                     1180,
+                                     790
+                                 ]
+                             ],
+                             false,
+                             "primary",
+                             "replica2",
+                             3,
+                             true
+                         ],
+                         [
+                             "text",
+                             "w2",
+                             "WAL asynchrones",
+                             740,
+                             805,
+                             420,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "params",
+                             60,
+                             1050,
+                             1100,
+                             240,
+                             "Rétention et capacité WAL",
+                             "use_slots = true · wal_level = replica|max_wal_senders = 10 · max_replication_slots = 10|max_slot_wal_keep_size = 2GB",
+                             "file"
+                         ],
+                         [
+                             "card",
+                             "eligibility",
+                             1240,
+                             1050,
+                             1100,
+                             240,
+                             "Éligibilité à une promotion",
+                             "maximum_lag_on_failover = 1 048 576 octets|Contrôle Ansible final : retard ≤ 16 Mo|Ces deux seuils répondent à des contrôles différents.",
+                             "file"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "PERTE POSSIBLE EN MODE ASYNCHRONE",
+                             "Une écriture confirmée sur le primaire peut manquer sur une réplique promue. Le seuil de retard de 1 Mio ne garantit pas une perte maximale de 1 Mio.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "06-bascule-automatique",
+        "title":  "Bascule automatique après panne du primaire",
+        "subtitle":  "Deux mécanismes avancent en parallèle : coordination Patroni/etcd et retrait de la cible par HAProxy.",
+        "tag":  "FAILOVER",
+        "sources":  "templates/haproxy.cfg.j2 · defaults/main.yml · templates/patroni.yml.j2",
+        "commands":  [
+                         [
+                             "box",
+                             "track1",
+                             60,
+                             280,
+                             2280,
+                             380,
+                             "COORDINATION · PATRONI ET ETCD"
+                         ],
+                         [
+                             "card",
+                             "failure",
+                             100,
+                             410,
+                             440,
+                             160,
+                             "1 · Primaire perdu",
+                             "Panne PostgreSQL, conteneur|ou communication du leader",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "lock",
+                             700,
+                             410,
+                             440,
+                             160,
+                             "2 · Verrou indisponible",
+                             "Expiration ou perte du verrou|Quorum etcd disponible",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "candidate",
+                             1300,
+                             410,
+                             440,
+                             160,
+                             "3 · Réplique éligible",
+                             "État et retard compatibles|Acquisition du verrou",
+                             "server"
+                         ],
+                         [
+                             "card",
+                             "promote",
+                             1900,
+                             410,
+                             400,
+                             160,
+                             "4 · Promotion",
+                             "Nouveau primaire|Exemple : odoodb2",
+                             "database"
+                         ],
+                         [
+                             "edge",
+                             "failurelock",
+                             [
+                                 [
+                                     540,
+                                     490
+                                 ],
+                                 [
+                                     700,
+                                     490
+                                 ]
+                             ],
+                             true,
+                             "failure",
+                             "lock",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "lockcandidate",
+                             [
+                                 [
+                                     1140,
+                                     490
+                                 ],
+                                 [
+                                     1300,
+                                     490
+                                 ]
+                             ],
+                             true,
+                             "lock",
+                             "candidate",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "candidatepromote",
+                             [
+                                 [
+                                     1740,
+                                     490
+                                 ],
+                                 [
+                                     1900,
+                                     490
+                                 ]
+                             ],
+                             true,
+                             "candidate",
+                             "promote",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "box",
+                             "track2",
+                             60,
+                             760,
+                             2280,
+                             380,
+                             "CONNEXIONS · HAPROXY ET ODOO"
+                         ],
+                         [
+                             "card",
+                             "checks",
+                             100,
+                             890,
+                             600,
+                             160,
+                             "Sondes /primary :8008",
+                             "Cible retirée après échecs|Sessions liées à la cible fermées",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "newtarget",
+                             900,
+                             890,
+                             600,
+                             160,
+                             "Nouveau /primary = 200",
+                             "HAProxy valide le nouveau primaire|Puis lui route les connexions SQL",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "reconnect",
+                             1700,
+                             890,
+                             600,
+                             160,
+                             "Odoo se reconnecte",
+                             "Nouvelle session SQL|Transactions en cours à traiter",
+                             "browser"
+                         ],
+                         [
+                             "edge",
+                             "observe",
+                             [
+                                 [
+                                     2100,
+                                     570
+                                 ],
+                                 [
+                                     2100,
+                                     700
+                                 ],
+                                 [
+                                     1200,
+                                     700
+                                 ],
+                                 [
+                                     1200,
+                                     890
+                                 ]
+                             ],
+                             true,
+                             "promote",
+                             "newtarget",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "target",
+                             [
+                                 [
+                                     700,
+                                     970
+                                 ],
+                                 [
+                                     900,
+                                     970
+                                 ]
+                             ],
+                             true,
+                             "checks",
+                             "newtarget",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "resume",
+                             [
+                                 [
+                                     1500,
+                                     970
+                                 ],
+                                 [
+                                     1700,
+                                     970
+                                 ]
+                             ],
+                             false,
+                             "newtarget",
+                             "reconnect",
+                             3,
+                             true
+                         ],
+                         [
+                             "text",
+                             "timings",
+                             "ttl=30 s · loop_wait=10 s · retry_timeout=10 s · sondes HAProxy : inter=3 s / fall=3 / rise=2",
+                             160,
+                             1210,
+                             2080,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "DÉLAI ET CONTINUITÉ",
+                             "Le temps réel de rétablissement doit être mesuré. Une bascule n’assure ni transfert des transactions en cours ni absence de perte en réplication asynchrone.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "07-quorum-et-partitions",
+        "title":  "Quorum etcd et partitions réseau",
+        "subtitle":  "La majorité autorise la coordination ; Patroni utilise le verrou pour gérer le rôle PostgreSQL.",
+        "tag":  "QUORUM · 2/3",
+        "sources":  "defaults/main.yml · templates/patroni.yml.j2 · documentation officielle etcd/Patroni",
+        "commands":  [
+                         [
+                             "box",
+                             "normal",
+                             60,
+                             280,
+                             720,
+                             1000,
+                             "A · TROIS MEMBRES JOIGNABLES"
+                         ],
+                         [
+                             "card",
+                             "n1",
+                             100,
+                             420,
+                             640,
+                             150,
+                             "etcd 1 ↔ etcd 2 ↔ etcd 3",
+                             "Majorité : au moins 2 sur 3|Échanges de consensus HTTPS :2380",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "n2",
+                             100,
+                             760,
+                             640,
+                             220,
+                             "Coordination disponible",
+                             "Un Patroni détient le verrou du leader|Une réplique éligible peut être promue|en cas de perte du primaire.",
+                             "server"
+                         ],
+                         [
+                             "edge",
+                             "n",
+                             [
+                                 [
+                                     420,
+                                     570
+                                 ],
+                                 [
+                                     420,
+                                     760
+                                 ]
+                             ],
+                             true,
+                             "n1",
+                             "n2",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "nl",
+                             "Verrou et configuration",
+                             160,
+                             650,
+                             520,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "box",
+                             "split",
+                             840,
+                             280,
+                             720,
+                             1000,
+                             "B · PARTITION 2 + 1"
+                         ],
+                         [
+                             "card",
+                             "s1",
+                             880,
+                             420,
+                             640,
+                             150,
+                             "Côté majoritaire : 2 membres",
+                             "Le DCS conserve sa capacité de décision|Promotion possible sous conditions",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "s2",
+                             880,
+                             760,
+                             640,
+                             220,
+                             "Côté isolé : 1 membre",
+                             "Ne peut pas renouveler seul le verrou|Patroni tente l’arrêt ou la démotion|de son PostgreSQL s’il était primaire.",
+                             "server"
+                         ],
+                         [
+                             "edge",
+                             "s",
+                             [
+                                 [
+                                     1200,
+                                     570
+                                 ],
+                                 [
+                                     1200,
+                                     760
+                                 ]
+                             ],
+                             true,
+                             "s1",
+                             "s2",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "sl",
+                             "Isolement du membre minoritaire",
+                             910,
+                             650,
+                             580,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "box",
+                             "loss",
+                             1620,
+                             280,
+                             720,
+                             1000,
+                             "C · DEUX MEMBRES PERDUS"
+                         ],
+                         [
+                             "card",
+                             "l1",
+                             1660,
+                             420,
+                             640,
+                             150,
+                             "Un seul membre etcd reste",
+                             "Majorité indisponible|Coordination normale impossible",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "l2",
+                             1660,
+                             760,
+                             640,
+                             220,
+                             "Pas de promotion coordonnée",
+                             "Patroni ne renouvelle plus normalement|le verrou du leader. La remise en état|du quorum exige un diagnostic.",
+                             "server"
+                         ],
+                         [
+                             "edge",
+                             "l",
+                             [
+                                 [
+                                     1980,
+                                     570
+                                 ],
+                                 [
+                                     1980,
+                                     760
+                                 ]
+                             ],
+                             true,
+                             "l1",
+                             "l2",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "ll",
+                             "Écritures DCS indisponibles",
+                             1710,
+                             650,
+                             540,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "PROTECTION CONFIGURÉE",
+                             "watchdog.mode = off dans les LXC ; aucun fencing matériel configuré. Le quorum etcd ne garantit pas que toutes les transactions SQL sont répliquées.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "08-bascule-planifiee",
+        "title":  "Bascule planifiée pour maintenance",
+        "subtitle":  "Un opérateur choisit un candidat sain ; Patroni organise le changement de rôle du cluster.",
+        "tag":  "SWITCHOVER",
+        "sources":  "docs/POSTGRESQL-PATRONI.md · defaults/main.yml · documentation patronictl",
+        "commands":  [
+                         [
+                             "card",
+                             "pre",
+                             60,
+                             290,
+                             720,
+                             200,
+                             "1 · Préparer",
+                             "Quorum etcd disponible|Primaire sain et répliques à jour|Vérifier l’état et le retard du candidat",
+                             "server"
+                         ],
+                         [
+                             "card",
+                             "request",
+                             840,
+                             290,
+                             720,
+                             200,
+                             "2 · Demander la bascule",
+                             "patronictl avec /etc/patroni/config.yml|switchover odoo-pg|--candidate odoodb2",
+                             "file"
+                         ],
+                         [
+                             "card",
+                             "change",
+                             1620,
+                             290,
+                             720,
+                             200,
+                             "3 · Changer de primaire",
+                             "L’ancien leader se retire|Le candidat obtient le rôle primaire|Les clients peuvent perdre leur session",
+                             "database"
+                         ],
+                         [
+                             "edge",
+                             "preq",
+                             [
+                                 [
+                                     780,
+                                     390
+                                 ],
+                                 [
+                                     840,
+                                     390
+                                 ]
+                             ],
+                             true,
+                             "pre",
+                             "request",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "reqch",
+                             [
+                                 [
+                                     1560,
+                                     390
+                                 ],
+                                 [
+                                     1620,
+                                     390
+                                 ]
+                             ],
+                             true,
+                             "request",
+                             "change",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "card",
+                             "old",
+                             60,
+                             800,
+                             720,
+                             250,
+                             "Ancien primaire · odoodb1",
+                             "Devient réplique sous Patroni|Vérifier la réplication avant maintenance|Intervenir sur un nœud à la fois",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "proxy",
+                             840,
+                             800,
+                             720,
+                             250,
+                             "HAProxy suit /primary",
+                             "Le nouveau primaire répond 200|Les nouvelles connexions sont orientées|vers ce PostgreSQL",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "new",
+                             1620,
+                             800,
+                             720,
+                             250,
+                             "Nouveau primaire · odoodb2",
+                             "Lectures et écritures Odoo|Réplique odoodb3 toujours suivie|Retour à l’état stable : 1 + 2",
+                             "database"
+                         ],
+                         [
+                             "edge",
+                             "chgnew",
+                             [
+                                 [
+                                     1980,
+                                     490
+                                 ],
+                                 [
+                                     1980,
+                                     800
+                                 ]
+                             ],
+                             true,
+                             "change",
+                             "new",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "follow",
+                             [
+                                 [
+                                     1620,
+                                     925
+                                 ],
+                                 [
+                                     1560,
+                                     925
+                                 ]
+                             ],
+                             true,
+                             "new",
+                             "proxy",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "rejoin",
+                             [
+                                 [
+                                     840,
+                                     925
+                                 ],
+                                 [
+                                     780,
+                                     925
+                                 ]
+                             ],
+                             true,
+                             "proxy",
+                             "old",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "checks",
+                             "Contrôler : un primaire · deux répliques · connexions via chaque HAProxy · écritures applicatives",
+                             170,
+                             1180,
+                             2060,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "EFFET ATTENDU",
+                             "Une courte interruption de connexions est possible. Le cron Odoo reste porté par odoo1 : il est indépendant du primaire PostgreSQL choisi par Patroni.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "09-retour-ancien-primaire",
+        "title":  "Réintégrer un ancien primaire sous Patroni",
+        "subtitle":  "Le retour du serveur ne lui rend pas son ancien rôle ; il rejoint le primaire courant comme réplique.",
+        "tag":  "RÉINTÉGRATION",
+        "sources":  "defaults/main.yml · templates/patroni.yml.j2 · documentation PostgreSQL 15 pg_rewind",
+        "commands":  [
+                         [
+                             "card",
+                             "return",
+                             60,
+                             290,
+                             660,
+                             190,
+                             "1 · Retour du serveur",
+                             "Démarrage sous contrôle Patroni|Ne pas relancer un primaire autonome|Identifier le primaire courant",
+                             "server"
+                         ],
+                         [
+                             "card",
+                             "compare",
+                             900,
+                             290,
+                             660,
+                             190,
+                             "2 · Vérifier la divergence",
+                             "État local et timelines|WAL disponibles et préconditions|Arrêt correct de la cible pour rewind",
+                             "file"
+                         ],
+                         [
+                             "card",
+                             "rewind",
+                             1740,
+                             290,
+                             600,
+                             190,
+                             "3 · pg_rewind possible",
+                             "use_pg_rewind = true|wal_log_hints = on|Resynchronisation du nœud cible",
+                             "database"
+                         ],
+                         [
+                             "edge",
+                             "rc",
+                             [
+                                 [
+                                     720,
+                                     385
+                                 ],
+                                 [
+                                     900,
+                                     385
+                                 ]
+                             ],
+                             true,
+                             "return",
+                             "compare",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "cw",
+                             [
+                                 [
+                                     1560,
+                                     385
+                                 ],
+                                 [
+                                     1740,
+                                     385
+                                 ]
+                             ],
+                             true,
+                             "compare",
+                             "rewind",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "yes",
+                             "Si nécessaire",
+                             1560,
+                             325,
+                             180,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "manual",
+                             900,
+                             800,
+                             660,
+                             260,
+                             "Sinon : diagnostic opérateur",
+                             "Aucun effacement automatique du data_dir|Si copie complète nécessaire :|réinitialisation explicite de la réplique|Les données locales cibles sont remplacées.",
+                             "file"
+                         ],
+                         [
+                             "card",
+                             "stream",
+                             1740,
+                             800,
+                             600,
+                             260,
+                             "4 · Réplique en streaming",
+                             "Suivi du primaire courant|Rejeu des WAL puis contrôle du retard|Vérifier : un primaire + deux répliques",
+                             "database"
+                         ],
+                         [
+                             "edge",
+                             "fallback",
+                             [
+                                 [
+                                     1230,
+                                     480
+                                 ],
+                                 [
+                                     1230,
+                                     800
+                                 ]
+                             ],
+                             true,
+                             "compare",
+                             "manual",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "no",
+                             "Échec ou préconditions absentes",
+                             930,
+                             620,
+                             600,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "replay",
+                             [
+                                 [
+                                     2040,
+                                     480
+                                 ],
+                                 [
+                                     2040,
+                                     800
+                                 ]
+                             ],
+                             true,
+                             "rewind",
+                             "stream",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "wal",
+                             "Reprise de réplication",
+                             1780,
+                             620,
+                             520,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "reclone",
+                             [
+                                 [
+                                     1560,
+                                     930
+                                 ],
+                                 [
+                                     1740,
+                                     930
+                                 ]
+                             ],
+                             true,
+                             "manual",
+                             "stream",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "flags",
+                             "remove_data_directory_on_rewind_failure = false · remove_data_directory_on_diverged_timelines = false",
+                             140,
+                             1190,
+                             2120,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "CONTRÔLES APRÈS RETOUR",
+                             "Vérifier le rôle publié par Patroni, la réplication et les connexions via HAProxy. La maintenance du nœud ne doit pas modifier les données du primaire courant.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "10-transition-vers-patroni",
+        "title":  "Transition : du cluster initial au mode Patroni",
+        "subtitle":  "Vue du parcours d’adoption de l’existant ; l’état sélectionné aujourd’hui est pg_ha_enabled=true.",
+        "tag":  "TRANSITION",
+        "sources":  "playbooks/ansi_postgresql_ha.yaml · pg_ha/tasks/{preflight,reprise,configuration,verif}.yaml",
+        "commands":  [
+                         [
+                             "card",
+                             "before",
+                             60,
+                             290,
+                             660,
+                             200,
+                             "État de départ historique",
+                             "pg_server : odoodb1 primaire|odoodb2 / odoodb3 en streaming|Odoo visait directement :5432",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "prep",
+                             900,
+                             290,
+                             660,
+                             200,
+                             "1 · Précontrôles et préparation",
+                             "Sauvegarde et inventaire cohérents|Autorités de certificats + secrets|Trois membres etcd accessibles",
+                             "file"
+                         ],
+                         [
+                             "card",
+                             "adopt",
+                             1740,
+                             290,
+                             600,
+                             200,
+                             "2 · Adopter le cluster",
+                             "Service PostgreSQL Debian détaché|Patroni reprend les données existantes|Puis rattache les répliques",
+                             "server"
+                         ],
+                         [
+                             "edge",
+                             "bp",
+                             [
+                                 [
+                                     720,
+                                     390
+                                 ],
+                                 [
+                                     900,
+                                     390
+                                 ]
+                             ],
+                             true,
+                             "before",
+                             "prep",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "pa",
+                             [
+                                 [
+                                     1560,
+                                     390
+                                 ],
+                                 [
+                                     1740,
+                                     390
+                                 ]
+                             ],
+                             true,
+                             "prep",
+                             "adopt",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "card",
+                             "validate",
+                             1740,
+                             800,
+                             600,
+                             230,
+                             "3 · Valider les trois nœuds",
+                             "Un leader et deux répliques|Contrôler chaque HAProxy :5000|Vérifier TLS et réplication",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "clients",
+                             900,
+                             800,
+                             660,
+                             230,
+                             "4 · Déployer les clients HA",
+                             "pg_ha_enabled = true|Odoo : trois endpoints HAProxy :5000|Sauvegarde : TLS client à valider",
+                             "browser"
+                         ],
+                         [
+                             "card",
+                             "today",
+                             60,
+                             800,
+                             660,
+                             230,
+                             "État sélectionné aujourd’hui",
+                             "Mode Patroni activé dans le dépôt|ansi_odoo.yaml inclut le rôle pg_ha|pg_server est écarté en mode HA",
+                             "file"
+                         ],
+                         [
+                             "edge",
+                             "av",
+                             [
+                                 [
+                                     2040,
+                                     490
+                                 ],
+                                 [
+                                     2040,
+                                     800
+                                 ]
+                             ],
+                             true,
+                             "adopt",
+                             "validate",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "vc",
+                             [
+                                 [
+                                     1740,
+                                     915
+                                 ],
+                                 [
+                                     1560,
+                                     915
+                                 ]
+                             ],
+                             true,
+                             "validate",
+                             "clients",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "ct",
+                             [
+                                 [
+                                     900,
+                                     915
+                                 ],
+                                 [
+                                     720,
+                                     915
+                                 ]
+                             ],
+                             true,
+                             "clients",
+                             "today",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "all",
+                             "La reprise et le quorum exigent de traiter les trois membres db_cluster ensemble ; ne pas limiter la première reprise à un nœud.",
+                             140,
+                             1190,
+                             2120,
+                             70,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "EXISTANT ET NOUVELLE INSTALLATION",
+                             "Cette vue explique la migration du cluster existant. Les tâches d’adoption protègent les données ; les paramètres communs sont ensuite remis en conformité dans le DCS.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "11-flux-reseau-et-tls",
+        "title":  "Flux réseau, certificats et surfaces de gestion",
+        "subtitle":  "Les deux autorités de certification séparent les accès SQL de la coordination etcd.",
+        "tag":  "RÉSEAU / TLS",
+        "sources":  "group_vars/all/vars.yml · pg_ha/templates/*.j2 · pg_ha/tasks/certificats.yaml",
+        "commands":  [
+                         [
+                             "card",
+                             "odoo",
+                             60,
+                             300,
+                             600,
+                             200,
+                             "Odoo · réseau .36.0/24",
+                             "Certificat client : /etc/odoo/pg-ssl|PGSSLMODE = verify-full|CA SQL : prosys-pg-ca",
+                             "browser"
+                         ],
+                         [
+                             "card",
+                             "hp",
+                             900,
+                             300,
+                             600,
+                             200,
+                             "HAProxy · .33.161–163",
+                             "Frontend TCP :5000|Relais PostgreSQL transparent|Statistiques : 127.0.0.1:7000",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "pg",
+                             1740,
+                             300,
+                             600,
+                             200,
+                             "PostgreSQL · :5432",
+                             "TLS jusqu’au serveur SQL|Mot de passe + certificat Odoo|Réplication WAL en TLS",
+                             "database"
+                         ],
+                         [
+                             "edge",
+                             "tls1",
+                             [
+                                 [
+                                     660,
+                                     400
+                                 ],
+                                 [
+                                     900,
+                                     400
+                                 ]
+                             ],
+                             false,
+                             "odoo",
+                             "hp",
+                             3.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "tls1l",
+                             "TCP/5000",
+                             670,
+                             345,
+                             220,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "tls2",
+                             [
+                                 [
+                                     1500,
+                                     400
+                                 ],
+                                 [
+                                     1740,
+                                     400
+                                 ]
+                             ],
+                             false,
+                             "hp",
+                             "pg",
+                             3.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "tls2l",
+                             "TCP/5432",
+                             1510,
+                             345,
+                             220,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "api",
+                             900,
+                             820,
+                             600,
+                             230,
+                             "Patroni · HTTP :8008",
+                             "GET /primary : sondes HAProxy|Actions : authentification requise|API REST actuellement en HTTP",
+                             "server"
+                         ],
+                         [
+                             "card",
+                             "etcd",
+                             1740,
+                             820,
+                             600,
+                             230,
+                             "etcd · HTTPS :2379 / :2380",
+                             "CA distincte : prosys-etcd-ca|Certificats clients pour :2379|Certificats pairs pour :2380",
+                             "network"
+                         ],
+                         [
+                             "card",
+                             "control",
+                             60,
+                             820,
+                             600,
+                             230,
+                             "Poste de contrôle Ansible",
+                             "SSH :22 vers hôtes et conteneurs|PKI et secrets conservés sur le poste|Accès d’administration au cluster",
+                             "server"
+                         ],
+                         [
+                             "edge",
+                             "probe",
+                             [
+                                 [
+                                     1200,
+                                     500
+                                 ],
+                                 [
+                                     1200,
+                                     820
+                                 ]
+                             ],
+                             true,
+                             "hp",
+                             "api",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "probel",
+                             "GET /primary · :8008",
+                             940,
+                             635,
+                             520,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "dcs",
+                             [
+                                 [
+                                     1500,
+                                     935
+                                 ],
+                                 [
+                                     1740,
+                                     935
+                                 ]
+                             ],
+                             true,
+                             "api",
+                             "etcd",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "dcsl",
+                             "HTTPS/2379",
+                             1510,
+                             875,
+                             220,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "ctl",
+                             [
+                                 [
+                                     660,
+                                     935
+                                 ],
+                                 [
+                                     900,
+                                     935
+                                 ]
+                             ],
+                             true,
+                             "control",
+                             "api",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "ctll",
+                             "Gestion REST|HTTP/8008",
+                             670,
+                             855,
+                             220,
+                             70,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "text",
+                             "peers",
+                             "Entre nœuds DB : WAL :5432 · sondes :8008 · clients etcd :2379 · consensus etcd :2380",
+                             200,
+                             1190,
+                             2000,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "IDENTITÉ DU CLIENT SQL",
+                             "Le primaire voit l’adresse du HAProxy, tandis que le certificat TLS continue d’identifier Odoo. Les règles pg_hba.conf autorisent les IP des nœuds DB.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "12-sauvegarde-et-restauration",
+        "title":  "Sauvegarder puis restaurer Odoo et ses données",
+        "subtitle":  "Une restauration complète doit réunir une base SQL et un filestore cohérents.",
+        "tag":  "SAUVEGARDE",
+        "sources":  "roles/ansi_sauvegarde/odoo_backup · playbooks/filestore-conteneur.yaml · docs/POSTGRESQL-PATRONI.md",
+        "commands":  [
+                         [
+                             "card",
+                             "sql",
+                             60,
+                             290,
+                             660,
+                             200,
+                             "Source SQL · primaire courant",
+                             "pg_dump en format custom|Via les endpoints HAProxy :5000|TLS / certificat client à valider",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "files",
+                             60,
+                             760,
+                             660,
+                             200,
+                             "Source fichiers · GlusterFS",
+                             "Hôte sauvegarde : 192.168.36.21|Montage /mnt/odoo en lecture seule|Archive hors sessions et _sessions",
+                             "folder"
+                         ],
+                         [
+                             "card",
+                             "backup",
+                             1000,
+                             500,
+                             600,
+                             290,
+                             "Traitement de sauvegarde",
+                             "Dump SQL + archive des fichiers|Contrôle des archives et SHA256|Cible : /srv/sauvegardes|Rétention : 30 jours",
+                             "archive"
+                         ],
+                         [
+                             "card",
+                             "restore",
+                             1850,
+                             500,
+                             490,
+                             290,
+                             "Parcours de restauration",
+                             "Suspendre les écritures Odoo|Choisir un ensemble cohérent|Restaurer SQL + filestore|Contrôler avant reprise",
+                             "database"
+                         ],
+                         [
+                             "edge",
+                             "dump",
+                             [
+                                 [
+                                     720,
+                                     390
+                                 ],
+                                 [
+                                     850,
+                                     390
+                                 ],
+                                 [
+                                     850,
+                                     580
+                                 ],
+                                 [
+                                     1000,
+                                     580
+                                 ]
+                             ],
+                             false,
+                             "sql",
+                             "backup",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "dumpl",
+                             "SQL",
+                             750,
+                             440,
+                             180,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "archive",
+                             [
+                                 [
+                                     720,
+                                     860
+                                 ],
+                                 [
+                                     850,
+                                     860
+                                 ],
+                                 [
+                                     850,
+                                     710
+                                 ],
+                                 [
+                                     1000,
+                                     710
+                                 ]
+                             ],
+                             false,
+                             "files",
+                             "backup",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "archl",
+                             "Fichiers",
+                             740,
+                             800,
+                             200,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "rest",
+                             [
+                                 [
+                                     1600,
+                                     645
+                                 ],
+                                 [
+                                     1850,
+                                     645
+                                 ]
+                             ],
+                             true,
+                             "backup",
+                             "restore",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "restl",
+                             "Archives choisies",
+                             1600,
+                             575,
+                             250,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "schedule",
+                             60,
+                             1110,
+                             1100,
+                             170,
+                             "Planification déclarée",
+                             "Timer : 02:15 + délai aléatoire de 10 min|Un seul hôte archive le volume commun.",
+                             "file"
+                         ],
+                         [
+                             "card",
+                             "coherence",
+                             1240,
+                             1110,
+                             1100,
+                             170,
+                             "Validation de restauration",
+                             "Contrôler droits, pièces jointes et application|L’automatisation HA de restauration reste à valider.",
+                             "file"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "POINT À COMPLÉTER DANS LE RÔLE SAUVEGARDE",
+                             "Les endpoints HA sont prévus, mais le rôle ne déploie pas le certificat client ni les variables PGSSL* nécessaires au chemin SQL via HAProxy.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "13-installation-odoo14-debian-lxc",
+        "title":  "Installer Odoo 14 sur Debian dans les LXC",
+        "subtitle":  "Parcours du projet : stockage et base prêts avant initialisation unique et démarrage des trois Odoo.",
+        "tag":  "INSTALLATION ODOO",
+        "sources":  "playbooks/ansi_odoo.yaml · roles/ansi_odoo/{python38,odoo14,odoo_uid,odoo_dbinit}",
+        "commands":  [
+                         [
+                             "card",
+                             "step1",
+                             60,
+                             300,
+                             510,
+                             330,
+                             "1 · Debian 12 + LXC",
+                             "Hôtes : .36.21 / .22 / .23|Conteneurs Debian bookworm|Odoo : .36.161 / .162 / .163|Réseau IPVLAN L2",
+                             "container"
+                         ],
+                         [
+                             "card",
+                             "step2",
+                             650,
+                             300,
+                             510,
+                             330,
+                             "2 · Filestore partagé",
+                             "Client GlusterFS dans chaque LXC|Volume : 192.168.36.8:/sre|Montage : /var/lib/odoo|Vérifier le montage avant Odoo",
+                             "folder"
+                         ],
+                         [
+                             "card",
+                             "step3",
+                             1240,
+                             300,
+                             510,
+                             330,
+                             "3 · PostgreSQL HA",
+                             "Trois nœuds PostgreSQL 15|Patroni + etcd + HAProxy|Odoo vise les trois IP DB :5000|TLS avec certificat client",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "step4",
+                             1830,
+                             300,
+                             510,
+                             330,
+                             "4 · Python + paquet Odoo",
+                             "CPython 3.8.20 compilé|Préfixe : /opt/python3.8|Odoo 14.0 par APT nightly|Client PostgreSQL et wkhtmltopdf",
+                             "server"
+                         ],
+                         [
+                             "card",
+                             "step8",
+                             60,
+                             900,
+                             510,
+                             330,
+                             "8 · Démarrer et vérifier",
+                             "systemd lance le Python du venv|HTTP :8069 · bus :8072|workers=2 · cron sur odoo1 seul|Imports Odoo et safe_eval validés",
+                             "browser"
+                         ],
+                         [
+                             "card",
+                             "step7",
+                             650,
+                             900,
+                             510,
+                             330,
+                             "7 · Initialiser une fois",
+                             "Aligner UID 105 / GID 112|Services Odoo arrêtés|odoo1 seul : base partagée prod|Initialisation conditionnelle",
+                             "database"
+                         ],
+                         [
+                             "card",
+                             "step6",
+                             1240,
+                             900,
+                             510,
+                             330,
+                             "6 · Configurer les accès",
+                             "/etc/odoo/odoo.conf|TLS : /etc/odoo/pg-ssl|Fragment systemd venv.conf|Exiger le montage du filestore",
+                             "file"
+                         ],
+                         [
+                             "card",
+                             "step5",
+                             1830,
+                             900,
+                             510,
+                             330,
+                             "5 · Construire le venv",
+                             "Python 3.8 → /opt/odoo14-venv|Dépendances pip dans le venv|odoo-deb.pth rend le code visible|Code fourni par le paquet .deb",
+                             "folder"
+                         ],
+                         [
+                             "edge",
+                             "top0",
+                             [
+                                 [
+                                     570,
+                                     465
+                                 ],
+                                 [
+                                     650,
+                                     465
+                                 ]
+                             ],
+                             true,
+                             "step1",
+                             "step2",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "top1",
+                             [
+                                 [
+                                     1160,
+                                     465
+                                 ],
+                                 [
+                                     1240,
+                                     465
+                                 ]
+                             ],
+                             true,
+                             "step2",
+                             "step3",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "top2",
+                             [
+                                 [
+                                     1750,
+                                     465
+                                 ],
+                                 [
+                                     1830,
+                                     465
+                                 ]
+                             ],
+                             true,
+                             "step3",
+                             "step4",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "down",
+                             [
+                                 [
+                                     2085,
+                                     630
+                                 ],
+                                 [
+                                     2085,
+                                     900
+                                 ]
+                             ],
+                             true,
+                             "step4",
+                             "step5",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "after",
+                             "Dans chaque conteneur Odoo",
+                             1650,
+                             735,
+                             680,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "bottom0",
+                             [
+                                 [
+                                     1830,
+                                     1065
+                                 ],
+                                 [
+                                     1750,
+                                     1065
+                                 ]
+                             ],
+                             true,
+                             "step5",
+                             "step6",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "bottom1",
+                             [
+                                 [
+                                     1240,
+                                     1065
+                                 ],
+                                 [
+                                     1160,
+                                     1065
+                                 ]
+                             ],
+                             true,
+                             "step6",
+                             "step7",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "bottom2",
+                             [
+                                 [
+                                     650,
+                                     1065
+                                 ],
+                                 [
+                                     570,
+                                     1065
+                                 ]
+                             ],
+                             true,
+                             "step7",
+                             "step8",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "ENVIRONNEMENT VIRTUEL LOCAL À CHAQUE CONTENEUR",
+                             "/opt/python3.8/bin/python3.8 -m venv /opt/odoo14-venv · dépendances : fichier figé s’il existe, sinon requirements.txt amont Odoo 14.",
+                             ""
+                         ]
+                     ]
+    },
+    {
+        "slug":  "14-pile-execution-odoo14-venv",
+        "title":  "Pile d’exécution : LXC, venv et service Odoo",
+        "subtitle":  "Le conteneur porte le système ; le venv fournit l’interpréteur Python et les bibliothèques de l’application.",
+        "tag":  "PILE ODOO / VENV",
+        "sources":  "python38/defaults/main.yml · odoo14/tasks/main.yaml · group_vars/odoo_containers/vars.yml",
+        "commands":  [
+                         [
+                             "box",
+                             "host",
+                             60,
+                             270,
+                             2280,
+                             1040,
+                             "HÔTE DEBIAN 12 · EXEMPLE : 192.168.36.21"
+                         ],
+                         [
+                             "box",
+                             "container",
+                             100,
+                             380,
+                             2200,
+                             890,
+                             "CONTENEUR LXC DEBIAN 12 · ODOO1 : 192.168.36.161"
+                         ],
+                         [
+                             "card",
+                             "systemd",
+                             140,
+                             480,
+                             1440,
+                             170,
+                             "systemd · odoo.service + fragment venv.conf",
+                             "/opt/odoo14-venv/bin/python /usr/bin/odoo|--config /etc/odoo/odoo.conf --logfile /var/log/odoo/odoo.log",
+                             "server"
+                         ],
+                         [
+                             "card",
+                             "syspython",
+                             1640,
+                             480,
+                             620,
+                             170,
+                             "Python système 3.11",
+                             "/usr/bin/python3|Utilisé par le système et Ansible",
+                             "file"
+                         ],
+                         [
+                             "box",
+                             "venv",
+                             140,
+                             810,
+                             700,
+                             410,
+                             "ENVIRONNEMENT VIRTUEL PYTHON"
+                         ],
+                         [
+                             "text",
+                             "venvbody",
+                             "CPython 3.8.20 : /opt/python3.8|Venv : /opt/odoo14-venv|bin/python + dépendances pip|lib/python3.8/site-packages|odoo-deb.pth → code du paquet",
+                             175,
+                             915,
+                             630,
+                             230,
+                             25,
+                             false,
+                             "left"
+                         ],
+                         [
+                             "card",
+                             "code",
+                             930,
+                             810,
+                             650,
+                             210,
+                             "Code Odoo 14 du paquet .deb",
+                             "/usr/bin/odoo|/usr/lib/python3/dist-packages/odoo|Addons dans le répertoire du paquet",
+                             "file"
+                         ],
+                         [
+                             "card",
+                             "config",
+                             1640,
+                             810,
+                             620,
+                             170,
+                             "Configuration locale",
+                             "/etc/odoo/odoo.conf|Certificats : /etc/odoo/pg-ssl",
+                             "file"
+                         ],
+                         [
+                             "card",
+                             "data",
+                             1640,
+                             1050,
+                             620,
+                             170,
+                             "GlusterFS monté dans le LXC",
+                             "/var/lib/odoo : data_dir partagé|filestore/prod + sessions",
+                             "folder"
+                         ],
+                         [
+                             "edge",
+                             "run",
+                             [
+                                 [
+                                     490,
+                                     650
+                                 ],
+                                 [
+                                     490,
+                                     810
+                                 ]
+                             ],
+                             false,
+                             "systemd",
+                             "venv",
+                             3,
+                             true
+                         ],
+                         [
+                             "text",
+                             "runl",
+                             "Lancement avec Python 3.8",
+                             190,
+                             710,
+                             600,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "import",
+                             [
+                                 [
+                                     840,
+                                     915
+                                 ],
+                                 [
+                                     930,
+                                     915
+                                 ]
+                             ],
+                             false,
+                             "venv",
+                             "code",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "importl",
+                             "Import",
+                             845,
+                             850,
+                             80,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "edge",
+                             "cfg",
+                             [
+                                 [
+                                     1580,
+                                     895
+                                 ],
+                                 [
+                                     1640,
+                                     895
+                                 ]
+                             ],
+                             true,
+                             "code",
+                             "config",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "edge",
+                             "files",
+                             [
+                                 [
+                                     1255,
+                                     1020
+                                 ],
+                                 [
+                                     1255,
+                                     1135
+                                 ],
+                                 [
+                                     1640,
+                                     1135
+                                 ]
+                             ],
+                             false,
+                             "code",
+                             "data",
+                             2.5,
+                             true
+                         ],
+                         [
+                             "text",
+                             "filesl",
+                             "Données partagées",
+                             1265,
+                             1070,
+                             355,
+                             38,
+                             22,
+                             true,
+                             "center"
+                         ],
+                         [
+                             "card",
+                             "note",
+                             60,
+                             1350,
+                             2280,
+                             130,
+                             "ACCÈS À LA BASE PARTAGÉE",
+                             "Odoo / psycopg2 / libpq → HAProxy x3 sur :5000 → PostgreSQL primaire :5432. Le venv et le code sont locaux ; le data_dir est partagé.",
+                             ""
+                         ]
+                     ]
+    }
+]

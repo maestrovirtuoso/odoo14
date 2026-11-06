@@ -16,10 +16,12 @@ restapi:
     username: {{ pg_ha_rest_user | to_json }}
     password: {{ pg_ha_rest_password | to_json }}
 
+# Lue au DEMARRAGE de Patroni seulement : un reload ne la change pas. Si
+# elle change, tasks/relance.yaml relance Patroni, cluster en pause.
 etcd3:
   hosts:
-{% for ip in pg_ha_node_ips %}
-    - {{ (ip ~ ':' ~ pg_ha_etcd_client_port) | to_json }}
+{% for h in pg_ha_etcd3_hosts %}
+    - {{ h | to_json }}
 {% endfor %}
   protocol: https
   cacert: {{ (pg_ha_ssl_dir ~ '/etcd-ca.crt') | to_json }}

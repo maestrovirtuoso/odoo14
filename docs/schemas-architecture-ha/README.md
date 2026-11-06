@@ -1,4 +1,4 @@
-# Architecture actuelle et disponibilité PostgreSQL
+﻿# Architecture actuelle et disponibilité PostgreSQL
 
 Configuration du dépôt au **25 octobre 2026**. Les schémas représentent les fichiers Ansible, sans audit des serveurs.
 
@@ -22,6 +22,69 @@ Ouvrir [architecture-actuelle-et-ha-postgresql.drawio](architecture-actuelle-et-
 ![Option HA](03-option-ha-patroni-etcd-haproxy.png)
 
 ![Bascule HA](04-bascule-ha-et-quorum.png)
+
+## Explication de chaque schéma
+
+**Contexte historique :** les quatre vues décrivent l’édition du 25 octobre 2026, où `pg_ha_enabled=false`. Dans les variables de la série du 3 novembre 2026, ce paramètre vaut `true`. Les expressions « actuelle » et « option HA » ci-dessous se rapportent donc à l’ancienne édition. Consulter la [série Patroni et Odoo 14](../schemas-patroni-odoo14/README.md) pour la configuration récente.
+
+### 01 — Architecture technique expert
+
+[Ouvrir le schéma](01-architecture-actuelle.svg).
+
+**Objectif :** situer les applications, les bases, le stockage et l’administration dans une vue d’ensemble.
+
+Les contours séparent les réseaux, les hôtes et leurs conteneurs. Trois Odoo utilisent un primaire PostgreSQL fixe, odoodb1, qui réplique ses WAL vers odoodb2 et odoodb3. Le volume GlusterFS externe fournit les fichiers partagés. L’hôte de sauvegarde produit le dump SQL et l’archive des fichiers.
+
+**Parcours à suivre :** utilisateur → Odoo sur `8069` → routeur externe → odoodb1 sur `5432`. Suivre ensuite les liens vers GlusterFS pour les fichiers, les WAL vers les répliques et les flux de sauvegarde. Les identifiants F01 à F06 sont détaillés dans la table de lecture ci-dessous.
+
+**À retenir :** les trois Odoo partagent les données ; cette architecture diffère de trois instances autonomes. Le dessin historique emploie un montage GlusterFS sur l’hôte puis un bind LXC. La présence de plusieurs nœuds ne prouve pas à elle seule l’indépendance de leurs domaines de panne physiques.
+
+### 02 — Réplication et bascule manuelle
+
+[Ouvrir le schéma](02-replication-et-bascule-manuelle.svg).
+
+**Objectif :** comprendre ce que la réplication apporte avant l’automatisation de la bascule.
+
+Odoodb1 accepte les écritures et transmet ses WAL aux deux répliques. Celles-ci les rejouent pour suivre la base primaire. La réplication est asynchrone : elles peuvent présenter un retard.
+
+**Parcours à suivre :** écritures sur le primaire → émission des WAL → réception et rejeu sur les répliques. En cas de panne, une intervention doit sélectionner une réplique, la promouvoir et adapter les accès applicatifs. L’ancien primaire doit être maîtrisé pour éviter qu’il reprenne des écritures indépendantes.
+
+**À retenir :** la réplication maintient des copies mais ne redirige pas automatiquement Odoo. Des transactions récentes peuvent manquer sur la réplique promue. Le filestore et le cron applicatif doivent être considérés séparément du rôle PostgreSQL.
+
+### 03 — Option HA Patroni / etcd / HAProxy
+
+[Ouvrir le schéma](03-option-ha-patroni-etcd-haproxy.svg).
+
+**Objectif :** expliquer les composants ajoutés pour coordonner les rôles et acheminer le SQL vers le primaire courant.
+
+Chaque nœud de données héberge PostgreSQL, un agent Patroni, un membre etcd et HAProxy. Patroni pilote son PostgreSQL local. Etcd conserve les informations de coordination et le verrou du leader. Chaque HAProxy interroge les API Patroni pour identifier le primaire.
+
+**Parcours à suivre :** Odoo → un des trois endpoints HAProxy sur `5000` → primaire PostgreSQL sur `5432`. Suivre séparément HAProxy → API Patroni sur `8008`, Patroni → etcd sur `2379` et les échanges etcd sur `2380`.
+
+**À retenir :** HAProxy dirige le SQL vers le primaire ; il ne répartit pas les lectures entre les répliques dans cette configuration. Le TLS PostgreSQL le traverse jusqu’au serveur SQL. Les WAL passent directement entre PostgreSQL, sans traverser Patroni ou etcd. Cette vue était une option à sa date de création.
+
+### 04 — Bascule HA et quorum
+
+[Ouvrir le schéma](04-bascule-ha-et-quorum.svg).
+
+**Objectif :** suivre le changement de primaire après une panne et comprendre le rôle de la majorité etcd.
+
+Le scénario illustre la perte du primaire puis la promotion d’une réplique éligible sous le contrôle de Patroni. Avec trois membres etcd, deux membres doivent pouvoir former la majorité pour la coordination. HAProxy détecte ensuite le nouveau primaire et adapte la destination des nouvelles connexions.
+
+**Parcours à suivre :** panne → coordination avec quorum → promotion d’une réplique → détection par HAProxy → reconnexion applicative. Odoodb2 est choisi pour illustrer le scénario ; il ne s’agit pas d’une préférence imposée ni d’un résultat observé.
+
+**À retenir :** la majorité etcd concerne la coordination, pas la réception des WAL. Elle ne garantit pas zéro perte de transactions avec une réplication asynchrone. Les sessions interrompues doivent se reconnecter et les transactions en cours ne sont pas transférées. Le watchdog est désactivé dans les LXC ; cette vue ne représente pas un fencing matériel. La HA SQL ne déplace pas automatiquement le cron Odoo et ne garantit pas la disponibilité web ou GlusterFS.
+
+### Comparer les quatre vues
+
+| Vue | Question traitée | Ce qu’elle permet de comprendre |
+| --- | --- | --- |
+| 01 | Où sont les composants et les flux ? | Placement et dépendances de l’ancienne architecture. |
+| 02 | Comment les copies SQL suivent-elles le primaire ? | Réplication et reprise nécessitant une intervention. |
+| 03 | Quels composants automatisent la gestion des rôles ? | Répartition des responsabilités entre PostgreSQL, Patroni, etcd et HAProxy. |
+| 04 | Que se passe-t-il lors d’une panne ? | Enchaînement de la bascule et conditions de quorum. |
+
+[Revenir au guide général des schémas](../README.md).
 
 ## Lecture de la vue expert
 
@@ -107,3 +170,4 @@ Le TLS PostgreSQL traverse HAProxy sans terminaison. Les certificats SQL couvren
 Depuis PowerShell sous Windows : .\generer-schemas.ps1
 
 Le générateur autonome utilise XML, SVG et System.Drawing. Il produit le document à quatre pages, la vue expert autonome, les SVG et les PNG (4800 × 3200 pour la vue expert, 3200 × 2000 pour les trois vues de disponibilité), et vérifie le texte et les limites de page. Les changements effectués dans draw.io ne sont pas réimportés dans le générateur.
+

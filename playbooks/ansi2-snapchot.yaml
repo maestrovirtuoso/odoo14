@@ -6,3 +6,17 @@
     - ../common/group_vars/local_dev.yml
   roles:
     - install
+
+# Conteneur de supervision, en plus de devodoo14 sur 192.168.36.21.
+# Le role install ne cree que "containers", soit [lxc_container_name], que
+# host_vars fixe a devodoo14. La variable de play prime sur host_vars : ce
+# play ne voit que "supervision" et ne touche pas a devodoo14.
+- name: Installer le conteneur LXC de supervision sur 192.168.36.21
+  hosts: supervision_host
+  gather_facts: true
+  vars_files:
+    - ../common/group_vars/local_dev.yml
+  vars:
+    lxc_container_name: supervision
+  roles:
+    - install

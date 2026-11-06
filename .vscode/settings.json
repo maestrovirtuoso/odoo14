@@ -1,0 +1,18 @@
+{
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.jj": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "**/c:\\Users\\uriel.akam\\odoo14\\rapport.aux": true,
+        "**/c:\\Users\\uriel.akam\\odoo14\\rapport.log": true,
+        "**/c:\\Users\\uriel.akam\\odoo14\\rapport.gz": true,
+        "**/c:\\Users\\uriel.akam\\odoo14\\rapport.out": true,
+        "**/c:\\Users\\uriel.akam\\odoo14\\rapport-odoo14.aux": true,
+        "**/c:\\Users\\uriel.akam\\odoo14\\rapport-odoo14.log": true,
+        "**/c:\\Users\\uriel.akam\\odoo14\\rapport-odoo14.gz": true,
+        "**/c:\\Users\\uriel.akam\\odoo14\\rapport-odoo14.out": true
+    }
+}

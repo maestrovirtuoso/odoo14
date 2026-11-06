@@ -1,0 +1,1499 @@
+% ===========================================================================
+% Rapport ProSys -- Odoo 14 en haute disponibilite sur LXC
+%
+% Compilation (depuis la racine du depot) :
+%     tectonic rapport-odoo14.tex
+%
+% Les schemas sont lus dans docs/schemas-patroni-odoo14/ (\graphicspath).
+% Leur numero dans le rapport (Schema 1 a 14) est celui de leur fichier
+% (01-... a 14-...) : les sections suivent l'ordre du catalogue.
+% ===========================================================================
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{fontspec}
+\usepackage[french]{babel}
+\usepackage[a4paper,margin=1.9cm,headheight=14pt,includehead,includefoot]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage[table]{xcolor}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{tcolorbox}
+\tcbuselibrary{breakable,skins}
+\usepackage{caption}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+
+% --- Chemins et reglages generaux ------------------------------------------
+% Schemas 1 a 14 par leur seul nom ; schemas 15 a 24 par leur sous-dossier
+% de docs/ (schemas-lxc/, schemas-glusterfs/, schemas-architecture-ha/).
+\graphicspath{{docs/schemas-patroni-odoo14/}{docs/}}
+
+% Nom de fichier dans un titre de section (signet PDF sans mise en forme).
+\newcommand{\pb}[1]{\texorpdfstring{\texttt{#1}}{#1}}
+\setlength{\emergencystretch}{2em}
+\setlist{itemsep=2pt,topsep=4pt}
+
+% Code en ligne : underscores et chemins sans echappement.
+% Ne pas l'utiliser dans un titre ni une legende.
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\addto\captionsfrench{%
+  \renewcommand{\figurename}{Schéma}%
+  \renewcommand{\listfigurename}{Liste des schémas}%
+  \renewcommand{\tablename}{Tableau}%
+}
+\captionsetup{font=small,labelfont=bf}
+
+% --- Blocs de commandes ------------------------------------------------------
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  backgroundcolor=\color{gray!8},
+  frame=single,
+  rulecolor=\color{gray!40},
+  commentstyle=\color{gray!70!black},
+  showstringspaces=false,
+  keepspaces=true,
+  columns=flexible,
+  language=bash,
+}
+
+% --- Schema et lecture du schema --------------------------------------------
+% \schema{fichier}{titre}
+\newcommand{\schema}[2]{%
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{#1}
+    \caption{#2}
+    \label{fig:#1}
+  \end{figure}}
+
+% Encadre place sous chaque schema : resume, points de lecture, sources.
+\newenvironment{lecture}[1]{%
+  \begin{tcolorbox}[breakable, enhanced, colback=gray!4, colframe=gray!55,
+    boxrule=0.5pt, arc=1mm, left=2mm, right=2mm, top=1mm, bottom=1mm,
+    fonttitle=\bfseries\small, title={Lecture du schéma~\thefigure}]
+  % Fer a gauche : les longs noms de fichiers ne peuvent pas etre coupes.
+  \raggedright\emph{#1}\par\smallskip\small}
+  {\end{tcolorbox}}
+
+% --- Entetes et pieds de page -----------------------------------------------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small ProSys -- Odoo 14 en haute disponibilité}
+\fancyhead[R]{\small\nouppercase{\leftmark}}
+\fancyfoot[L]{\small ADMIN}
+\fancyfoot[R]{\small \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\hypersetup{
+  % La page de titre remet le compteur de pages a 1 : sans cela, deux pages
+  % portent le meme nom de destination PDF ("@page.1 already defined").
+  hypertexnames=false,
+  pdftitle={ProSys - Odoo 14 en haute disponibilité sur LXC},
+  pdfauthor={ADMIN},
+}
+
+% ===========================================================================
+\begin{document}
+
+% --- Page de titre -----------------------------------------------------------
+\begin{titlepage}
+  \centering
+  \vspace*{1.5cm}
+  {\large\scshape Rapport de projet\par}
+  \vspace{0.8cm}
+  {\Huge\bfseries ProSys -- Odoo 14\\[4pt] en haute disponibilité sur LXC\par}
+  \vspace{0.6cm}
+  {\Large Architecture, déploiement Ansible et exploitation\par}
+  \vfill
+  {\large ADMIN\par}
+  \vspace{0.2cm}
+ 
+\end{titlepage}
+
+% --- Resume -----------------------------------------------------------------
+\begin{abstract}
+Ce rapport décrit le projet ProSys : le déploiement par Ansible de trois
+instances \textbf{Odoo~14} qui partagent une base \textbf{PostgreSQL~15}
+rendue hautement disponible par \textbf{Patroni}, \textbf{etcd} et
+\textbf{HAProxy}, et un filestore commun porté par un volume
+\textbf{GlusterFS}. Chaque instance tourne dans un conteneur LXC Debian~12,
+posé sur son propre hôte et relié au réseau en IPVLAN.
+
+Le rapport présente l'architecture, les mécanismes de haute disponibilité
+(réplication, bascule automatique et planifiée, quorum, réintégration), la
+sécurité des flux, la sauvegarde, l'installation et l'exploitation, puis
+détaille chacun des huit playbooks. Les vingt-quatre schémas sont suivis
+chacun d'une lecture commentée : quatorze décrivent l'architecture actuelle,
+dix proviennent des éditions précédentes et montrent son évolution. Les
+limites connues et les points restant à compléter sont signalés.
+
+
+\end{abstract}
+
+\tableofcontents
+\clearpage
+
+% ===========================================================================
+\section{Introduction}
+% ===========================================================================
+
+\subsection{Contexte et objectifs}
+
+ProSys exploite Odoo~14 pour plusieurs utilisateurs. Le projet répond à trois
+objectifs :
+
+\begin{itemize}
+  \item \textbf{servir une base unique} à trois instances Odoo, pour que toutes
+        voient les mêmes données ;
+  \item \textbf{rendre la base hautement disponible} : si le serveur
+        PostgreSQL primaire tombe, une réserve prend sa place sans intervention ;
+  \item \textbf{rendre le déploiement reproductible} : toute l'installation est
+        décrite par des playbooks Ansible versionnés.
+\end{itemize}
+
+\subsection{Principes SRE appliqués}
+
+L'ingénierie de la fiabilité (SRE, \emph{Site Reliability Engineering}) traite
+l'exploitation comme un problème d'ingénierie : la fiabilité se définit et se
+mesure, le travail répétitif s'automatise, les changements sont rendus sûrs, et
+chaque incident sert à renforcer le système. Le projet applique ces principes
+de la façon suivante ; les points encore ouverts sont signalés.
+
+\begin{itemize}
+  \item \textbf{Supprimer les points de défaillance uniques.} Trois serveurs
+        PostgreSQL sous Patroni, un quorum etcd de 2 sur 3, un HAProxy par
+        serveur et trois instances Odoo : la perte d'un nœud de données est
+        tolérée sans intervention. Restent uniques : le cron d'Odoo, porté par
+        odoo1 ; le serveur 192.168.36.8, dont dépend le montage du volume au
+        démarrage, aucun serveur de secours n'étant déclaré ; l'hôte de
+        sauvegarde.
+  \item \textbf{Automatiser plutôt que répéter} (réduction du \emph{toil}).
+        Tout le déploiement est décrit par des playbooks Ansible versionnés.
+        Ils sont idempotents : rejoués, ils remettent en conformité sans rien
+        casser, et \code{--check --diff} montre ce qui changerait avant d'agir.
+  \item \textbf{Rendre les changements sûrs.} Les opérations risquées sont
+        progressives, pour limiter le rayon d'impact : montage du filestore un
+        hôte à la fois, relance de Patroni un serveur à la fois et cluster en
+        pause, redémarrages des réserves avant le primaire. À l'inverse, une
+        reprise à moitié faite étant pire qu'une reprise pas commencée, un
+        échec sur un serveur PostgreSQL arrête les trois
+        (\code{any_errors_fatal}).
+  \item \textbf{Échouer de façon sûre} (garde-fous). Odoo ne démarre pas sans
+        son volume partagé, et le rôle \code{odoo14} refuse de configurer une
+        instance sans lui. Le rôle \code{pg_ha} refuse de créer une nouvelle
+        autorité de certification et s'arrête sur « refus » avant toute
+        modification. La base n'est initialisée que par odoo1.
+  \item \textbf{Apprendre des incidents.} Les incidents rencontrés sont
+        documentés dans le code, avec leur date et leur cause, et chacun a
+        donné un garde-fou : sauvegarde refusée par la base faute de règle pour
+        son hôte (24/09/2026), Odoo écrivant sur son disque local faute de
+        volume (25/09/2026), instances arrêtées par un mauvais chemin du
+        filestore dans le volume (29 et 30/09/2026), base voyant les Odoo sous
+        l'adresse du routeur NAT (20/10/2026). C'est l'esprit du post-mortem
+        sans recherche de coupable : corriger le système, pas les personnes.
+  \item \textbf{Rendre l'environnement reproductible.} Les versions des
+        collections Ansible sont épinglées, et un contrôle optionnel (tag
+        \code{preflight}) les vérifie avant tout contact avec les hôtes.
+        L'archive de Python~3.8.20 est contrôlée par son empreinte SHA256 ; les
+        dépendances Python viennent d'un fichier de versions figées lorsqu'il
+        existe.
+  \item \textbf{Prévoir la capacité.} La règle du projet borne les connexions
+        à la base : 3 nœuds $\times$ (2 workers + 1 cron) $\times$ 16
+        connexions, soit 144 au plus, pour 200 autorisées par
+        \code{max_connections}.
+  \item \textbf{Observer et vérifier.} Chaque déploiement se termine par des
+        contrôles actifs : un primaire et deux réserves, retard inférieur à
+        16~Mo, vraie connexion TLS à travers chaque HAProxy, montage GlusterFS
+        dans chaque conteneur. L'état se lit par \code{patronictl list}, l'API
+        Patroni, la page d'état HAProxy et les journaux systemd.
+        \emph{À compléter :} le dépôt ne déploie ni supervision continue ni
+        alertes.
+  \item \textbf{Mesurer la fiabilité} (SLI, SLO, budget d'erreur).
+        \emph{À définir :} le dépôt ne fixe pas encore d'objectifs chiffrés.
+        Indicateurs proposés : disponibilité de \code{/web/login} sur chaque
+        instance, disponibilité des écritures SQL, temps de rétablissement
+        après une bascule (RTO) et perte de données admise (RPO). Les réglages
+        comme \code{ttl=30 s} ou \code{maximum_lag_on_failover} ne sont pas
+        des mesures : seuls des tests de bascule et de restauration
+        chronométrés les fourniront.
+\end{itemize}
+
+Le rapport décrit la configuration prévue par le code ; l'état réel des
+serveurs, les délais de bascule et la restauration restent à constater en
+exploitation.
+
+% ===========================================================================
+\section{Architecture générale}
+% ===========================================================================
+
+\subsection{Vue d'ensemble}
+
+L'architecture sépare une zone applicative, où tournent les trois Odoo, et une
+zone de données, où tournent les trois serveurs PostgreSQL. Le filestore est
+porté par un volume GlusterFS extérieur au projet.
+
+\schema{01-architecture-globale-ha}{Architecture globale : Odoo et PostgreSQL HA}
+
+\begin{lecture}{Trois instances applicatives, trois nœuds de données et un filestore partagé.}
+\begin{itemize}
+  \item \textbf{Zone application} (\code{192.168.36.0/24}) : les utilisateurs
+        accèdent directement à l'une des trois instances Odoo, en HTTP sur
+        8069 et sur 8072 pour le bus de notifications. Les trois instances
+        tournent dans \code{/opt/odoo14-venv} avec Python~3.8 ; odoo1 porte en
+        plus l'unique cron.
+  \item \textbf{Routage L3} : un routeur externe relie les deux réseaux et
+        applique un SNAT vers \code{192.168.33.254}.
+  \item \textbf{Zone données} (\code{192.168.33.0/24}) : chaque nœud porte
+        PostgreSQL~15 (5432), Patroni (8008), etcd (2379 et 2380) et HAProxy
+        (5000).
+  \item \textbf{Accès SQL} : Odoo connaît les trois points d'entrée HAProxy
+        sur TCP/5000 ; libpq choisit l'adresse disponible, et le trafic SQL
+        est chiffré en TLS.
+  \item \textbf{Rôles} : seul le primaire reçoit le SQL. Les répliques ne
+        reçoivent que les WAL, le journal des transactions du primaire
+        (expliqué à la section~\ref{sec:replication}), de façon asynchrone. Patroni et etcd
+        coordonnent le verrou du leader avec un quorum de 2 sur 3.
+  \item \textbf{Filestore} : le volume GlusterFS externe \code{sre} est monté
+        directement dans chaque conteneur Odoo, sur \code{/var/lib/odoo}.
+        \code{192.168.36.8:24007} fournit la description du volume, puis le
+        client dialogue avec les serveurs de briques.
+  \item Le placement « odoodb1 primaire » n'est qu'un exemple : le primaire
+        peut être n'importe lequel des trois nœuds.
+\end{itemize}
+\end{lecture}
+
+\subsection{Machines et conteneurs}
+
+Chaque hôte Debian~12 porte un seul conteneur LXC. Le placement est défini
+dans \code{inventory.yaml} et dans \code{host_vars/}.
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{L P{2cm} P{2.6cm} P{2.4cm} P{1.7cm}}
+\toprule
+\rowcolor{gray!15}
+\textbf{Rôle} & \textbf{Conteneur} & \textbf{IP du conteneur} & \textbf{Hôte} & \textbf{Carte} \\
+\midrule
+odoo1 -- Odoo, initialisation de la base, cron & \code{devodoo14} & 192.168.36.161 & 192.168.36.21 & \code{enp5s0} \\
+odoo2 -- Odoo                                   & \code{devodoo14} & 192.168.36.162 & 192.168.36.22 & \code{enp5s0} \\
+odoo3 -- Odoo                                   & \code{devodoo14} & 192.168.36.163 & 192.168.36.23 & \code{enp5s0} \\
+odoodb1 -- PostgreSQL, Patroni, etcd, HAProxy   & \code{devpg15}   & 192.168.33.161 & 192.168.33.21 & \code{enp1s0} \\
+odoodb2 -- PostgreSQL, Patroni, etcd, HAProxy   & \code{devpg15}   & 192.168.33.162 & 192.168.33.22 & \code{enp1s0} \\
+odoodb3 -- PostgreSQL, Patroni, etcd, HAProxy   & \code{devpg15}   & 192.168.33.163 & 192.168.33.23 & \code{enp1s0} \\
+\bottomrule
+\end{tabularx}
+\caption{Hôtes et conteneurs déclarés dans l'inventaire}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{P{4.6cm} P{4.2cm} L}
+\toprule
+\rowcolor{gray!15}
+\textbf{Élément extérieur} & \textbf{Adresse} & \textbf{Usage} \\
+\midrule
+Volume GlusterFS répliqué \code{sre} & 192.168.36.8 (description du volume) & Filestore et sessions communs aux trois Odoo \\
+Routeur entre les deux réseaux & passerelles \code{.254} & NAT : la base voit les Odoo sous 192.168.33.254 \\
+Hôte de sauvegarde & 192.168.36.21 (\code{backup_host}) & \code{pg_dump} et archive du filestore dans \code{/srv/sauvegardes} \\
+\bottomrule
+\end{tabularx}
+\caption{Éléments extérieurs que le déploiement suppose en place}
+\end{table}
+
+\schema{02-deploiement-hotes-lxc}{Déploiement : hôtes Debian et conteneurs LXC}
+
+\begin{lecture}{Six hôtes déclarés ; chaque conteneur possède une adresse LAN via IPVLAN L2.}
+\begin{itemize}
+  \item Chaque boîte représente un hôte Debian~12 et le conteneur qu'il porte.
+        Les hôtes 192.168.36.21 à 23 utilisent la carte \code{enp5s0} et
+        portent odoo1 à odoo3. Les hôtes 192.168.33.21 à 23 utilisent
+        \code{enp1s0} et portent odoodb1 à odoodb3.
+  \item Les conteneurs sont reliés en \textbf{IPVLAN L2} : ils partagent
+        l'adresse MAC de leur hôte, la seule que le réseau accepte.
+  \item \textbf{Conteneurs Odoo} : Debian~12, Odoo~14, Python~3.8, venv
+        local \code{/opt/odoo14-venv}, volume GlusterFS monté dans le
+        conteneur.
+  \item \textbf{Conteneurs PostgreSQL} : PostgreSQL~15 avec Patroni, etcd et
+        HAProxy. Les données PostgreSQL sont locales à chaque nœud et
+        recopiées par réplication.
+  \item Le routage externe relie 192.168.36.0/24 et 192.168.33.0/24 ; Odoo
+        atteint les HAProxy sur le port 5000.
+  \item \textbf{Domaines de panne} : les hôtes sont distincts dans
+        l'inventaire, mais leur placement physique n'est pas décrit. En
+        IPVLAN, un hôte ne joint pas son propre conteneur sans chemin adapté.
+\end{itemize}
+\end{lecture}
+
+\subsection{Filestore commun}
+
+Chaque conteneur Odoo monte \emph{lui-même} \code{192.168.36.8:/sre} sur
+\code{/var/lib/odoo}. Le volume contient \code{filestore/prod} et
+\code{sessions}. Trois garde-fous protègent ce montage :
+
+\begin{itemize}
+  \item l'unité systemd d'Odoo exige le montage (\code{RequiresMountsFor}).
+        Sans volume, Odoo ne démarre pas, au lieu d'écrire sur le disque
+        local ;
+  \item le rôle \code{odoo14} refuse de configurer une instance dont
+        \code{/var/lib/odoo} n'est pas un montage GlusterFS ;
+  \item le compte \code{odoo} a le même UID et le même GID (105/112) sur les
+        trois conteneurs. Sur un volume partagé, ce sont les numéros qui
+        comptent.
+\end{itemize}
+
+L'ancien montage sur l'hôte suivi d'un bind vers le conteneur n'existe plus.
+Seul l'hôte de sauvegarde garde \code{/mnt/odoo}, en lecture seule.
+
+% ===========================================================================
+\section{Haute disponibilité de PostgreSQL}
+% ===========================================================================
+
+\subsection{Rôle des composants}
+
+La haute disponibilité repose sur trois composants installés dans chacun des
+trois conteneurs PostgreSQL. Patroni pilote le PostgreSQL local, etcd conserve
+l'état du cluster, et HAProxy dirige les connexions vers le primaire.
+
+\schema{03-orchestration-patroni}{Patroni orchestre le rôle de chaque PostgreSQL}
+
+\begin{lecture}{Les données circulent entre PostgreSQL ; les décisions de rôle passent par Patroni et etcd.}
+\begin{itemize}
+  \item Odoo, par libpq, connaît trois adresses HAProxy. Le SQL chiffré passe
+        par l'un des trois HAProxy (port 5000), puis rejoint le primaire sur
+        5432.
+  \item HAProxy contrôle le rôle de chaque serveur par \code{GET /primary}
+        auprès des trois agents Patroni : la réponse 200 désigne le primaire
+        qui détient le verrou.
+  \item Les WAL vont directement du primaire vers les répliques ; ils ne
+        traversent pas Patroni.
+  \item \textbf{Patroni} (API 8008) : un agent indépendant par nœud, qui
+        démarre, arrête, configure et promeut son PostgreSQL local.
+  \item \textbf{etcd} (quorum 2/3) : conserve le verrou du leader et la
+        configuration ; clients en HTTPS sur 2379, échanges entre membres sur
+        2380.
+  \item En résumé : Patroni supervise et coordonne, HAProxy route le TCP,
+        PostgreSQL exécute et réplique, etcd conserve l'état de coordination.
+\end{itemize}
+\end{lecture}
+
+\subsection{Connexion d'Odoo à la base}
+
+Odoo reçoit dans \code{/etc/odoo/odoo.conf} la liste des trois serveurs et le
+port des HAProxy :
+
+\begin{lstlisting}
+db_host = 192.168.33.161,192.168.33.162,192.168.33.163
+db_port = 5000
+\end{lstlisting}
+
+Comme le routeur fait du NAT, la base reconnaît chaque instance à son
+\textbf{certificat client} et non à son adresse.
+
+\schema{04-connexion-odoo-haproxy}{Connexion Odoo : du venv au primaire courant}
+
+\begin{lecture}{libpq essaie les points d'entrée dans l'ordre et garde une connexion vers un serveur qui accepte les écritures.}
+\begin{itemize}
+  \item Odoo~14 s'exécute dans le venv et passe par psycopg2 puis libpq, avec
+        \code{PGTARGETSESSIONATTRS=read-write} et
+        \code{PGSSLMODE=verify-full}.
+  \item libpq essaie les trois adresses, port 5000, et ouvre une nouvelle
+        connexion vers la première disponible. Le choix du proxy dépend de sa
+        disponibilité ; c'est HAProxy qui sélectionne le primaire.
+  \item Chaque HAProxy (sur odoodb1, odoodb2 et odoodb3) est un relais TCP
+        transparent qui sonde les trois agents Patroni sur 8008.
+  \item Toutes les connexions aboutissent au \textbf{primaire courant}
+        (5432), qui reçoit toutes les lectures et écritures d'Odoo. Le
+        certificat du serveur est vérifié, et celui d'Odoo est exigé.
+  \item Le TLS PostgreSQL va de bout en bout : HAProxy ne le termine pas.
+  \item Après une bascule, HAProxy ferme les sessions attachées à la cible
+        retirée. Les clients doivent se reconnecter, et les transactions en
+        cours ne sont pas transférées.
+\end{itemize}
+\end{lecture}
+
+\subsection{Réplication}
+\label{sec:replication}
+
+\paragraph{Qu'est-ce que le WAL ?} Le WAL (\emph{Write-Ahead Log}, « journal
+écrit en premier ») est le journal des transactions de PostgreSQL. Avant de
+modifier ses fichiers de données, PostgreSQL écrit chaque changement dans ce
+journal, sous forme d'enregistrements numérotés à la suite, et le force sur le
+disque au moment du \code{COMMIT}. Le journal est découpé en fichiers de
+16~Mo, rangés dans le répertoire \code{pg_wal/}. On parle couramment « des
+WAL » pour désigner ces fichiers ou les enregistrements qu'ils contiennent.
+
+Ce principe sert à trois choses dans le projet :
+\begin{itemize}
+  \item \textbf{reprise après une panne} : au redémarrage, PostgreSQL rejoue
+        le WAL pour retrouver un état cohérent, même si les fichiers de
+        données n'avaient pas encore été mis à jour ;
+  \item \textbf{réplication} : le primaire envoie son WAL en continu
+        (\emph{streaming}) aux répliques, qui le rejouent. Elles obtiennent
+        ainsi une copie exacte de la base. Ce ne sont pas les requêtes SQL qui
+        sont transmises, mais les modifications physiques des pages de
+        données ;
+  \item \textbf{réintégration d'un ancien primaire} : \code{pg_rewind}
+        s'appuie sur l'historique du WAL pour ne recopier que les blocs qui
+        ont divergé. C'est pour cela que \code{wal_log_hints = on} est activé.
+\end{itemize}
+
+Quatre notions reviennent dans la suite :
+\begin{itemize}
+  \item \textbf{\code{wal_level = replica}} : le WAL contient assez
+        d'informations pour alimenter des répliques ;
+  \item \textbf{slot de réplication} : le primaire conserve le WAL qu'une
+        réplique n'a pas encore reçu. \code{max_slot_wal_keep_size = 2GB} borne
+        cette réserve, pour qu'une réplique absente ne remplisse pas le disque
+        du primaire ;
+  \item \textbf{retard} (\emph{lag}) : la quantité de WAL produite par le
+        primaire et pas encore reçue ou rejouée par une réplique, mesurée en
+        octets. C'est elle que comparent \code{maximum_lag_on_failover}
+        (1~Mio) et le contrôle final d'Ansible (16~Mo) ;
+  \item \textbf{asynchrone} : le primaire confirme le \code{COMMIT} à Odoo sans
+        attendre qu'une réplique ait reçu le WAL correspondant. C'est rapide,
+        mais les toutes dernières transactions peuvent manquer sur une réplique
+        promue après une panne.
+\end{itemize}
+
+\schema{05-replication-postgresql}{Réplication : un primaire et deux répliques}
+
+\begin{lecture}{La réplication physique des WAL reste asynchrone ; le quorum etcd ne vaut pas acquittement des écritures.}
+\begin{itemize}
+  \item Le \textbf{primaire} (exemple : odoodb1) traite les lectures et
+        écritures d'Odoo, produit les WAL et utilise des slots physiques
+        gérés par Patroni.
+  \item Les \textbf{répliques} odoodb2 et odoodb3 reçoivent puis rejouent les
+        WAL, en lecture seule, par une connexion de réplication TLS sur 5432.
+        Elles ne reçoivent aucune requête d'Odoo.
+  \item \textbf{Rétention} : \code{use_slots = true},
+        \code{wal_level = replica}, \code{max_wal_senders = 10},
+        \code{max_replication_slots = 10},
+        \code{max_slot_wal_keep_size = 2GB}.
+  \item \textbf{Éligibilité} : \code{maximum_lag_on_failover} vaut
+        1\,048\,576 octets (1~Mio). Le contrôle final d'Ansible exige un
+        retard inférieur ou égal à 16~Mo. Les deux seuils répondent à des
+        contrôles différents.
+  \item \textbf{Perte possible} : une écriture confirmée sur le primaire peut
+        manquer sur une réplique promue. Le seuil de 1~Mio ne garantit pas une
+        perte maximale de 1~Mio.
+\end{itemize}
+\end{lecture}
+
+\subsection{Bascule automatique}
+
+\schema{06-bascule-automatique}{Bascule automatique après panne du primaire}
+
+\begin{lecture}{Deux mécanismes avancent en parallèle : la coordination Patroni/etcd et le retrait de la cible par HAProxy.}
+\textbf{Coordination, en quatre étapes :}
+\begin{enumerate}
+  \item \emph{Primaire perdu} : panne de PostgreSQL, du conteneur, ou de la
+        communication du leader.
+  \item \emph{Verrou indisponible} : le verrou expire ou se perd, alors que
+        le quorum etcd reste disponible.
+  \item \emph{Réplique éligible} : une réplique dont l'état et le retard sont
+        compatibles acquiert le verrou.
+  \item \emph{Promotion} : elle devient le nouveau primaire (exemple :
+        odoodb2).
+\end{enumerate}
+\textbf{Connexions :} les sondes \code{/primary} échouent et HAProxy retire
+la cible, en fermant les sessions qui lui étaient liées. Dès que le nouveau
+primaire répond 200, HAProxy lui route les connexions SQL. Odoo ouvre alors
+une nouvelle session ; les transactions en cours sont à traiter par
+l'application.
+
+\textbf{Réglages déclarés :} \code{ttl=30 s}, \code{loop_wait=10 s},
+\code{retry_timeout=10 s} ; sondes HAProxy \code{inter=3 s}, \code{fall=3},
+\code{rise=2}. Ces valeurs ne constituent pas un temps de rétablissement
+mesuré. Une bascule ne transfère pas les transactions en cours et, en
+réplication asynchrone, ne garantit pas l'absence de perte.
+\end{lecture}
+
+\subsection{Quorum et partitions réseau}
+
+\schema{07-quorum-et-partitions}{Quorum etcd et partitions réseau}
+
+\begin{lecture}{La majorité autorise la coordination ; Patroni utilise le verrou pour gérer le rôle de PostgreSQL.}
+\begin{itemize}
+  \item \textbf{A -- Trois membres joignables} : la majorité (au moins 2 sur
+        3) est atteinte, par des échanges de consensus en HTTPS sur 2380. Un
+        Patroni détient le verrou du leader, et une réplique éligible peut
+        être promue si le primaire est perdu.
+  \item \textbf{B -- Partition 2 + 1} : le côté majoritaire garde sa capacité
+        de décision ; une promotion y reste possible sous conditions. Le
+        membre isolé ne peut pas renouveler seul le verrou. S'il portait le
+        primaire, Patroni tente d'arrêter ou de rétrograder son PostgreSQL.
+  \item \textbf{C -- Deux membres perdus} : la majorité est indisponible et
+        la coordination normale impossible. Aucune promotion coordonnée n'a
+        lieu, et le dernier serveur passe en lecture seule. Rétablir le
+        quorum exige un diagnostic.
+  \item \textbf{Protection} : \code{watchdog.mode = off} dans les LXC ; aucun
+        fencing matériel n'est configuré. Le quorum etcd ne garantit pas que
+        toutes les transactions SQL sont répliquées.
+\end{itemize}
+\end{lecture}
+
+\subsection{Bascule planifiée}
+
+\schema{08-bascule-planifiee}{Bascule planifiée pour maintenance}
+
+\begin{lecture}{Un opérateur choisit un candidat sain ; Patroni organise le changement de rôle du cluster.}
+\begin{enumerate}
+  \item \emph{Préparer} : vérifier que le quorum etcd est disponible, que le
+        primaire est sain et que les répliques sont à jour, puis contrôler
+        l'état et le retard du candidat.
+  \item \emph{Demander la bascule} :
+\begin{lstlisting}
+patronictl -c /etc/patroni/config.yml switchover odoo-pg --candidate odoodb2
+\end{lstlisting}
+  \item \emph{Changer de primaire} : l'ancien leader se retire et le candidat
+        obtient le rôle de primaire. Les clients peuvent perdre leur session.
+\end{enumerate}
+\textbf{Résultat :} l'ancien primaire odoodb1 devient réplique ; on vérifie la
+réplication avant toute maintenance, et on intervient sur un nœud à la fois.
+HAProxy suit \code{/primary} : le nouveau primaire odoodb2 répond 200 et
+reçoit les nouvelles connexions ; odoodb3 le suit. On revient à l'état stable
+d'un primaire et deux répliques.
+
+\textbf{À contrôler :} un primaire, deux répliques, des connexions via chaque
+HAProxy et des écritures applicatives. Une courte interruption des connexions
+est possible. Le cron d'Odoo reste porté par odoo1, indépendamment du
+primaire choisi par Patroni.\end{lecture}
+
+
+% ===========================================================================
+\section{Réseau et sécurité des flux}
+% ===========================================================================
+
+Chaque conteneur est relié au LAN en \textbf{IPVLAN L2}, sur la carte de son
+hôte. Le réseau des hôtes rejette les adresses MAC inconnues : macvlan et veth
+sur bridge n'obtenaient aucune réponse de la passerelle, alors qu'IPVLAN
+réutilise la MAC de l'hôte. L'hôte garde sa carte, qui porte sa route par
+défaut. En contrepartie, \textbf{un hôte ne joint pas son propre conteneur} :
+les contrôles se font depuis le poste de contrôle, ou par \code{lxc-attach}.
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{P{3.2cm} L}
+\toprule
+\rowcolor{gray!15}
+\textbf{Port} & \textbf{Flux} \\
+\midrule
+22/TCP             & Poste de contrôle vers les hôtes et les conteneurs \\
+8069/TCP           & Utilisateurs vers chaque Odoo (interface web) \\
+8072/TCP           & Utilisateurs vers chaque Odoo (bus de notifications) \\
+5000/TCP           & Odoo et sauvegarde vers les trois HAProxy \\
+5432/TCP           & HAProxy vers PostgreSQL ; réplication et \code{pg_rewind} entre serveurs \\
+8008/HTTP          & HAProxy vers l'API Patroni ; bascules \\
+2379, 2380/HTTPS   & etcd : clients (Patroni) et échanges entre membres \\
+7000/HTTP          & Page d'état HAProxy, sur \code{127.0.0.1} seulement \\
+24007, 49152+/TCP  & Conteneurs Odoo et hôte de sauvegarde vers les serveurs GlusterFS \\
+\bottomrule
+\end{tabularx}
+\caption{Ports et flux}
+\end{table}
+
+Aucun répartiteur HTTP n'est déployé : chaque utilisateur se connecte à
+l'adresse d'une instance. Une configuration nginx est fournie à part
+(\code{nginx/odoo-repartition.conf}), mais aucun playbook ne l'installe.
+
+\schema{11-flux-reseau-et-tls}{Flux réseau, certificats et surfaces de gestion}
+
+\begin{lecture}{Deux autorités de certification séparent les accès SQL de la coordination etcd.}
+\begin{itemize}
+  \item \textbf{Odoo} (réseau .36.0/24) : certificat client dans
+        \code{/etc/odoo/pg-ssl}, \code{PGSSLMODE = verify-full}, autorité SQL
+        \code{prosys-pg-ca}.
+  \item \textbf{HAProxy} (.33.161 à .163) : frontal TCP sur 5000, relais
+        PostgreSQL transparent, statistiques sur \code{127.0.0.1:7000}.
+  \item \textbf{PostgreSQL} (5432) : TLS jusqu'au serveur SQL, mot de passe et
+        certificat d'Odoo exigés, réplication des WAL en TLS.
+  \item \textbf{Patroni} (HTTP 8008) : \code{GET /primary} pour les sondes de
+        HAProxy ; les actions exigent une authentification ; l'API reste en
+        HTTP, non chiffrée.
+  \item \textbf{etcd} (HTTPS 2379 et 2380) : autorité distincte
+        \code{prosys-etcd-ca}, certificats clients pour 2379, certificats de
+        pairs pour 2380. Avec une autorité commune, le certificat client d'un
+        conteneur Odoo ouvrirait etcd, donc la configuration de PostgreSQL.
+  \item \textbf{Poste de contrôle Ansible} : SSH sur 22 vers les hôtes et les
+        conteneurs ; il conserve la PKI et les secrets.
+  \item \textbf{Identité du client SQL} : le primaire voit l'adresse du
+        HAProxy, mais le certificat TLS continue d'identifier Odoo. Les règles
+        \code{pg_hba.conf} autorisent les adresses des nœuds de données.
+\end{itemize}
+\end{lecture}
+
+% ===========================================================================
+
+
+% ===========================================================================
+\section{Installation et déploiement d'Odoo}
+% ===========================================================================
+
+\subsection{Prérequis du poste de contrôle}
+
+\begin{itemize}
+  \item \textbf{Ansible 2.10.x} et les collections épinglées dans
+        \code{requirements.yml} (\code{community.general 1.3.6},
+        \code{community.postgresql 1.1.1}, \code{ansible.posix 1.1.1}).
+        \code{ansible.posix 1.1.1} refuse de se charger avec un Ansible plus
+        récent.
+  \item \textbf{Accès SSH par clé} aux six hôtes ; le rôle \code{lxc_lan}
+        injecte \code{~/.ssh/id_rsa.pub} dans les conteneurs.
+  \item \textbf{Secrets} chiffrés dans \code{group_vars/all/vault.yml}.
+  \item \textbf{Autorités de certification} dans \code{pki/}, sur le poste de
+        contrôle et hors du dépôt. Le rôle \code{pg_ha} refuse d'en créer une
+        nouvelle : il faut lancer les playbooks depuis le poste qui la détient.
+  \item \textbf{Hors du dépôt} : le volume \code{sre} accepte les adresses des
+        conteneurs Odoo, et les ports du tableau des flux sont ouverts.
+\end{itemize}
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{P{6.6cm} L}
+\toprule
+\rowcolor{gray!15}
+\textbf{Secret} & \textbf{Usage} \\
+\midrule
+\code{vault_odoo_admin_password}           & Mot de passe maître d'Odoo (gestion des bases) \\
+\code{vault_odoo_db_password}              & Rôle PostgreSQL \code{odoo}, partagé par la base et les Odoo \\
+\code{vault_pg_replication_password}       & Rôle \code{replicator} (flux WAL) \\
+\code{vault_pg_patroni_superuser_password} & Superutilisateur \code{postgres}, pour \code{pg_rewind} \\
+\code{vault_pg_patroni_rest_password}      & Compte \code{patroni} de l'API REST \\
+\bottomrule
+\end{tabularx}
+\caption{Secrets du vault}
+\end{table}
+
+\subsection{Ordre de déploiement}
+
+L'ordre est contraignant :
+
+\begin{lstlisting}
+ansible-playbook playbooks/ansi2-snapchot.yaml                # 1. conteneurs LXC Debian 12
+ansible-playbook playbooks/reseau-lxc.yaml --check --diff     # 2. voir les changements reseau
+ansible-playbook playbooks/reseau-lxc.yaml                    #    IPVLAN + SSH (redemarre les LXC)
+ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass    # 3. base, puis Odoo
+\end{lstlisting}
+
+Le rôle de chaque playbook, ses étapes et ses précautions sont détaillés à la
+section~\ref{sec:playbooks}. Le schéma suivant résume le parcours
+d'installation d'Odoo que réalise \code{ansi_odoo.yaml}.
+
+\schema{13-installation-odoo14-debian-lxc}{Installer Odoo 14 sur Debian dans les LXC}
+
+\begin{lecture}{Parcours du projet : stockage et base prêts avant une initialisation unique et le démarrage des trois Odoo.}
+\begin{enumerate}
+  \item \emph{Debian~12 et LXC} : hôtes .36.21, .22 et .23 ; conteneurs
+        Debian bookworm .36.161, .162 et .163 ; réseau IPVLAN L2.
+  \item \emph{Filestore partagé} : client GlusterFS dans chaque conteneur,
+        volume \code{192.168.36.8:/sre} monté sur \code{/var/lib/odoo},
+        vérifié avant Odoo.
+  \item \emph{PostgreSQL HA} : trois nœuds PostgreSQL~15 avec Patroni, etcd et
+        HAProxy ; Odoo vise les trois adresses sur 5000, en TLS avec
+        certificat client.
+  \item \emph{Python et paquet Odoo} : CPython~3.8.20 compilé dans
+        \code{/opt/python3.8} ; Odoo~14.0 par le dépôt APT nightly ; client
+        PostgreSQL et wkhtmltopdf.
+  \item \emph{Construire le venv} : \code{/opt/odoo14-venv}, dépendances pip
+        dans le venv ; \code{odoo-deb.pth} rend visible le code fourni par le
+        paquet \code{.deb}.
+  \item \emph{Configurer les accès} : \code{/etc/odoo/odoo.conf}, certificats
+        dans \code{/etc/odoo/pg-ssl}, fragment systemd \code{venv.conf}, montage
+        du filestore exigé.
+  \item \emph{Initialiser une fois} : UID 105 et GID 112 alignés, services
+        Odoo arrêtés ; odoo1 seul initialise la base partagée \code{prod},
+        et seulement si elle ne l'est pas déjà.
+  \item \emph{Démarrer et vérifier} : systemd lance le Python du venv ; HTTP
+        8069 et bus 8072 ; \code{workers=2} ; cron sur odoo1 seul ; imports
+        d'Odoo et \code{safe_eval} validés.
+\end{enumerate}
+Le venv est local à chaque conteneur :
+\code{/opt/python3.8/bin/python3.8 -m venv /opt/odoo14-venv}. Les dépendances
+viennent du fichier figé s'il existe, sinon du \code{requirements.txt} amont
+d'Odoo~14.
+\end{lecture}
+
+\subsection{Pile d'exécution d'Odoo}
+
+Odoo~14 ne fonctionne pas sur le Python~3.11 de Debian~12 : son
+\code{safe_eval} rejette le bytecode de Python~3.11 (opcode \code{RESUME}).
+Aucune version de Debian ne fournit Python~3.8 ; il est donc compilé depuis
+les sources et confiné dans \code{/opt}.
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{P{3.2cm} L}
+\toprule
+\rowcolor{gray!15}
+\textbf{Couche} & \textbf{Choix} \\
+\midrule
+Hôtes et conteneurs & Debian~12 bookworm, LXC \\
+Interpréteur d'Odoo & CPython~3.8.20 dans \code{/opt/python3.8}, venv \code{/opt/odoo14-venv} \\
+Odoo                & Paquet \code{.deb} nightly 14.0, lancé par le Python du venv \\
+Base                & PostgreSQL~15 de Debian, sous Patroni \\
+Coordination        & etcd, trois membres, quorum de deux \\
+Routage SQL         & Un HAProxy par conteneur PostgreSQL, port 5000 \\
+Filestore           & Client GlusterFS dans chaque conteneur Odoo, sur \code{/var/lib/odoo} \\
+\bottomrule
+\end{tabularx}
+\caption{Pile logicielle}
+\end{table}
+
+\schema{14-pile-execution-odoo14-venv}{Pile d'exécution : LXC, venv et service Odoo}
+
+\begin{lecture}{Le conteneur porte le système ; le venv fournit l'interpréteur Python et les bibliothèques de l'application.}
+\begin{itemize}
+  \item Emboîtement : hôte Debian~12 (exemple 192.168.36.21), conteneur LXC
+        odoo1 (192.168.36.161), puis environnement virtuel Python.
+  \item \textbf{systemd} lance \code{odoo.service}, complété par le fragment
+        \code{venv.conf} :
+\begin{lstlisting}
+/opt/odoo14-venv/bin/python /usr/bin/odoo --config /etc/odoo/odoo.conf --logfile /var/log/odoo/odoo.log
+\end{lstlisting}
+  \item \textbf{Python système 3.11} (\code{/usr/bin/python3}) reste celui du
+        système et d'Ansible.
+  \item \textbf{Venv} : CPython~3.8.20 dans \code{/opt/python3.8}, venv
+        \code{/opt/odoo14-venv}, dépendances pip dans
+        \code{lib/python3.8/site-packages} ; \code{odoo-deb.pth} pointe vers le
+        code du paquet.
+  \item \textbf{Code d'Odoo~14} : fourni par le paquet \code{.deb}
+        (\code{/usr/bin/odoo}, \code{/usr/lib/python3/dist-packages/odoo}, et
+        les addons du paquet).
+  \item \textbf{Configuration locale} : \code{/etc/odoo/odoo.conf} et
+        certificats dans \code{/etc/odoo/pg-ssl}.
+  \item \textbf{Données partagées} : GlusterFS monté dans le conteneur sur
+        \code{/var/lib/odoo} (\code{data_dir}), avec \code{filestore/prod} et
+        \code{sessions}.
+  \item \textbf{Accès à la base} : Odoo, psycopg2 et libpq vers les trois
+        HAProxy sur 5000, puis vers le primaire sur 5432. Le venv et le code
+        sont locaux ; le \code{data_dir} est partagé.
+\end{itemize}
+\end{lecture}
+
+% ===========================================================================
+\section{Les playbooks en détail}
+\label{sec:playbooks}
+% ===========================================================================
+
+Chaque playbook ne fait qu'orchestrer : la logique vit dans des rôles, rangés
+par playbook sous \code{roles/<playbook>/<rôle>}. Le \code{roles_path} de
+\code{ansible.cfg} les retrouve tous par leur seul nom. Les playbooks se lancent
+depuis la racine du dépôt, avec l'inventaire unique \code{inventory.yaml}.
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{P{4.6cm} P{3.1cm} L}
+\toprule
+\rowcolor{gray!15}
+\textbf{Playbook} & \textbf{Cibles} & \textbf{Rôle et moment d'utilisation} \\
+\midrule
+\code{ansi2-snapchot.yaml}      & les six hôtes                  & Créer les conteneurs LXC ; une fois, avant tout le reste \\
+\code{reseau-lxc.yaml}          & les six hôtes                  & Réseau IPVLAN et SSH des conteneurs ; après la création, ou pour réparer le réseau \\
+\code{ansi_odoo.yaml}           & hôtes et conteneurs            & Déploiement complet ; rejouable pour remettre en conformité \\
+\code{filestore-conteneur.yaml} & conteneurs et hôtes Odoo       & Montage GlusterFS par les conteneurs ; joué aussi par \code{ansi_odoo.yaml} et \code{ansi_syncro.yaml} \\
+\code{ansi_postgresql_ha.yaml}  & les trois serveurs PostgreSQL  & Reprise du cluster par Patroni, puis remise en conformité \\
+\code{ansi_syncro.yaml}         & hôtes, conteneurs et base      & Migration des pièces jointes entre la base et le filestore \\
+\code{nettoyage_odoo.yaml}      & conteneurs Odoo                & Réparation APT après un lancement interrompu \\
+\code{nettoyage.yaml}           & les six hôtes                  & Destruction des conteneurs et désinstallation de LXC \\
+\bottomrule
+\end{tabularx}
+\caption{Vue d'ensemble des playbooks}
+\end{table}
+
+Le playbook \code{ansi_sauvegarde.yaml}, qui déployait la sauvegarde, n'est plus
+présent dans le dépôt (section~\ref{sec:sauvegarde}).
+
+% ---------------------------------------------------------------------------
+\subsection{\pb{ansi2-snapchot.yaml} -- créer les conteneurs}
+
+\paragraph{Objectif.} Installer LXC sur chaque hôte et y créer le conteneur
+Debian~12 déclaré dans \code{host_vars/} : \code{devodoo14} sur les hôtes Odoo,
+\code{devpg15} sur les hôtes PostgreSQL. La liste des conteneurs vient de
+\code{common/group_vars/local_dev.yml}, qui la dérive de
+\code{lxc_container_name} hôte par hôte.
+
+\paragraph{Déroulement} (rôle \code{install}, sur chaque hôte).
+\begin{enumerate}
+  \item Détecter le système et installer les paquets LXC. Une branche
+        Rocky/RHEL (EPEL, SELinux permissif) est conservée pour l'ancien lab.
+  \item Démarrer le réseau LXC (\code{lxcbr0}) et le service LXC, puis
+        détruire les conteneurs de diagnostic laissés par un essai précédent.
+  \item Mesurer l'espace libre sous \code{/var/lib/lxc}. Si la partition est
+        trop petite, déporter le stockage LXC sous \code{/srv} : copie du
+        contenu, montage et inscription dans \code{/etc/fstab}. Le rôle exige
+        ensuite assez d'espace pour le système du conteneur.
+  \item Supprimer les conteneurs obsolètes listés dans \code{stale_containers},
+        si cette variable est définie.
+  \item Créer et démarrer le conteneur Debian~12 \emph{bookworm} depuis le
+        modèle \code{download}. En cas d'échec, le rôle rejoue
+        \code{lxc-create} sans \code{--quiet} et affiche l'état du disque, du
+        réseau et le journal de création.
+  \item Activer le démarrage automatique du conteneur.
+\end{enumerate}
+
+\paragraph{Lancement.}
+\begin{lstlisting}
+ansible-playbook playbooks/ansi2-snapchot.yaml
+\end{lstlisting}
+
+\paragraph{Précautions.} Le conteneur créé n'a pas encore son réseau
+définitif : il faut enchaîner avec \code{reseau-lxc.yaml}. Renseigner
+\code{stale_containers} détruit des conteneurs : sauvegarder avant.
+
+% ---------------------------------------------------------------------------
+\subsection{\pb{reseau-lxc.yaml} -- relier les conteneurs au réseau}
+
+\paragraph{Objectif.} Exposer chaque conteneur directement sur le LAN en
+IPVLAN L2, puis amorcer son accès SSH pour qu'Ansible puisse le gérer. C'est le
+seul playbook qui joue le rôle \code{lxc_lan} : \code{ansi_odoo.yaml} suppose
+qu'il a déjà été passé.
+
+\paragraph{Déroulement} (rôle \code{lxc_lan}, sur chaque hôte).
+\begin{enumerate}
+  \item Contrôler la description : mode réseau et adressage présents dans
+        \code{host_vars/}, passerelle dans le sous-réseau du conteneur, carte
+        réseau présente. Le rôle refuse de céder au conteneur la carte qui
+        porte la route par défaut de l'hôte.
+  \item Sauvegarder, une seule fois, la configuration LXC d'origine, puis
+        retirer les réglages des anciens modes (macvlan, adresse MAC figée).
+  \item Écrire l'interface du conteneur en \code{ipvlan} sur la carte de
+        l'hôte, et son adresse IP statique dans le conteneur
+        (\code{systemd-networkd}, sans DHCP). La sortie NAT de secours par
+        \code{lxcbr0} est retirée, car \code{lxc_egress_nat=false}.
+  \item Arrêter puis redémarrer le conteneur, attendre l'état \code{RUNNING}
+        et la configuration d'\code{eth0}. En cas d'échec, le rôle affiche la
+        configuration et le journal LXC.
+  \item Installer \code{openssh-server}, \code{python3} et \code{python3-apt},
+        déposer la clé publique du poste de contrôle, puis attendre que le
+        port 22 du conteneur réponde, vu du poste de contrôle.
+\end{enumerate}
+
+\paragraph{Lancement.}
+\begin{lstlisting}
+ansible-playbook playbooks/reseau-lxc.yaml --check --diff        # voir ce qui changerait
+ansible-playbook playbooks/reseau-lxc.yaml
+ansible-playbook playbooks/reseau-lxc.yaml --limit 192.168.36.21  # un seul hote
+\end{lstlisting}
+
+\paragraph{Précautions.} Le playbook \textbf{redémarre les conteneurs}. En
+IPVLAN, un hôte ne joint pas son propre conteneur : les tests se font depuis
+le poste de contrôle. Le poste doit avoir la version à jour du rôle : une
+version ancienne réécrirait le mode macvlan et casserait un conteneur déjà
+passé en IPVLAN. La procédure manuelle équivalente est décrite dans
+\code{docs/BOOTSTRAP-CONTENEUR-MANUEL.md}.
+
+% ---------------------------------------------------------------------------
+\subsection{\pb{ansi\_odoo.yaml} -- déploiement complet}
+
+\paragraph{Objectif.} Déployer la base, puis les trois instances Odoo, dans un
+ordre contraignant. Rejoué sur une installation existante, il remet chaque
+élément en conformité.
+
+\paragraph{Déroulement.}
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{P{1.7cm} P{3.1cm} L}
+\toprule
+\rowcolor{gray!15}
+\textbf{Play} & \textbf{Cible} & \textbf{Effet} \\
+\midrule
+0/5         & poste de contrôle & Contrôle d'environnement : Ansible entre 2.10 et 2.11, collections de \code{requirements.yml} présentes. Tag \code{never} : à demander par \code{--tags all,preflight} \\
+1/5         & les six hôtes     & \code{chrony} remet l'horloge à l'heure : une horloge fausse fait échouer \code{apt} dans les conteneurs \\
+1bis/5      & conteneurs, puis hôtes Odoo & Import de \code{filestore-conteneur.yaml} : le volume doit être monté avant l'installation d'Odoo \\
+2/5, 2bis/5 & \code{db_containers}, puis \code{db_replicas} & \code{pg_server} : primaire, puis réserves en streaming. Plays sautées quand \code{pg_ha_enabled: true} \\
+2ter/5      & \code{db_cluster} & \code{pg_ha} : Patroni, etcd et HAProxy sur les trois serveurs ensemble ; un échec arrête les trois. Sur un cluster déjà repris, ne fait que vérifier \\
+3/5         & \code{odoo_containers} & \code{odoo14}, puis \code{odoo_uid} : Odoo installé et configuré, service laissé arrêté \\
+4/5         & \code{odoo_primary} & \code{odoo_dbinit} : \code{odoo -i base --without-demo=all} sur la base partagée, par odoo1 seul, avec son certificat client \\
+5/5         & \code{odoo_containers} & Démarrage et activation d'Odoo, attente du port 8069 (120~s au plus) \\
+\bottomrule
+\end{tabularx}
+\caption{Plays du playbook \texttt{ansi\_odoo.yaml}}
+\end{table}
+
+Le play 3/5 fait l'essentiel du travail dans chaque conteneur Odoo :
+\begin{itemize}
+  \item sources APT cohérentes (rôle \code{base_debian}) et CPython~3.8.20
+        compilé dans \code{/opt/python3.8} (rôle \code{python38}) ;
+  \item dépôt APT nightly d'Odoo~14 et installation du paquet \code{.deb} ;
+  \item environnement virtuel \code{/opt/odoo14-venv} sur Python~3.8. Les
+        dépendances viennent d'un fichier de versions figées s'il existe sur
+        le poste de contrôle, sinon du \code{requirements.txt} amont ;
+  \item \code{odoo-deb.pth} rend le code du paquet visible depuis le venv ; une
+        enveloppe \code{odoo} et un fragment systemd font lancer le service
+        par le Python du venv ;
+  \item refus de configurer Odoo si \code{/var/lib/odoo} n'est pas le volume
+        GlusterFS, et exigence de ce montage au démarrage ;
+  \item vérification qu'Odoo s'importe sous Python~3.8 et que \code{safe_eval}
+        accepte ses expressions ;
+  \item dépôt du certificat client du nœud dans \code{/etc/odoo/pg-ssl}, puis
+        de \code{/etc/odoo/odoo.conf} ;
+  \item contrôle que la base partagée écoute et que ce nœud est autorisé à s'y
+        connecter ; Odoo reste arrêté jusqu'à l'initialisation.
+\end{itemize}
+Le rôle \code{odoo_uid} aligne ensuite l'UID et le GID du compte \code{odoo}
+(105/112) sur les trois conteneurs. Trois \code{odoo -i base} concurrents sur
+la même base corrompraient le registre : c'est pour cela que l'initialisation
+(4/5) est confiée à odoo1 seul et précède le démarrage commun (5/5).
+
+\paragraph{Lancement.}
+\begin{lstlisting}
+ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass
+ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass --tags all,preflight  # avec le controle du poste
+ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass --tags horloge        # horloge seule
+ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass --tags filestore      # montage seul
+\end{lstlisting}
+
+\paragraph{Précautions.} Les conteneurs doivent exister et avoir leur réseau
+(\code{ansi2-snapchot.yaml}, puis \code{reseau-lxc.yaml}). Le vault doit être
+renseigné, et le volume GlusterFS doit accepter les adresses des conteneurs
+Odoo. Le commentaire d'en-tête du playbook cite encore les adresses de
+l'ancien lab (192.168.96.x) : c'est l'inventaire qui fait foi.
+
+% ---------------------------------------------------------------------------
+
+% ---------------------------------------------------------------------------
+\subsection{\pb{ansi\_postgresql\_ha.yaml} -- haute disponibilité de la base}
+
+\paragraph{Objectif.} Installer etcd, Patroni et HAProxy dans les trois
+conteneurs PostgreSQL. Au premier passage, il reprend le cluster installé par
+\code{pg_server}, sans perte ni recopie. Aux passages suivants, il remet en
+conformité, sans coupure.
+
+\paragraph{Déroulement} (rôle \code{pg_ha}, sur les trois serveurs ensemble).
+\begin{enumerate}
+  \item \emph{Contrôles} : trois serveurs, secrets présents, autorité de
+        certification existante. Le rôle refuse d'en créer une nouvelle, car
+        Odoo rejetterait alors tous les serveurs.
+  \item \emph{Paquets} : \code{patroni}, \code{etcd-server} et \code{haproxy},
+        installés sans démarrer leurs services.
+  \item \emph{Constat et décision} : l'état de chaque serveur est lu sans rien
+        arrêter (tableau~\ref{tab:decision}).
+  \item \emph{Certificats et etcd} : certificats PostgreSQL et autorité etcd
+        distincte ; etcd démarré sur les trois serveurs en même temps, puis
+        vérifié sain avec ses trois membres.
+  \item \emph{Patroni et reprise} : configuration de Patroni, puis reprise du
+        primaire, confirmée par etcd, puis des réserves. Le PostgreSQL de
+        Debian est retiré : unité masquée, \code{start.conf} désactivé,
+        anciens fichiers de \code{pg_server} renommés en \code{.avant-patroni}.
+  \item \emph{Relance} de Patroni, en pause et un serveur à la fois, seulement
+        s'il tourne avec une ancienne liste etcd.
+  \item \emph{Comptes et configuration} : mot de passe de \code{postgres} (pour
+        \code{pg_rewind}), rôles \code{replicator} et \code{odoo}, base
+        \code{prod} ; configuration dynamique d'etcd remise en conformité avec
+        \code{pg_ha_dcs}, en conservant une pause posée à la main.
+  \item \emph{HAProxy, puis vérification} : chaque Patroni joint les trois
+        membres etcd ; un primaire et deux réserves avec moins de 16~Mo de
+        retard ; une vraie connexion TLS à travers chaque HAProxy aboutit au
+        primaire.
+\end{enumerate}
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{P{2cm} P{5.4cm} L}
+\toprule
+\rowcolor{gray!15}
+\textbf{Décision} & \textbf{Quand} & \textbf{Effet} \\
+\midrule
+\code{demarrer} & serveur déjà repris par Patroni & Patroni est démarré s'il ne tourne pas \\
+\code{primaire} & premier passage, odoodb1, qui n'est pas en réserve & Debian arrête PostgreSQL ; Patroni le redémarre et adopte ses données \\
+\code{reserve}  & même cluster que le primaire, en réserve & repris en réserve, sans recopie \\
+\code{recopie}  & cluster étranger sans aucune base & vidé puis recopié depuis le primaire \\
+\code{refus}    & tout autre cas & arrêt du playbook, avant toute modification \\
+\bottomrule
+\end{tabularx}
+\caption{Décision de reprise, par serveur}
+\label{tab:decision}
+\end{table}
+
+\paragraph{Lancement.}
+\begin{lstlisting}
+ansible-playbook playbooks/ansi_postgresql_ha.yaml --ask-vault-pass
+\end{lstlisting}
+
+\paragraph{Précautions.} Jamais de \code{--limit} : etcd et la reprise exigent
+les trois serveurs ensemble. Lancer depuis le poste qui détient \code{pki/} et
+le vault, avec les deux secrets Patroni. Ouvrir 2379, 2380, 8008 et 5432 entre
+les serveurs, et 5000 depuis le réseau Odoo. Au premier passage, Odoo perd la
+base quelques secondes. Il faut ensuite passer sans attendre
+\code{pg_ha_enabled: true}, puis rejouer \code{ansi_odoo.yaml} : sinon, après
+une bascule, Odoo resterait sur un serveur en lecture seule.
+
+% ---------------------------------------------------------------------------
+
+% ---------------------------------------------------------------------------
+\subsection{\pb{nettoyage\_odoo.yaml} -- réparer un conteneur Odoo}
+
+\paragraph{Objectif.} Remettre à plat les conteneurs Odoo après un lancement
+interrompu, sans les recréer.
+
+\paragraph{Déroulement par défaut, non destructif} (rôle \code{odoo_cleanup}) :
+arrêt d'Odoo ; libération des verrous \code{dpkg}/\code{apt} résiduels ;
+reprise d'une transaction \code{dpkg} interrompue ; réparation des paquets
+laissés incohérents ; réalignement des versions par l'outil
+\code{apt-realign} ; réparation des dépendances ; vidage du cache ; résumé de
+l'état du conteneur.
+
+\paragraph{Option \texttt{full\_reset}.} Avec \code{-e full_reset=true}, le rôle
+purge en plus Odoo et PostgreSQL, puis supprime leurs répertoires
+(\code{/var/lib/odoo}, \code{/etc/odoo}, \code{/var/log/odoo},
+\code{/var/lib/postgresql}, \code{/etc/postgresql}) et le dépôt nightly.
+
+\begin{tcolorbox}[colback=red!4, colframe=red!60!black, boxrule=0.6pt,
+                  fonttitle=\bfseries\small, title={Risque : \texttt{full\_reset} et filestore partagé}]
+\small
+Dans l'architecture actuelle, \code{/var/lib/odoo} est le point de montage du
+volume GlusterFS commun. Supprimer ce répertoire effacerait le contenu du
+filestore partagé par les trois instances. Le garde-fou
+\code{destroy_shared_db} ne protège que les hôtes du groupe
+\code{db_containers}, que ce playbook ne vise pas. Ne pas utiliser
+\code{full_reset} en l'état sans avoir d'abord démonté le volume et vérifié une
+sauvegarde.
+\end{tcolorbox}
+
+\paragraph{Lancement.}
+\begin{lstlisting}
+ansible-playbook playbooks/nettoyage_odoo.yaml --ask-vault-pass                     # reparation APT
+ansible-playbook playbooks/nettoyage_odoo.yaml --ask-vault-pass -e full_reset=true  # DESTRUCTIF
+\end{lstlisting}
+
+% ---------------------------------------------------------------------------
+\subsection{\pb{nettoyage.yaml} -- tout désinstaller}
+
+\paragraph{Objectif.} Repartir de zéro au niveau des hôtes.
+
+\paragraph{Déroulement} (rôle \code{cleanup}, sur les six hôtes) : destruction
+des conteneurs LXC ; arrêt et désactivation des services LXC ; suppression des
+paquets, des répertoires et des fichiers créés pour LXC ; en option
+(\code{-e remove_epel=true}), suppression du dépôt EPEL ; sur Rocky/RHEL, retour
+de SELinux en mode \code{enforcing}.
+
+\paragraph{Lancement.}
+\begin{lstlisting}
+ansible-playbook playbooks/nettoyage.yaml
+\end{lstlisting}
+
+\paragraph{Précautions.} Le groupe visé comprend aussi les trois hôtes
+PostgreSQL : le playbook détruit les conteneurs \code{devpg15}, donc les
+données de la base. Sauvegarder d'abord. Pour repartir de zéro, enchaîner
+\code{nettoyage.yaml}, \code{ansi2-snapchot.yaml}, \code{reseau-lxc.yaml}, puis
+\code{ansi_odoo.yaml} et la séquence de passage à Patroni.
+
+% ===========================================================================
+\section{Vérification et exploitation}
+% ===========================================================================
+
+\subsection{Vérification après déploiement}
+
+Depuis le poste de contrôle, puisqu'un hôte ne joint pas son propre
+conteneur :
+
+\begin{lstlisting}
+# Odoo actif sur les trois conteneurs
+ansible odoo_containers -m shell -a 'systemctl is-active odoo'
+
+# /var/lib/odoo est le volume GlusterFS (attendu : fuse.glusterfs 192.168.36.8:/sre)
+ansible odoo_containers -m shell -a 'findmnt -n -o FSTYPE,SOURCE /var/lib/odoo'
+
+# un Leader et deux Replica en streaming, retard proche de 0
+ansible odoodb1 -m shell -a 'patronictl -c /etc/patroni/config.yml list'
+
+# interface web des trois instances (attendu : 200)
+for i in 161 162 163; do curl -sI -o /dev/null -w "$i -> %{http_code}\n" \
+  http://192.168.36.$i:8069/web/login; done
+\end{lstlisting}
+
+Le compte créé par \code{odoo -i base} est \code{admin} / \code{admin} ; son
+mot de passe est à changer dès la première connexion. Le mot de passe du vault
+\code{vault_odoo_admin_password} est le mot de passe maître de gestion des
+bases, et le gestionnaire de bases web est désactivé (\code{list_db = false}).
+
+\subsection{Exploitation courante}
+
+Sur un conteneur PostgreSQL :
+
+\begin{lstlisting}
+patronictl -c /etc/patroni/config.yml list                     # etat du cluster
+patronictl -c /etc/patroni/config.yml switchover odoo-pg       # bascule planifiee
+patronictl -c /etc/patroni/config.yml restart odoo-pg          # redemarrer PostgreSQL
+patronictl -c /etc/patroni/config.yml reinit odoo-pg odoodb3   # recopier une reserve
+journalctl -u patroni -f                                       # journal de Patroni
+ssh -L 7000:127.0.0.1:7000 root@192.168.33.161                 # page d'etat HAProxy
+\end{lstlisting}
+
+\begin{itemize}
+  \item C'est Patroni qui démarre et arrête PostgreSQL : on n'utilise plus
+        \code{systemctl restart postgresql}, \code{pg_ctlcluster} ni
+        \code{pg_ctl}, et l'unité Debian est masquée.
+  \item Un paramètre commun se change dans \code{pg_ha_dcs}, puis on rejoue le
+        playbook. Un \code{patronictl edit-config} serait écrasé au passage
+        suivant.
+  \item \code{/etc/patroni/config.yml} ne se corrige pas à la main : on rejoue
+        le playbook, qui relance Patroni en pause si la liste etcd a changé.
+\end{itemize}
+
+% ===========================================================================
+\section{Évolution de l'architecture}
+\label{sec:evolution}
+% ===========================================================================
+
+Les schémas 15 à 24 ont été produits avant l'édition du 3~novembre~2026. Ils
+décrivent des états antérieurs du dépôt : haute disponibilité non activée,
+GlusterFS monté sur l'hôte puis passé au conteneur par un bind. Ils sont
+conservés parce qu'ils expliquent les choix actuels. Chaque lecture précise ce
+qui a changé depuis ; en cas de divergence, les schémas 1 à 14 font foi.
+
+% ---------------------------------------------------------------------------
+\subsection{Réseau des conteneurs LXC }
+
+Ces trois vues décrivent le raccordement IPVLAN, toujours en vigueur, et les
+chemins réseau d'un utilisateur et d'Odoo.
+
+\schema{schemas-lxc/01-raccordement-ipvlan}{Raccordement IPVLAN : un conteneur, une IP dédiée}
+
+\begin{lecture}{IPVLAN L2 partage la carte réseau et l'adresse MAC de l'hôte.}
+\begin{itemize}
+  \item L'hôte LXC 192.168.36.21 (Debian~12) garde sa carte \code{enp5s0} et
+        son adresse propre, 192.168.36.21.
+  \item Le conteneur \code{devodoo14} (odoo1) reçoit une adresse statique :
+        \code{eth0} en 192.168.36.161/24, passerelle 192.168.36.254, DNS
+        172.24.10.17 et 172.24.10.18, configurés dans le conteneur.
+  \item L'adresse de l'hôte et l'interface IPVLAN passent par la même carte.
+        Sur le LAN applications (192.168.36.0/24), le réseau voit donc deux
+        adresses IP derrière une seule adresse MAC : les deux adresses doivent
+        y être autorisées.
+  \item Le raccordement est direct : ni bridge Linux, ni NAT sur l'hôte.
+\end{itemize}
+
+\end{lecture}
+
+\schema{schemas-lxc/02-acces-utilisateur-odoo}{Accès utilisateur : du navigateur à Odoo}
+
+\begin{lecture}{La destination 192.168.36.161:8069 conduit directement au service dans le conteneur.}
+\begin{enumerate}
+  \item \emph{Adresse ciblée} : depuis un poste du même LAN, ou disposant
+        d'une route, le navigateur ouvre \code{http://192.168.36.161:8069}.
+  \item \emph{Distribution par Linux} : le paquet arrive sur la carte
+        \code{enp5s0} de l'hôte 192.168.36.21. Linux le distribue selon son
+        adresse de destination : IPVLAN remet ce qui est destiné à .36.161 à
+        l'interface \code{eth0} du conteneur.
+  \item \emph{Service Odoo} : Odoo~14 répond en HTTP sur TCP/8069 ; le bus de
+        notifications (longpolling) utilise TCP/8072. La réponse HTTP repart
+        vers le navigateur.
+\end{enumerate}
+
+\end{lecture}
+
+\schema{schemas-lxc/03-flux-odoo-postgresql}{Flux Odoo vers PostgreSQL : deux sous-réseaux}
+
+\begin{lecture}{Deux sous-réseaux, une connexion SQL vers le primaire PostgreSQL.}
+\begin{itemize}
+  \item Côté applications : odoo1 (\code{devodoo14}, \code{eth0} en
+        192.168.36.161/24, hôte .36.21 par \code{enp5s0}) vise
+        192.168.33.161:5432.
+  \item Côté bases de données : odoodb1 (\code{devpg15}, \code{eth0} en
+        192.168.33.161/24, hôte .33.21 par \code{enp1s0}) porte le
+        PostgreSQL~15 primaire, à l'écoute sur TCP/5432.
+  \item Entre les deux, un ou plusieurs équipements L3 externes assurent le
+        routage. Les passerelles .36.254 et .33.254 sont déclarées dans
+        \code{host_vars/} ; leur implantation physique est hors du dépôt.
+  \item Conditions de fonctionnement : routage aller et retour, autorisation
+        de TCP/5432, écoute de PostgreSQL sur .33.161 et autorisation des
+        clients Odoo dans \code{pg_hba.conf}. Le NAT est désactivé sur les
+        hôtes.
+\end{itemize}
+
+\end{lecture}
+
+% ---------------------------------------------------------------------------
+\subsection{Filestore GlusterFS }
+
+Ces trois vues décrivent le volume partagé et l'ancien modèle de montage, dans
+lequel l'hôte montait le volume puis le passait au conteneur.
+
+\schema{schemas-glusterfs/01-volume-partage-trois-odoo}{Volume GlusterFS partagé entre les trois Odoo}
+
+\begin{lecture}{Un stockage logique unique pour les pièces jointes des trois instances.}
+\begin{itemize}
+  \item \textbf{Périmètre} : le volume GlusterFS existe déjà, hors du projet.
+        Le projet configure ses clients et son partage avec les conteneurs.
+  \item \textbf{Volume externe} \code{sre} : la description du volume est
+        lue auprès de \code{192.168.36.8:/sre} ; les briques sont hébergées
+        hors du projet.
+  \item Après lecture de la description, chaque client contacte directement
+        les serveurs de briques du volume.
+  \item \textbf{Stockage partagé} : une pièce jointe écrite par odoo1 devient
+        accessible à odoo2 et odoo3.
+  \item Le groupe \code{gluster_bricks} désigne les hôtes clients ; les hôtes
+        PostgreSQL ne reçoivent pas ce montage.
+\end{itemize}
+
+\end{lecture}
+
+\schema{schemas-glusterfs/02-montage-hote-et-bind-lxc}{Ancien modèle : montage sur l'hôte et bind LXC}
+
+\begin{lecture}{Le volume monté sur l'hôte était passé au conteneur par un bind.}
+\begin{itemize}
+  \item Le client GlusterFS de l'hôte 192.168.36.21 montait
+        \code{192.168.36.8:/sre} sur \code{/mnt/odoo}, de façon persistante
+        par \code{/etc/fstab}.
+  \item Un bind LXC présentait ce répertoire au conteneur odoo1
+        (192.168.36.161) sur \code{/var/lib/odoo}. Ansible écrivait dans
+        \code{/var/lib/lxc/devodoo14/config} la directive
+        \code{lxc.mount.entry = /mnt/odoo var/lib/odoo none bind,create=dir 0 0}.
+  \item \code{/var/lib/odoo} est le \code{data_dir} d'Odoo : il contient
+        \code{filestore/prod/} (documents et images) et \code{sessions/}
+        (sessions partagées).
+  \item Garde-fous de l'époque : montage après le réseau
+        (\code{defaults,_netdev}), contrôle du type \code{fuse.glusterfs} par
+        \code{findmnt}, redémarrage du conteneur si la directive changeait.
+\end{itemize}
+\textbf{Pourquoi ce modèle a été abandonné :} un hôte dont le montage échouait
+au démarrage passait au conteneur un \code{/mnt/odoo} vide. Le bind faisait de
+\code{/var/lib/odoo} un point de montage, la garde systemd laissait Odoo
+démarrer, et Odoo écrivait sur le disque local .
+Désormais, le conteneur monte lui-même le volume, et Odoo ne démarre que s'il
+est présent.
+\end{lecture}
+
+\schema{schemas-glusterfs/03-glusterfs-et-sauvegarde}{GlusterFS et sauvegarde}
+
+\begin{lecture}{La sauvegarde réunit un dump de la base et une archive du volume, sur un seul hôte.}
+\begin{itemize}
+  \item L'hôte de sauvegarde 192.168.36.21 lit le volume monté sur
+        \code{/mnt/odoo}.
+  \item Le script enchaîne trois étapes : vérifier le montage GlusterFS, faire
+        un \code{pg_dump} de la base, puis archiver les fichiers.
+        \code{./sessions} et \code{./_sessions} sont exclus ; le reste de
+        \code{/mnt/odoo} est archivé.
+  \item Base : primaire 192.168.33.161:5432, base partagée \code{prod} par
+        défaut, lue par \code{pg_dump} depuis 192.168.36.21.
+  \item Les fichiers sont écrits dans \code{/srv/sauvegardes}, sur le disque
+        local de .36.21, séparé du volume : \code{prod-<date>.dump},
+        \code{filestore-<date>.tgz} et \code{manifeste-<date>.txt}.
+  \item Précondition : le volume doit être déjà monté ; le script contrôle sa
+        présence. Le schéma cite le playbook \code{ansi_sauvegarde.yaml}, depuis
+        supprimé du dépôt.
+\end{itemize}
+
+\end{lecture}
+
+% ---------------------------------------------------------------------------
+\subsection{Architecture et HA PostgreSQL }
+
+Ces quatre vues datent d'avant l'activation de Patroni : la base était servie
+par \code{pg_server}, avec une bascule manuelle, et la haute disponibilité
+n'était encore qu'une option.
+
+\schema{schemas-architecture-ha/01-architecture-actuelle}{Vue de déploiement et flux de production (avant Patroni)}
+
+\begin{lecture}{Six hôtes LXC ; vue logique des réseaux, des services et des dépendances, flux par flux.}
+\begin{itemize}
+  \item Acteurs : les utilisateurs Odoo, qui accèdent directement aux trois
+        conteneurs, et le contrôleur Ansible, en SSH sur 22 vers les six
+        hôtes et les six conteneurs.
+  \item Zones : application (192.168.36.0/24, passerelle .36.254) et données
+        (192.168.33.0/24, passerelle .33.254), en IPVLAN L2 sans NAT sur les
+        hôtes.
+  \item \textbf{F01} HTTP 8069 et longpolling 8072 ; \textbf{F02} SQL-TLS vers
+        le primaire sur 5432, avec certificat client, à travers le routage L3
+        et son SNAT vers .33.254 ; \textbf{F03} clients GlusterFS sur les hôtes
+        vers \code{/mnt/odoo}, bind vers \code{/var/lib/odoo}, TCP/24007 et
+        ports des briques ; \textbf{F04} streaming WAL vers deux répliques
+        (slots \code{odoodb2} et \code{odoodb3}) ; \textbf{F05a} dump du
+        primaire et \textbf{F05b} archive de \code{/mnt/odoo} sur .36.21 ;
+        \textbf{F06} administration SSH.
+  \item Disponibilité retenue à cette date : \code{pg_ha_enabled=false},
+        primaire SQL et cron odoo1 uniques, bascule manuelle, réplication
+        asynchrone.
+  \item Option HA hors du chemin SQL : Patroni, etcd et HAProxy sur 5000 ;
+        rôle présent, activation et validation à réaliser.
+\end{itemize}
+
+\end{lecture}
+
+\schema{schemas-architecture-ha/02-replication-et-bascule-manuelle}{Réplication et bascule manuelle (avant Patroni)}
+
+\begin{lecture}{Un primaire, deux répliques en streaming ; les clients n'écrivent que sur odoodb1.}
+\begin{itemize}
+  \item Mode déclaré : \code{pg_ha_enabled = false}, rôle \code{pg_server},
+        aucune promotion automatique.
+  \item odoo1, odoo2 et odoo3 se connectent tous à 192.168.33.161:5432 :
+        odoodb1, sur l'hôte .33.21, reçoit toutes les lectures et écritures
+        SQL.
+  \item odoodb2 (.33.162, hôte .33.22) et odoodb3 (.33.163, hôte .33.23) sont
+        des répliques en lecture seule, alimentées par WAL asynchrones à
+        travers les slots \code{odoodb2} et \code{odoodb3}.
+  \item Les réserves vivent sur deux hôtes distincts et conservent des copies
+        de la base. Les dernières transactions peuvent manquer sur une
+        réplique au moment d'une panne.
+  \item En cas de panne du primaire : intervention manuelle, c'est-à-dire
+        promouvoir une réserve puis changer \code{odoo_db_host}. Sans
+        intervention, la panne d'odoodb1 interrompt les accès SQL d'Odoo,
+        malgré les deux répliques.
+\end{itemize}
+
+\end{lecture}
+
+\schema{schemas-architecture-ha/03-option-ha-patroni-etcd-haproxy}{Option HA Patroni, etcd et HAProxy (telle que prévue)}
+
+\begin{lecture}{Patroni, etcd et trois points d'entrée SQL ; le placement initial n'est qu'un exemple.}
+\begin{itemize}
+  \item À cette date : option non activée (\code{pg_ha_enabled = false}) ;
+        code présent, tests et déploiement à réaliser.
+  \item Clients Odoo par libpq : \code{192.168.33.161,192.168.33.162,192.168.33.163}
+        sur 5000, essayés dans l'ordre, avec
+        \code{PGTARGETSESSIONATTRS=read-write}.
+  \item etcd : trois membres, quorum requis de 2 sur 3.
+  \item HAProxy interroge Patroni (\code{GET /primary}, 8008) ; Patroni gère
+        PostgreSQL et le verrou du leader dans etcd.
+  \item TLS SQL de bout en bout, streaming WAL asynchrone, aucun équilibrage
+        des lectures vers les répliques, aucune adresse IP virtuelle.
+  \item odoodb1 primaire est le placement initial ; Patroni peut désigner un
+        autre nœud.
+\end{itemize}
+
+\end{lecture}
+
+\schema{schemas-architecture-ha/04-bascule-ha-et-quorum}{Bascule HA et limites de disponibilité}
+
+\begin{lecture}{Panne du primaire : élection, puis reconnexion. Scénario illustratif, non issu d'un test.}
+\begin{itemize}
+  \item odoodb1 (192.168.33.161) devient indisponible : PostgreSQL, Patroni,
+        etcd et son HAProxy local sont perdus.
+  \item odoodb2 (192.168.33.162) est élu primaire : promotion par Patroni sous
+        conditions, etcd2 et etcd3 formant la majorité.
+  \item odoodb3 (192.168.33.163) reste réplique et suit le nouveau primaire en
+        streaming ; son HAProxy et son etcd restent disponibles.
+  \item Les clients Odoo réessaient sur une adresse disponible ; les HAProxy
+        .33.162 et .33.163 ciblent le primaire courant et relaient le SQL vers
+        .33.162:5432.
+  \item Quorum de 2 sur 3 : deux membres doivent communiquer.
+  \item Limites : pertes possibles en asynchrone, pas de fencing matériel,
+        durée à mesurer, certificats de sauvegarde en HA à compléter.
+\end{itemize}
+
+\end{lecture}
+
+% ===========================================================================
+\section{Limites connues}
+% ===========================================================================
+
+\begin{itemize}
+  \item \textbf{Pas de chien de garde matériel} : un conteneur LXC n'a pas de
+        \code{/dev/watchdog}. Un Patroni bloqué sans planter laisserait
+        l'ancien primaire accepter des écritures pendant la promotion d'une
+        réserve.
+  \item \textbf{Réplication asynchrone} : lors d'une bascule non planifiée,
+        des transactions récentes peuvent être perdues. Les transactions en
+        cours ne sont pas transférées, et les clients doivent se reconnecter.
+  \item \textbf{Quorum etcd de 2 sur 3} : la perte d'un serveur est tolérée.
+        Si deux serveurs sont perdus, le dernier passe en lecture seule et Odoo
+        s'arrête, par conception.
+  \item \textbf{La haute disponibilité ne concerne que la base} : le cron
+        d'Odoo reste sur odoo1, chaque accès web vise une instance, et le
+        volume GlusterFS comme l'infrastructure physique sont hors du dépôt.
+  \item \textbf{Groupes d'inventaire} : après une bascule, \code{db_containers}
+        et \code{db_replicas} ne décrivent plus que le placement d'origine.
+        \code{ansi_syncro.yaml} et \code{odoo_cleanup} traitent
+        \code{db_containers} comme « la » base : il faut les vérifier avant de
+        les lancer.
+  \item \textbf{Fins de vie} : Odoo~14 n'est plus maintenu, et Python~3.8 ne
+        reçoit plus de correctifs depuis octobre~2024. L'interpréteur est
+        confiné à \code{/opt} et ne sert qu'à Odoo.
+  \item \textbf{Sauvegarde incomplète en mode HA} : voir la
+        section~\ref{sec:sauvegarde}.
+  \item \textbf{Remise à zéro dangereuse} : \code{nettoyage_odoo.yaml} avec
+        \code{full_reset=true} supprime \code{/var/lib/odoo}, devenu le point
+        de montage du filestore partagé (section~\ref{sec:playbooks}).
+\end{itemize}
+
+% ===========================================================================
+\section{Conclusion}
+% ===========================================================================
+
+Le projet fournit trois instances Odoo~14 qui partagent une base unique et un
+filestore commun, avec une base PostgreSQL dont le primaire est remplacé
+automatiquement en cas de panne. Les chemins critiques sont protégés : TLS de
+bout en bout avec certificat client, autorités de certification séparées pour
+SQL et etcd, montage du filestore exigé avant tout démarrage d'Odoo, et
+initialisation unique de la base.
+
+Trois chantiers restent prioritaires : rendre la sauvegarde opérationnelle en
+mode HA (playbook et certificat client), mesurer les délais réels de bascule
+et valider une restauration complète. Un répartiteur HTTP et la mobilité du
+cron d'Odoo étendraient ensuite la disponibilité à la couche applicative.
+
+% ===========================================================================
+\appendix
+\section{Catalogue des schémas}
+% ===========================================================================
+
+{\raggedright
+Les schémas se trouvent dans le répertoire \code{docs/schemas-patroni-odoo14/}
+du dépôt. Chacun existe en PNG (4800~$\times$~3200) pour la lecture, en SVG
+pour l'impression et en draw.io pour la modification. Le fichier
+\code{dossier-patroni-odoo14.drawio} les rassemble en quatorze onglets.\par}
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{P{0.8cm} L P{6.4cm} P{0.9cm}}
+\toprule
+\rowcolor{gray!15}
+\textbf{Nº} & \textbf{Schéma} & \textbf{Fichier (.png, .svg, .drawio)} & \textbf{Page} \\
+\midrule
+1  & Architecture globale : Odoo et PostgreSQL HA        & \code{01-architecture-globale-ha}        & \pageref{fig:01-architecture-globale-ha} \\
+2  & Déploiement : hôtes Debian et conteneurs LXC        & \code{02-deploiement-hotes-lxc}          & \pageref{fig:02-deploiement-hotes-lxc} \\
+3  & Patroni orchestre le rôle de chaque PostgreSQL      & \code{03-orchestration-patroni}          & \pageref{fig:03-orchestration-patroni} \\
+4  & Connexion Odoo : du venv au primaire courant        & \code{04-connexion-odoo-haproxy}         & \pageref{fig:04-connexion-odoo-haproxy} \\
+5  & Réplication : un primaire et deux répliques         & \code{05-replication-postgresql}         & \pageref{fig:05-replication-postgresql} \\
+6  & Bascule automatique après panne du primaire         & \code{06-bascule-automatique}            & \pageref{fig:06-bascule-automatique} \\
+7  & Quorum etcd et partitions réseau                    & \code{07-quorum-et-partitions}           & \pageref{fig:07-quorum-et-partitions} \\
+8  & Bascule planifiée pour maintenance                  & \code{08-bascule-planifiee}              & \pageref{fig:08-bascule-planifiee} \\
+9  & Réintégrer un ancien primaire sous Patroni          & \code{09-retour-ancien-primaire}         & \pageref{fig:09-retour-ancien-primaire} \\
+10 & Transition : du cluster initial au mode Patroni     & \code{10-transition-vers-patroni}        & \pageref{fig:10-transition-vers-patroni} \\
+11 & Flux réseau, certificats et surfaces de gestion     & \code{11-flux-reseau-et-tls}             & \pageref{fig:11-flux-reseau-et-tls} \\
+12 & Sauvegarder puis restaurer Odoo et ses données      & \code{12-sauvegarde-et-restauration}     & \pageref{fig:12-sauvegarde-et-restauration} \\
+13 & Installer Odoo 14 sur Debian dans les LXC           & \code{13-installation-odoo14-debian-lxc} & \pageref{fig:13-installation-odoo14-debian-lxc} \\
+14 & Pile d'exécution : LXC, venv et service Odoo        & \code{14-pile-execution-odoo14-venv}     & \pageref{fig:14-pile-execution-odoo14-venv} \\
+\bottomrule
+\end{tabularx}
+\caption{Catalogue des schémas de l'édition actuelle}
+\end{table}
+
+Les schémas des éditions précédentes se trouvent dans trois autres
+répertoires de \code{docs/}, chacun avec son README, ses SVG et son fichier
+draw.io.
+
+\begin{table}[H]
+\centering\small
+\begin{tabularx}{\textwidth}{P{0.8cm} L P{7.4cm} P{0.9cm}}
+\toprule
+\rowcolor{gray!15}
+\textbf{Nº} & \textbf{Schéma} & \textbf{Dossier de \texttt{docs/}, puis fichier (.png, .svg)} & \textbf{Page} \\
+\midrule
+15 & Raccordement IPVLAN              & \code{schemas-lxc/}\newline\code{01-raccordement-ipvlan}                          & \pageref{fig:schemas-lxc/01-raccordement-ipvlan} \\
+16 & Accès utilisateur à Odoo         & \code{schemas-lxc/}\newline\code{02-acces-utilisateur-odoo}                       & \pageref{fig:schemas-lxc/02-acces-utilisateur-odoo} \\
+17 & Flux Odoo vers PostgreSQL        & \code{schemas-lxc/}\newline\code{03-flux-odoo-postgresql}                         & \pageref{fig:schemas-lxc/03-flux-odoo-postgresql} \\
+18 & Volume GlusterFS partagé         & \code{schemas-glusterfs/}\newline\code{01-volume-partage-trois-odoo}              & \pageref{fig:schemas-glusterfs/01-volume-partage-trois-odoo} \\
+19 & Montage sur l'hôte et bind LXC   & \code{schemas-glusterfs/}\newline\code{02-montage-hote-et-bind-lxc}               & \pageref{fig:schemas-glusterfs/02-montage-hote-et-bind-lxc} \\
+20 & GlusterFS et sauvegarde          & \code{schemas-glusterfs/}\newline\code{03-glusterfs-et-sauvegarde}                & \pageref{fig:schemas-glusterfs/03-glusterfs-et-sauvegarde} \\
+21 & Vue de déploiement et flux       & \code{schemas-architecture-ha/}\newline\code{01-architecture-actuelle}            & \pageref{fig:schemas-architecture-ha/01-architecture-actuelle} \\
+22 & Réplication et bascule manuelle  & \code{schemas-architecture-ha/}\newline\code{02-replication-et-bascule-manuelle}  & \pageref{fig:schemas-architecture-ha/02-replication-et-bascule-manuelle} \\
+23 & Option HA Patroni, etcd, HAProxy & \code{schemas-architecture-ha/}\newline\code{03-option-ha-patroni-etcd-haproxy}   & \pageref{fig:schemas-architecture-ha/03-option-ha-patroni-etcd-haproxy} \\
+24 & Bascule HA et quorum             & \code{schemas-architecture-ha/}\newline\code{04-bascule-ha-et-quorum}             & \pageref{fig:schemas-architecture-ha/04-bascule-ha-et-quorum} \\
+\bottomrule
+\end{tabularx}
+\caption{Catalogue des schémas des éditions précédentes}
+\end{table}
+
+\end{document}

@@ -31,6 +31,8 @@
 #   etcd           le quorum, avant Patroni qui ne fonctionne pas sans lui
 #   patroni        sa configuration, encore sans le demarrer
 #   reprise        PostgreSQL passe de Debian a Patroni, primaire d'abord
+#   relance        Patroni relance, cluster en pause, s'il tourne encore avec
+#                  une ancienne liste etcd (PostgreSQL n'est pas redemarre)
 #   configuration  mots de passe, roles SQL, configuration dynamique
 #   haproxy        le point d'entree, une fois le primaire connu
 #   verif          la preuve que l'ensemble fonctionne
@@ -55,6 +57,9 @@
 
 - name: Reprise de PostgreSQL par Patroni
   ansible.builtin.import_tasks: reprise.yaml
+
+- name: Relance de Patroni sur sa configuration etcd a jour
+  ansible.builtin.import_tasks: relance.yaml
 
 - name: Comptes, base et configuration dynamique
   ansible.builtin.import_tasks: configuration.yaml

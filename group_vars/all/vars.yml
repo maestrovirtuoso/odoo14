@@ -19,7 +19,7 @@
 # A passer a true JUSTE APRES le premier passage de ansi_postgresql_ha.yaml,
 # puis rejouer ansi_odoo.yaml et ansi_sauvegarde.yaml. Une fois Patroni en
 # place, pg_server refuse de toucher a la base, quelle que soit cette valeur.
-pg_ha_enabled: false
+pg_ha_enabled: true
 
 # Port des HAProxy, un par serveur PostgreSQL.
 pg_ha_haproxy_port: 5000

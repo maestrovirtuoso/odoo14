@@ -9,6 +9,15 @@ Wants=network-online.target
 Type=simple
 User=postgres
 Group=postgres
+
+# Copie de la configuration au moment ou Patroni la charge. Il ne relit sa
+# section etcd3 qu'au demarrage : tasks/relance.yaml compare cette copie au
+# fichier pour savoir s'il tourne encore avec une ancienne liste etcd.
+# /run/patroni est recree a chaque demarrage, en 0700 : la copie contient les
+# mots de passe.
+RuntimeDirectory=patroni
+RuntimeDirectoryMode=0700
+ExecStartPre=/bin/cp {{ pg_ha_config_file }} {{ pg_ha_config_chargee }}
 ExecStart=/usr/bin/patroni {{ pg_ha_config_file }}
 ExecReload=/bin/kill -HUP $MAINPID
 

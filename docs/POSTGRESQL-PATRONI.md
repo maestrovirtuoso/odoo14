@@ -156,14 +156,38 @@ Le rôle se déroule dans cet ordre, sur les trois serveurs ensemble :
      `pg_server` sont renommés en `.avant-patroni` ;
    - l'ancien `.pgpass` est supprimé.
 
-6. **Comptes et configuration**. Sur le primaire, le rôle pose le mot de
+6. **Relance de Patroni**, seulement s'il tourne avec une **ancienne liste
+   etcd**. Patroni ne relit les adresses etcd de `config.yml` qu'à son
+   démarrage : un simple rechargement ne suffit pas. Ce cas arrive quand les
+   adresses ont changé dans l'inventaire, ou quand `config.yml` a été corrigé
+   à la main sans relancer Patroni.
+
+   À chaque démarrage, l'unité systemd copie `config.yml` dans
+   `/run/patroni/config.yml`. Le rôle compare cette copie au fichier. Si les
+   deux diffèrent, ou si la copie n'existe pas, il relance Patroni
+   ([`tasks/relance.yaml`](../roles/ansi_postgresql_ha/pg_ha/tasks/relance.yaml)) :
+
+   - le cluster est mis **en pause** : Patroni s'arrête sans arrêter
+     PostgreSQL, et `KillMode=process` empêche systemd de le faire à sa place ;
+   - les serveurs sont relancés un par un, le primaire en dernier ;
+   - chaque relance est vérifiée : Patroni revient, rejoint etcd, et
+     PostgreSQL garde la même heure de démarrage ;
+   - la pause est levée à la fin, **sauf** si elle était déjà posée avant le
+     passage.
+
+   Pas de bascule ni de coupure : seul Patroni redémarre.
+7. **Comptes et configuration**. Sur le primaire, le rôle pose le mot de
    passe de `postgres` (nécessaire à `pg_rewind`) et vérifie les rôles
    `replicator` et `odoo` ainsi que la base `prod`. Il remet aussi la
-   configuration dynamique d'etcd en conformité avec `pg_ha_dcs`.
-7. **HAProxy**, puis **vérification**. Le rôle attend un primaire et deux
-   réserves avec moins de 16 Mo de retard. Il ouvre ensuite une vraie
-   connexion TLS à travers chaque HAProxy et vérifie qu'elle aboutit au
-   primaire.
+   configuration dynamique d'etcd en conformité avec `pg_ha_dcs`, en
+   **conservant** une pause posée à la main.
+8. **HAProxy**, puis **vérification**. Le rôle vérifie que chaque Patroni
+   joint les trois membres etcd avec ses propres certificats. Il vérifie
+   aussi que `patronictl list` ne signale aucune erreur et que chaque
+   Patroni a parlé à etcd il y a moins de `ttl` secondes. Il attend ensuite
+   un primaire et deux réserves avec moins de 16 Mo de retard. Enfin, il
+   ouvre une vraie connexion TLS à travers chaque HAProxy et vérifie qu'elle
+   aboutit au primaire.
 
 Rejoué ensuite, le playbook ne fait que vérifier et remettre en conformité,
 **sans coupure**.
@@ -318,7 +342,12 @@ secondes d'erreurs.
 
 **Ne pas** utiliser `patronictl edit-config` pour un changement durable : le
 playbook remet la configuration d'etcd à l'identique de `pg_ha_dcs` à chaque
-passage.
+passage. Seule exception : une pause (`patronictl pause`) est conservée, et
+le playbook la signale à la fin de son bilan.
+
+**Ne pas** corriger `/etc/patroni/config.yml` à la main : rejouer le playbook.
+Il réécrit le fichier et relance Patroni si sa liste etcd a changé (§ 4,
+étape 6).
 
 **Ne plus** utiliser `systemctl restart postgresql`, `pg_ctlcluster` ou
 `pg_ctl` : c'est Patroni qui démarre et arrête PostgreSQL. L'unité Debian est
@@ -366,6 +395,9 @@ restart`.
 | `Refuser tout cas qui risquerait de perdre…` | voir ci-dessous | voir « Reprise refusée » |
 | `pki/ca.key est absent` | playbook lancé depuis un autre poste | le lancer depuis le poste de contrôle de la base |
 | etcd ne démarre pas, `Le cluster etcd est sain` échoue | 2379/2380 fermés entre conteneurs, ou un membre absent | `journalctl -u etcd` sur chaque serveur ; vérifier les ports |
+| `ERROR - Failed to get list of machines from https://<IP>:2379` (`patronictl list` ou journal de Patroni) | `config.yml` vise une adresse sans etcd, par exemple un hôte LXC au lieu de son conteneur ; ou Patroni n'a pas été relancé depuis la correction du fichier | rejouer le playbook : il réécrit `config.yml`, relance Patroni en pause, puis vérifie |
+| `etcd annonce : … Attendu d'après l'inventaire : …` | un membre etcd annonce une ancienne adresse, que Patroni essaierait | voir le message : `/etc/default/etcd`, ou `etcdctl member update` |
+| `ne voit pas la pause`, ou échec de `relancer_patroni.py` | ce Patroni ne lit pas le même etcd que les autres, ou sa relance n'a pas pu être vérifiée | **le cluster reste en pause**. Lire le message et `journalctl -u patroni`, corriger, `patronictl -c /etc/patroni/config.yml resume`, puis rejouer |
 | Patroni s'arrête : `system ID mismatch` | le serveur porte un autre cluster | cas « Reprise refusée » ; ou `patronictl reinit` si c'est une réserve |
 | `patronictl list` : une réserve en `start failed` | elle a divergé et `pg_rewind` a échoué | `patronictl -c /etc/patroni/config.yml reinit odoo-pg <serveur>` |
 | Odoo : `no pg_hba.conf entry for host "192.168.33.16x"` | connexion relayée sans certificat client | vérifier `/etc/odoo/pg-ssl/` sur le conteneur Odoo (§ 7, point 4 pour la sauvegarde) |

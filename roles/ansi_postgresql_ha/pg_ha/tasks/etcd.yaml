@@ -83,3 +83,34 @@
       attendus : {{ pg_ha_nodes }}. Retirer les membres en trop
       (etcdctl member remove) avant de continuer.
   run_once: true
+
+- name: Refuser des membres etcd qui annoncent d'autres adresses que l'inventaire
+  # Patroni ne s'en tient pas a la liste de config.yml : il demande a etcd ses
+  # membres et utilise les adresses qu'ils ANNONCENT. Une adresse annoncee
+  # perimee ramenerait "Failed to get list of machines" avec un config.yml
+  # pourtant juste.
+  ansible.builtin.assert:
+    that: _pg_ha_etcd_annonce == _pg_ha_etcd_attendu
+    fail_msg: >-
+      etcd annonce : {{ _pg_ha_etcd_annonce }}. Attendu d'apres l'inventaire :
+      {{ _pg_ha_etcd_attendu }}. Adresse client fausse : /etc/default/etcd
+      (que ce role ecrit), puis redemarrer etcd un membre a la fois. Adresse
+      entre membres fausse : etcdctl member update <ID>
+      --peer-urls=https://<ip>:{{ pg_ha_etcd_peer_port }}.
+  vars:
+    _pg_ha_etcd_annonce: >-
+      {%- set l = [] -%}
+      {%- for m in (_pg_ha_etcd_membres.stdout | from_json).members -%}
+      {%- set _ = l.append(m.name ~ ' ' ~ (m.clientURLs | default([]) | join(','))
+                           ~ ' ' ~ (m.peerURLs | default([]) | join(','))) -%}
+      {%- endfor -%}
+      {{ l | sort | join(' ; ') }}
+    _pg_ha_etcd_attendu: >-
+      {%- set l = [] -%}
+      {%- for n in pg_ha_nodes -%}
+      {%- set ip = hostvars[n].ansible_host -%}
+      {%- set _ = l.append(n ~ ' https://' ~ ip ~ ':' ~ pg_ha_etcd_client_port
+                           ~ ' https://' ~ ip ~ ':' ~ pg_ha_etcd_peer_port) -%}
+      {%- endfor -%}
+      {{ l | sort | join(' ; ') }}
+  run_once: true

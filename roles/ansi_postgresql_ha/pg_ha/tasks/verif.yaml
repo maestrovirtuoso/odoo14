@@ -7,6 +7,49 @@
 - name: Appliquer les configurations modifiees avant de verifier
   ansible.builtin.meta: flush_handlers
 
+- name: Patroni joint chaque membre etcd de sa configuration
+  # Ce que fait Patroni, adresse par adresse et avec SES certificats : une
+  # adresse perimee, un certificat serveur qui ne la porte pas ou un
+  # certificat client refuse echouent ici, au lieu de remplir son journal.
+  ansible.builtin.command:
+    argv:
+      - etcdctl
+      - "--endpoints={{ pg_ha_etcd3_hosts | map('regex_replace', '^', 'https://') | join(',') }}"
+      - "--cacert={{ pg_ha_ssl_dir }}/etcd-ca.crt"
+      - "--cert={{ pg_ha_ssl_dir }}/etcd.crt"
+      - "--key={{ pg_ha_ssl_dir }}/etcd.key"
+      - endpoint
+      - health
+  environment:
+    ETCDCTL_API: "3"
+  changed_when: false
+
+- name: patronictl lit le cluster sans erreur
+  # "ERROR - Failed to get list of machines from https://...:2379" sort de
+  # la : une adresse etcd de config.yml qui ne repond pas.
+  ansible.builtin.command: "patronictl -c {{ pg_ha_config_file }} list"
+  register: _pg_ha_patronictl
+  changed_when: false
+  failed_when: _pg_ha_patronictl.rc != 0 or 'ERROR' in _pg_ha_patronictl.stderr
+
+- name: Chaque Patroni joint etcd
+  # dcs_last_seen : dernier echange reussi de CE Patroni avec etcd. Compare a
+  # l'heure du serveur, pas a celle du poste de controle. -1 : champ absent
+  # (Patroni < 2.1), rien a comparer.
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import json, sys, time, urllib.request
+        with urllib.request.urlopen(sys.argv[1], timeout=5) as reponse:
+            vu = json.load(reponse).get('dcs_last_seen')
+        print(-1 if vu is None else int(time.time()) - int(vu))
+      - "http://{{ ansible_host }}:{{ pg_ha_rest_port }}/patroni"
+  register: _pg_ha_dcs_age
+  changed_when: false
+  failed_when: _pg_ha_dcs_age.rc != 0 or _pg_ha_dcs_age.stdout | int > pg_ha_dcs.ttl | int
+
 - name: Etat du cluster selon Patroni
   ansible.builtin.command: "patronictl -c {{ pg_ha_config_file }} list -f json"
   register: _pg_ha_liste
@@ -85,6 +128,10 @@
     msg:
       - "Cluster {{ pg_ha_scope }} : primaire {{ _pg_ha_primaire | first }}, reserves {{ pg_ha_nodes | difference(_pg_ha_primaire) | join(', ') }}."
       - "Point d'entree : {{ pg_ha_node_ips | map('regex_replace', '$', ':' ~ pg_ha_haproxy_port) | join(', ') }}."
+      - >-
+        {{ 'ATTENTION : cluster EN PAUSE, aucune bascule automatique. La lever : patronictl -c '
+           ~ pg_ha_config_file ~ ' resume'
+           if _pg_ha_statut.json.pause | default(false) | bool else 'Bascule automatique active.' }}
       - >-
         {{ 'Odoo passe deja par HAProxy (pg_ha_enabled: true).'
            if pg_ha_enabled | bool else

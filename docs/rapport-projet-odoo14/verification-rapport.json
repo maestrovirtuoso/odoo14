@@ -1,0 +1,177 @@
+{
+    "date":  "2026-11-03",
+    "docx":  "Rapport-ProSys-Odoo14-Architecture-Fonctionnement.docx",
+    "pdf":  "Rapport-ProSys-Odoo14-Architecture-Fonctionnement.pdf",
+    "pages":  62,
+    "figures":  27,
+    "schemas_textuels":  12,
+    "images_integrees":  28,
+    "tables":  16,
+    "sections":  8,
+    "planches_sur_une_page":  "Controle visuel PDF",
+    "sommaire":  "10 liens internes",
+    "figures_par_page":  [
+                             {
+                                 "number":  1,
+                                 "page":  17,
+                                 "title":  "Architecture globale : Odoo et PostgreSQL HA",
+                                 "source":  "docs/schemas-patroni-odoo14/01-architecture-globale-ha.drawio"
+                             },
+                             {
+                                 "number":  2,
+                                 "page":  18,
+                                 "title":  "Déploiement : hôtes Debian et conteneurs LXC",
+                                 "source":  "docs/schemas-patroni-odoo14/02-deploiement-hotes-lxc.drawio"
+                             },
+                             {
+                                 "number":  3,
+                                 "page":  19,
+                                 "title":  "Patroni orchestre le rôle de chaque PostgreSQL",
+                                 "source":  "docs/schemas-patroni-odoo14/03-orchestration-patroni.drawio"
+                             },
+                             {
+                                 "number":  4,
+                                 "page":  20,
+                                 "title":  "Connexion Odoo : du venv au primaire courant",
+                                 "source":  "docs/schemas-patroni-odoo14/04-connexion-odoo-haproxy.drawio"
+                             },
+                             {
+                                 "number":  5,
+                                 "page":  21,
+                                 "title":  "Réplication : un primaire et deux répliques",
+                                 "source":  "docs/schemas-patroni-odoo14/05-replication-postgresql.drawio"
+                             },
+                             {
+                                 "number":  6,
+                                 "page":  22,
+                                 "title":  "Bascule automatique après panne du primaire",
+                                 "source":  "docs/schemas-patroni-odoo14/06-bascule-automatique.drawio"
+                             },
+                             {
+                                 "number":  7,
+                                 "page":  23,
+                                 "title":  "Quorum etcd et partitions réseau",
+                                 "source":  "docs/schemas-patroni-odoo14/07-quorum-et-partitions.drawio"
+                             },
+                             {
+                                 "number":  8,
+                                 "page":  24,
+                                 "title":  "Bascule planifiée pour maintenance",
+                                 "source":  "docs/schemas-patroni-odoo14/08-bascule-planifiee.drawio"
+                             },
+                             {
+                                 "number":  9,
+                                 "page":  25,
+                                 "title":  "Réintégrer un ancien primaire sous Patroni",
+                                 "source":  "docs/schemas-patroni-odoo14/09-retour-ancien-primaire.drawio"
+                             },
+                             {
+                                 "number":  10,
+                                 "page":  26,
+                                 "title":  "Transition : du cluster initial au mode Patroni",
+                                 "source":  "docs/schemas-patroni-odoo14/10-transition-vers-patroni.drawio"
+                             },
+                             {
+                                 "number":  11,
+                                 "page":  27,
+                                 "title":  "Flux réseau, certificats et surfaces de gestion",
+                                 "source":  "docs/schemas-patroni-odoo14/11-flux-reseau-et-tls.drawio"
+                             },
+                             {
+                                 "number":  12,
+                                 "page":  28,
+                                 "title":  "Sauvegarder puis restaurer Odoo et ses données",
+                                 "source":  "docs/schemas-patroni-odoo14/12-sauvegarde-et-restauration.drawio"
+                             },
+                             {
+                                 "number":  13,
+                                 "page":  29,
+                                 "title":  "Installer Odoo 14 sur Debian dans les LXC",
+                                 "source":  "docs/schemas-patroni-odoo14/13-installation-odoo14-debian-lxc.drawio"
+                             },
+                             {
+                                 "number":  14,
+                                 "page":  30,
+                                 "title":  "Pile d’exécution : LXC, venv et service Odoo",
+                                 "source":  "docs/schemas-patroni-odoo14/14-pile-execution-odoo14-venv.drawio"
+                             },
+                             {
+                                 "number":  15,
+                                 "page":  32,
+                                 "title":  "Synthèse d’architecture du 16 octobre",
+                                 "source":  "docs/architecture-actuelle.mmd"
+                             },
+                             {
+                                 "number":  16,
+                                 "page":  33,
+                                 "title":  "Architecture réseau LXC d’ensemble",
+                                 "source":  "docs/architecture-reseau-lxc.drawio"
+                             },
+                             {
+                                 "number":  17,
+                                 "page":  34,
+                                 "title":  "Raccordement IPVLAN L2",
+                                 "source":  "docs/schemas-lxc/architecture-lxc-professionnelle.drawio"
+                             },
+                             {
+                                 "number":  18,
+                                 "page":  35,
+                                 "title":  "Accès utilisateur à Odoo",
+                                 "source":  "docs/schemas-lxc/architecture-lxc-professionnelle.drawio"
+                             },
+                             {
+                                 "number":  19,
+                                 "page":  36,
+                                 "title":  "Ancien flux Odoo vers PostgreSQL",
+                                 "source":  "docs/schemas-lxc/architecture-lxc-professionnelle.drawio"
+                             },
+                             {
+                                 "number":  20,
+                                 "page":  37,
+                                 "title":  "Volume GlusterFS partagé par trois Odoo",
+                                 "source":  "docs/schemas-glusterfs/architecture-glusterfs-professionnelle.drawio"
+                             },
+                             {
+                                 "number":  21,
+                                 "page":  38,
+                                 "title":  "Ancien montage hôte et bind LXC",
+                                 "source":  "docs/schemas-glusterfs/architecture-glusterfs-professionnelle.drawio"
+                             },
+                             {
+                                 "number":  22,
+                                 "page":  39,
+                                 "title":  "GlusterFS et sauvegarde",
+                                 "source":  "docs/schemas-glusterfs/architecture-glusterfs-professionnelle.drawio"
+                             },
+                             {
+                                 "number":  23,
+                                 "page":  40,
+                                 "title":  "Architecture technique avant activation HA",
+                                 "source":  "docs/schemas-architecture-ha/architecture-actuelle-expert.drawio"
+                             },
+                             {
+                                 "number":  24,
+                                 "page":  41,
+                                 "title":  "Réplication et bascule manuelle",
+                                 "source":  "docs/schemas-architecture-ha/architecture-actuelle-et-ha-postgresql.drawio"
+                             },
+                             {
+                                 "number":  25,
+                                 "page":  42,
+                                 "title":  "Option HA Patroni, etcd et HAProxy",
+                                 "source":  "docs/schemas-architecture-ha/architecture-actuelle-et-ha-postgresql.drawio"
+                             },
+                             {
+                                 "number":  26,
+                                 "page":  43,
+                                 "title":  "Bascule HA et quorum — première vue",
+                                 "source":  "docs/schemas-architecture-ha/architecture-actuelle-et-ha-postgresql.drawio"
+                             },
+                             {
+                                 "number":  27,
+                                 "page":  44,
+                                 "title":  "Première orchestration Patroni / HAProxy / PostgreSQL",
+                                 "source":  "docs/schemas-patroni/orchestration-patroni-haproxy-postgresql.drawio"
+                             }
+                         ]
+}

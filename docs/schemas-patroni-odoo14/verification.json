@@ -1,0 +1,30 @@
+{
+    "date":  "2026-11-03",
+    "pg_ha_enabled":  true,
+    "pages":  14,
+    "logical_size":  [
+                         2400,
+                         1600
+                     ],
+    "png_size":  [
+                     4800,
+                     3200
+                 ],
+    "typography_overflows":  0,
+    "diagram_ids":  [
+                        "01-architecture-globale-ha",
+                        "02-deploiement-hotes-lxc",
+                        "03-orchestration-patroni",
+                        "04-connexion-odoo-haproxy",
+                        "05-replication-postgresql",
+                        "06-bascule-automatique",
+                        "07-quorum-et-partitions",
+                        "08-bascule-planifiee",
+                        "09-retour-ancien-primaire",
+                        "10-transition-vers-patroni",
+                        "11-flux-reseau-et-tls",
+                        "12-sauvegarde-et-restauration",
+                        "13-installation-odoo14-debian-lxc",
+                        "14-pile-execution-odoo14-venv"
+                    ]
+}

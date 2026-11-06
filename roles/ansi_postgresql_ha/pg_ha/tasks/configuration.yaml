@@ -114,18 +114,25 @@
 - name: Remettre la configuration dynamique en conformite
   # PUT et non PATCH : la configuration entiere est remplacee par pg_ha_dcs,
   # ce qui retire aussi une valeur posee a la main (patronictl edit-config)
-  # et oubliee depuis.
+  # et oubliee depuis. SAUF la pause : "patronictl pause" marque une
+  # maintenance en cours, et la lever ici rendrait la bascule automatique au
+  # milieu de l'intervention.
+  vars:
+    _pg_ha_dcs_voulu: >-
+      {{ pg_ha_dcs | combine({'pause': true})
+         if _pg_ha_dcs_actuel.json.pause | default(false) | bool
+         else pg_ha_dcs }}
   ansible.builtin.uri:
     url: "http://{{ hostvars[_pg_ha_primaire | first].ansible_host }}:{{ pg_ha_rest_port }}/config"
     method: PUT
-    body: "{{ pg_ha_dcs }}"
+    body: "{{ _pg_ha_dcs_voulu }}"
     body_format: json
     url_username: "{{ pg_ha_rest_user }}"
     url_password: "{{ pg_ha_rest_password }}"
     force_basic_auth: true
     status_code: 200
   run_once: true
-  when: _pg_ha_dcs_actuel.json != pg_ha_dcs
+  when: _pg_ha_dcs_actuel.json != _pg_ha_dcs_voulu
   changed_when: true
   # Le mot de passe de l'API apparaitrait sinon dans la sortie en -vvv.
   no_log: true

@@ -1,0 +1,1619 @@
+<mxfile host="app.diagrams.net" type="device">
+  <diagram id="04-connexion-odoo-haproxy" name="04 - Connexion Odoo : du venv au primaire courant">
+    <mxGraphModel fold="1" pageWidth="2400" dx="2400" tooltips="1" guides="1" connect="1" grid="1" pageHeight="1600" dy="1600" gridSize="20" background="#FFFFFF" pageScale="1" page="1" arrows="1">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="background" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=none;strokeWidth=1.5;locked=1;">
+          <mxGeometry as="geometry" x="0" y="0" width="2400" height="1600" />
+        </mxCell>
+        <mxCell id="grid-v-20" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="20" y="210" as="sourcePoint" />
+            <mxPoint x="20" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-40" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="40" y="210" as="sourcePoint" />
+            <mxPoint x="40" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-60" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="60" y="210" as="sourcePoint" />
+            <mxPoint x="60" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-80" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="80" y="210" as="sourcePoint" />
+            <mxPoint x="80" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-100" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="100" y="210" as="sourcePoint" />
+            <mxPoint x="100" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-120" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="120" y="210" as="sourcePoint" />
+            <mxPoint x="120" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-140" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="140" y="210" as="sourcePoint" />
+            <mxPoint x="140" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-160" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="160" y="210" as="sourcePoint" />
+            <mxPoint x="160" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-180" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="180" y="210" as="sourcePoint" />
+            <mxPoint x="180" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-200" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="200" y="210" as="sourcePoint" />
+            <mxPoint x="200" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-220" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="220" y="210" as="sourcePoint" />
+            <mxPoint x="220" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-240" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="240" y="210" as="sourcePoint" />
+            <mxPoint x="240" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-260" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="260" y="210" as="sourcePoint" />
+            <mxPoint x="260" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-280" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="280" y="210" as="sourcePoint" />
+            <mxPoint x="280" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-300" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="300" y="210" as="sourcePoint" />
+            <mxPoint x="300" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-320" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="320" y="210" as="sourcePoint" />
+            <mxPoint x="320" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-340" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="340" y="210" as="sourcePoint" />
+            <mxPoint x="340" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-360" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="360" y="210" as="sourcePoint" />
+            <mxPoint x="360" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-380" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="380" y="210" as="sourcePoint" />
+            <mxPoint x="380" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-400" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="400" y="210" as="sourcePoint" />
+            <mxPoint x="400" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-420" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="420" y="210" as="sourcePoint" />
+            <mxPoint x="420" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-440" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="440" y="210" as="sourcePoint" />
+            <mxPoint x="440" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-460" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="460" y="210" as="sourcePoint" />
+            <mxPoint x="460" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-480" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="480" y="210" as="sourcePoint" />
+            <mxPoint x="480" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-500" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="500" y="210" as="sourcePoint" />
+            <mxPoint x="500" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-520" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="520" y="210" as="sourcePoint" />
+            <mxPoint x="520" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-540" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="540" y="210" as="sourcePoint" />
+            <mxPoint x="540" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-560" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="560" y="210" as="sourcePoint" />
+            <mxPoint x="560" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-580" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="580" y="210" as="sourcePoint" />
+            <mxPoint x="580" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-600" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="600" y="210" as="sourcePoint" />
+            <mxPoint x="600" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-620" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="620" y="210" as="sourcePoint" />
+            <mxPoint x="620" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-640" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="640" y="210" as="sourcePoint" />
+            <mxPoint x="640" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-660" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="660" y="210" as="sourcePoint" />
+            <mxPoint x="660" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-680" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="680" y="210" as="sourcePoint" />
+            <mxPoint x="680" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-700" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="700" y="210" as="sourcePoint" />
+            <mxPoint x="700" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-720" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="720" y="210" as="sourcePoint" />
+            <mxPoint x="720" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-740" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="740" y="210" as="sourcePoint" />
+            <mxPoint x="740" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-760" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="760" y="210" as="sourcePoint" />
+            <mxPoint x="760" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-780" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="780" y="210" as="sourcePoint" />
+            <mxPoint x="780" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-800" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="800" y="210" as="sourcePoint" />
+            <mxPoint x="800" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-820" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="820" y="210" as="sourcePoint" />
+            <mxPoint x="820" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-840" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="840" y="210" as="sourcePoint" />
+            <mxPoint x="840" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-860" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="860" y="210" as="sourcePoint" />
+            <mxPoint x="860" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-880" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="880" y="210" as="sourcePoint" />
+            <mxPoint x="880" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-900" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="900" y="210" as="sourcePoint" />
+            <mxPoint x="900" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-920" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="920" y="210" as="sourcePoint" />
+            <mxPoint x="920" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-940" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="940" y="210" as="sourcePoint" />
+            <mxPoint x="940" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-960" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="960" y="210" as="sourcePoint" />
+            <mxPoint x="960" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-980" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="980" y="210" as="sourcePoint" />
+            <mxPoint x="980" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1000" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1000" y="210" as="sourcePoint" />
+            <mxPoint x="1000" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1020" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1020" y="210" as="sourcePoint" />
+            <mxPoint x="1020" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1040" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1040" y="210" as="sourcePoint" />
+            <mxPoint x="1040" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1060" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1060" y="210" as="sourcePoint" />
+            <mxPoint x="1060" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1080" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1080" y="210" as="sourcePoint" />
+            <mxPoint x="1080" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1100" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1100" y="210" as="sourcePoint" />
+            <mxPoint x="1100" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1120" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1120" y="210" as="sourcePoint" />
+            <mxPoint x="1120" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1140" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1140" y="210" as="sourcePoint" />
+            <mxPoint x="1140" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1160" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1160" y="210" as="sourcePoint" />
+            <mxPoint x="1160" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1180" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1180" y="210" as="sourcePoint" />
+            <mxPoint x="1180" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1200" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1200" y="210" as="sourcePoint" />
+            <mxPoint x="1200" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1220" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1220" y="210" as="sourcePoint" />
+            <mxPoint x="1220" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1240" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1240" y="210" as="sourcePoint" />
+            <mxPoint x="1240" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1260" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1260" y="210" as="sourcePoint" />
+            <mxPoint x="1260" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1280" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1280" y="210" as="sourcePoint" />
+            <mxPoint x="1280" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1300" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1300" y="210" as="sourcePoint" />
+            <mxPoint x="1300" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1320" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1320" y="210" as="sourcePoint" />
+            <mxPoint x="1320" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1340" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1340" y="210" as="sourcePoint" />
+            <mxPoint x="1340" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1360" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1360" y="210" as="sourcePoint" />
+            <mxPoint x="1360" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1380" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1380" y="210" as="sourcePoint" />
+            <mxPoint x="1380" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1400" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1400" y="210" as="sourcePoint" />
+            <mxPoint x="1400" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1420" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1420" y="210" as="sourcePoint" />
+            <mxPoint x="1420" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1440" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1440" y="210" as="sourcePoint" />
+            <mxPoint x="1440" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1460" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1460" y="210" as="sourcePoint" />
+            <mxPoint x="1460" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1480" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1480" y="210" as="sourcePoint" />
+            <mxPoint x="1480" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1500" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1500" y="210" as="sourcePoint" />
+            <mxPoint x="1500" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1520" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1520" y="210" as="sourcePoint" />
+            <mxPoint x="1520" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1540" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1540" y="210" as="sourcePoint" />
+            <mxPoint x="1540" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1560" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1560" y="210" as="sourcePoint" />
+            <mxPoint x="1560" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1580" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1580" y="210" as="sourcePoint" />
+            <mxPoint x="1580" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1600" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1600" y="210" as="sourcePoint" />
+            <mxPoint x="1600" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1620" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1620" y="210" as="sourcePoint" />
+            <mxPoint x="1620" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1640" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1640" y="210" as="sourcePoint" />
+            <mxPoint x="1640" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1660" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1660" y="210" as="sourcePoint" />
+            <mxPoint x="1660" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1680" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1680" y="210" as="sourcePoint" />
+            <mxPoint x="1680" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1700" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1700" y="210" as="sourcePoint" />
+            <mxPoint x="1700" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1720" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1720" y="210" as="sourcePoint" />
+            <mxPoint x="1720" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1740" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1740" y="210" as="sourcePoint" />
+            <mxPoint x="1740" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1760" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1760" y="210" as="sourcePoint" />
+            <mxPoint x="1760" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1780" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1780" y="210" as="sourcePoint" />
+            <mxPoint x="1780" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1800" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1800" y="210" as="sourcePoint" />
+            <mxPoint x="1800" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1820" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1820" y="210" as="sourcePoint" />
+            <mxPoint x="1820" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1840" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1840" y="210" as="sourcePoint" />
+            <mxPoint x="1840" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1860" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1860" y="210" as="sourcePoint" />
+            <mxPoint x="1860" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1880" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1880" y="210" as="sourcePoint" />
+            <mxPoint x="1880" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1900" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1900" y="210" as="sourcePoint" />
+            <mxPoint x="1900" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1920" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1920" y="210" as="sourcePoint" />
+            <mxPoint x="1920" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1940" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1940" y="210" as="sourcePoint" />
+            <mxPoint x="1940" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1960" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1960" y="210" as="sourcePoint" />
+            <mxPoint x="1960" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-1980" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1980" y="210" as="sourcePoint" />
+            <mxPoint x="1980" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2000" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2000" y="210" as="sourcePoint" />
+            <mxPoint x="2000" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2020" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2020" y="210" as="sourcePoint" />
+            <mxPoint x="2020" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2040" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2040" y="210" as="sourcePoint" />
+            <mxPoint x="2040" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2060" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2060" y="210" as="sourcePoint" />
+            <mxPoint x="2060" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2080" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2080" y="210" as="sourcePoint" />
+            <mxPoint x="2080" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2100" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2100" y="210" as="sourcePoint" />
+            <mxPoint x="2100" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2120" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2120" y="210" as="sourcePoint" />
+            <mxPoint x="2120" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2140" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2140" y="210" as="sourcePoint" />
+            <mxPoint x="2140" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2160" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2160" y="210" as="sourcePoint" />
+            <mxPoint x="2160" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2180" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2180" y="210" as="sourcePoint" />
+            <mxPoint x="2180" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2200" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2200" y="210" as="sourcePoint" />
+            <mxPoint x="2200" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2220" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2220" y="210" as="sourcePoint" />
+            <mxPoint x="2220" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2240" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2240" y="210" as="sourcePoint" />
+            <mxPoint x="2240" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2260" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2260" y="210" as="sourcePoint" />
+            <mxPoint x="2260" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2280" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2280" y="210" as="sourcePoint" />
+            <mxPoint x="2280" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2300" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2300" y="210" as="sourcePoint" />
+            <mxPoint x="2300" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2320" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2320" y="210" as="sourcePoint" />
+            <mxPoint x="2320" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2340" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2340" y="210" as="sourcePoint" />
+            <mxPoint x="2340" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2360" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2360" y="210" as="sourcePoint" />
+            <mxPoint x="2360" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-v-2380" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="2380" y="210" as="sourcePoint" />
+            <mxPoint x="2380" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-220" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="220" as="sourcePoint" />
+            <mxPoint x="2400" y="220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-240" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="240" as="sourcePoint" />
+            <mxPoint x="2400" y="240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-260" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="260" as="sourcePoint" />
+            <mxPoint x="2400" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-280" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="280" as="sourcePoint" />
+            <mxPoint x="2400" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-300" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="300" as="sourcePoint" />
+            <mxPoint x="2400" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-320" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="320" as="sourcePoint" />
+            <mxPoint x="2400" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-340" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="340" as="sourcePoint" />
+            <mxPoint x="2400" y="340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-360" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="360" as="sourcePoint" />
+            <mxPoint x="2400" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-380" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="380" as="sourcePoint" />
+            <mxPoint x="2400" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-400" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="400" as="sourcePoint" />
+            <mxPoint x="2400" y="400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-420" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="420" as="sourcePoint" />
+            <mxPoint x="2400" y="420" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-440" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="440" as="sourcePoint" />
+            <mxPoint x="2400" y="440" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-460" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="460" as="sourcePoint" />
+            <mxPoint x="2400" y="460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-480" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="480" as="sourcePoint" />
+            <mxPoint x="2400" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-500" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="500" as="sourcePoint" />
+            <mxPoint x="2400" y="500" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-520" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="520" as="sourcePoint" />
+            <mxPoint x="2400" y="520" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-540" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="540" as="sourcePoint" />
+            <mxPoint x="2400" y="540" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-560" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="560" as="sourcePoint" />
+            <mxPoint x="2400" y="560" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-580" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="580" as="sourcePoint" />
+            <mxPoint x="2400" y="580" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-600" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="600" as="sourcePoint" />
+            <mxPoint x="2400" y="600" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-620" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="620" as="sourcePoint" />
+            <mxPoint x="2400" y="620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-640" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="640" as="sourcePoint" />
+            <mxPoint x="2400" y="640" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-660" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="660" as="sourcePoint" />
+            <mxPoint x="2400" y="660" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-680" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="680" as="sourcePoint" />
+            <mxPoint x="2400" y="680" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-700" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="700" as="sourcePoint" />
+            <mxPoint x="2400" y="700" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-720" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="720" as="sourcePoint" />
+            <mxPoint x="2400" y="720" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-740" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="740" as="sourcePoint" />
+            <mxPoint x="2400" y="740" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-760" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="760" as="sourcePoint" />
+            <mxPoint x="2400" y="760" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-780" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="780" as="sourcePoint" />
+            <mxPoint x="2400" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-800" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="800" as="sourcePoint" />
+            <mxPoint x="2400" y="800" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-820" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="820" as="sourcePoint" />
+            <mxPoint x="2400" y="820" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-840" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="840" as="sourcePoint" />
+            <mxPoint x="2400" y="840" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-860" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="860" as="sourcePoint" />
+            <mxPoint x="2400" y="860" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-880" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="880" as="sourcePoint" />
+            <mxPoint x="2400" y="880" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-900" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="900" as="sourcePoint" />
+            <mxPoint x="2400" y="900" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-920" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="920" as="sourcePoint" />
+            <mxPoint x="2400" y="920" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-940" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="940" as="sourcePoint" />
+            <mxPoint x="2400" y="940" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-960" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="960" as="sourcePoint" />
+            <mxPoint x="2400" y="960" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-980" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="980" as="sourcePoint" />
+            <mxPoint x="2400" y="980" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1000" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1000" as="sourcePoint" />
+            <mxPoint x="2400" y="1000" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1020" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1020" as="sourcePoint" />
+            <mxPoint x="2400" y="1020" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1040" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1040" as="sourcePoint" />
+            <mxPoint x="2400" y="1040" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1060" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1060" as="sourcePoint" />
+            <mxPoint x="2400" y="1060" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1080" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1080" as="sourcePoint" />
+            <mxPoint x="2400" y="1080" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1100" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1100" as="sourcePoint" />
+            <mxPoint x="2400" y="1100" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1120" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1120" as="sourcePoint" />
+            <mxPoint x="2400" y="1120" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1140" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1140" as="sourcePoint" />
+            <mxPoint x="2400" y="1140" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1160" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1160" as="sourcePoint" />
+            <mxPoint x="2400" y="1160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1180" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1180" as="sourcePoint" />
+            <mxPoint x="2400" y="1180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1200" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1200" as="sourcePoint" />
+            <mxPoint x="2400" y="1200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1220" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1220" as="sourcePoint" />
+            <mxPoint x="2400" y="1220" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1240" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1240" as="sourcePoint" />
+            <mxPoint x="2400" y="1240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1260" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1260" as="sourcePoint" />
+            <mxPoint x="2400" y="1260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1280" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1280" as="sourcePoint" />
+            <mxPoint x="2400" y="1280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1300" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1300" as="sourcePoint" />
+            <mxPoint x="2400" y="1300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1320" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1320" as="sourcePoint" />
+            <mxPoint x="2400" y="1320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1340" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1340" as="sourcePoint" />
+            <mxPoint x="2400" y="1340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1360" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1360" as="sourcePoint" />
+            <mxPoint x="2400" y="1360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1380" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1380" as="sourcePoint" />
+            <mxPoint x="2400" y="1380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1400" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.25;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1400" as="sourcePoint" />
+            <mxPoint x="2400" y="1400" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1420" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1420" as="sourcePoint" />
+            <mxPoint x="2400" y="1420" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1440" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1440" as="sourcePoint" />
+            <mxPoint x="2400" y="1440" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1460" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1460" as="sourcePoint" />
+            <mxPoint x="2400" y="1460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="grid-h-1480" parent="1" edge="1" connectable="0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=0.12;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;;locked=1;selectable=0;movable=0;resizable=0;connectable=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="1480" as="sourcePoint" />
+            <mxPoint x="2400" y="1480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="header" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=none;strokeWidth=1.5;locked=1;">
+          <mxGeometry as="geometry" x="0" y="0" width="2400" height="210" />
+        </mxCell>
+        <mxCell id="category" parent="1" vertex="1" value="DOSSIER TECHNIQUE / 04 / ODOO 14 + PATRONI" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=20;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="60" y="24" width="1850" height="35" />
+        </mxCell>
+        <mxCell id="page-title" parent="1" vertex="1" value="Connexion Odoo : du venv au primaire courant" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=44;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="60" y="72" width="1800" height="70" />
+        </mxCell>
+        <mxCell id="tag" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="1940" y="72" width="400" height="62" />
+        </mxCell>
+        <mxCell id="tag-text" parent="1" vertex="1" value="CONNEXIONS SQL" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=center;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=24;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="1950" y="80" width="380" height="46" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" vertex="1" value="libpq essaie les endpoints dans l’ordre et garde une connexion vers un serveur acceptant les écritures." style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=24;fontStyle=0;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="60" y="155" width="2280" height="40" />
+        </mxCell>
+        <mxCell id="header-rule" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=1.5;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="0" y="210" as="sourcePoint" />
+            <mxPoint x="2400" y="210" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="odoo" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="60" y="290" width="650" height="190" />
+        </mxCell>
+        <mxCell id="odoo-icon-window" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="85" y="316" width="42" height="33" />
+        </mxCell>
+        <mxCell id="odoo-icon-toolbar" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="85" y="325" as="sourcePoint" />
+            <mxPoint x="127" y="325" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="odoo-icon-dot-11" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#000000;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="90" y="320" width="2" height="2" />
+        </mxCell>
+        <mxCell id="odoo-icon-dot-18" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#000000;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="96" y="320" width="2" height="2" />
+        </mxCell>
+        <mxCell id="odoo-icon-dot-25" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#000000;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="101" y="320" width="2" height="2" />
+        </mxCell>
+        <mxCell id="odoo-icon-content" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="91" y="331" width="10" height="11" />
+        </mxCell>
+        <mxCell id="odoo-icon-content-line-1" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="107" y="332" as="sourcePoint" />
+            <mxPoint x="121" y="332" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="odoo-icon-content-line-2" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="107" y="337" as="sourcePoint" />
+            <mxPoint x="121" y="337" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="odoo-icon-content-line-3" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="107" y="342" as="sourcePoint" />
+            <mxPoint x="117" y="342" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="odoo-icon-stand" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="106" y="349" as="sourcePoint" />
+            <mxPoint x="106" y="354" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="odoo-icon-base" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="98" y="354" as="sourcePoint" />
+            <mxPoint x="114" y="354" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="odoo-title" parent="1" vertex="1" value="Odoo 14 dans le venv" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=28;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="150" y="304" width="534" height="58" />
+        </mxCell>
+        <mxCell id="odoo-body" parent="1" vertex="1" value="psycopg2 → libpq&#xA;PGTARGETSESSIONATTRS=read-write&#xA;PGSSLMODE=verify-full" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=24;fontStyle=0;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="86" y="368" width="598" height="102" />
+        </mxCell>
+        <mxCell id="hosts" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="980" y="290" width="1360" height="190" />
+        </mxCell>
+        <mxCell id="hosts-icon-top" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="1020" y="314" width="12" height="9" />
+        </mxCell>
+        <mxCell id="hosts-icon-trunk" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1026" y="323" as="sourcePoint" />
+            <mxPoint x="1026" y="336" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hosts-icon-bus" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1010" y="336" as="sourcePoint" />
+            <mxPoint x="1042" y="336" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hosts-icon-link-11" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1010" y="336" as="sourcePoint" />
+            <mxPoint x="1010" y="342" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hosts-icon-node-11" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="1005" y="342" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hosts-icon-link-32" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1026" y="336" as="sourcePoint" />
+            <mxPoint x="1026" y="342" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hosts-icon-node-32" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="1021" y="342" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hosts-icon-link-53" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1042" y="336" as="sourcePoint" />
+            <mxPoint x="1042" y="342" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hosts-icon-node-53" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="1036" y="342" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hosts-title" parent="1" vertex="1" value="db_host : liste des trois adresses ; db_port :5000" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=28;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="1070" y="304" width="1244" height="58" />
+        </mxCell>
+        <mxCell id="hosts-body" parent="1" vertex="1" value="192.168.33.161,192.168.33.162,192.168.33.163&#xA;Le choix du proxy dépend de sa disponibilité ; le primaire est sélectionné par HAProxy." style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=24;fontStyle=0;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="1006" y="368" width="1308" height="102" />
+        </mxCell>
+        <mxCell id="open" parent="1" edge="1" source="odoo" target="hosts" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=3;endArrow=block;endFill=1;endSize=10;dashed=0;dashPattern=8 6;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="710" y="385" as="sourcePoint" />
+            <mxPoint x="980" y="385" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="openl" parent="1" vertex="1" value="Nouvelle connexion" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=center;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=22;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="710" y="320" width="270" height="38" />
+        </mxCell>
+        <mxCell id="hp0" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="60" y="650" width="720" height="150" />
+        </mxCell>
+        <mxCell id="hp0-icon-top" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="100" y="674" width="12" height="9" />
+        </mxCell>
+        <mxCell id="hp0-icon-trunk" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="106" y="683" as="sourcePoint" />
+            <mxPoint x="106" y="696" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp0-icon-bus" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="90" y="696" as="sourcePoint" />
+            <mxPoint x="122" y="696" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp0-icon-link-11" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="90" y="696" as="sourcePoint" />
+            <mxPoint x="90" y="702" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp0-icon-node-11" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="85" y="702" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hp0-icon-link-32" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="106" y="696" as="sourcePoint" />
+            <mxPoint x="106" y="702" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp0-icon-node-32" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="101" y="702" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hp0-icon-link-53" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="122" y="696" as="sourcePoint" />
+            <mxPoint x="122" y="702" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp0-icon-node-53" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="116" y="702" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hp0-title" parent="1" vertex="1" value="HAProxy sur odoodb1" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=28;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="150" y="664" width="604" height="58" />
+        </mxCell>
+        <mxCell id="hp0-body" parent="1" vertex="1" value=".33.161:5000 · TCP transparent&#xA;Sondes vers les trois agents Patroni :8008" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=22.5;fontStyle=0;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="86" y="728" width="668" height="62" />
+        </mxCell>
+        <mxCell id="hp1" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="840" y="650" width="720" height="150" />
+        </mxCell>
+        <mxCell id="hp1-icon-top" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="880" y="674" width="12" height="9" />
+        </mxCell>
+        <mxCell id="hp1-icon-trunk" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="886" y="683" as="sourcePoint" />
+            <mxPoint x="886" y="696" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp1-icon-bus" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="870" y="696" as="sourcePoint" />
+            <mxPoint x="902" y="696" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp1-icon-link-11" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="870" y="696" as="sourcePoint" />
+            <mxPoint x="870" y="702" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp1-icon-node-11" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="865" y="702" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hp1-icon-link-32" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="886" y="696" as="sourcePoint" />
+            <mxPoint x="886" y="702" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp1-icon-node-32" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="881" y="702" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hp1-icon-link-53" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="902" y="696" as="sourcePoint" />
+            <mxPoint x="902" y="702" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp1-icon-node-53" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="896" y="702" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hp1-title" parent="1" vertex="1" value="HAProxy sur odoodb2" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=28;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="930" y="664" width="604" height="58" />
+        </mxCell>
+        <mxCell id="hp1-body" parent="1" vertex="1" value=".33.162:5000 · TCP transparent&#xA;Sondes vers les trois agents Patroni :8008" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=22.5;fontStyle=0;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="866" y="728" width="668" height="62" />
+        </mxCell>
+        <mxCell id="hp2" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="1620" y="650" width="720" height="150" />
+        </mxCell>
+        <mxCell id="hp2-icon-top" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="1660" y="674" width="12" height="9" />
+        </mxCell>
+        <mxCell id="hp2-icon-trunk" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1666" y="683" as="sourcePoint" />
+            <mxPoint x="1666" y="696" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp2-icon-bus" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1650" y="696" as="sourcePoint" />
+            <mxPoint x="1682" y="696" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp2-icon-link-11" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1650" y="696" as="sourcePoint" />
+            <mxPoint x="1650" y="702" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp2-icon-node-11" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="1645" y="702" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hp2-icon-link-32" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1666" y="696" as="sourcePoint" />
+            <mxPoint x="1666" y="702" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp2-icon-node-32" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="1661" y="702" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hp2-icon-link-53" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1682" y="696" as="sourcePoint" />
+            <mxPoint x="1682" y="702" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hp2-icon-node-53" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="1676" y="702" width="10" height="9" />
+        </mxCell>
+        <mxCell id="hp2-title" parent="1" vertex="1" value="HAProxy sur odoodb3" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=28;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="1710" y="664" width="604" height="58" />
+        </mxCell>
+        <mxCell id="hp2-body" parent="1" vertex="1" value=".33.163:5000 · TCP transparent&#xA;Sondes vers les trois agents Patroni :8008" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=22.5;fontStyle=0;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="1646" y="728" width="668" height="62" />
+        </mxCell>
+        <mxCell id="pg" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="800" y="1080" width="800" height="180" />
+        </mxCell>
+        <mxCell id="pg-icon-left" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="828" y="1111" as="sourcePoint" />
+            <mxPoint x="828" y="1138" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pg-icon-right" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="864" y="1111" as="sourcePoint" />
+            <mxPoint x="864" y="1138" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pg-icon-top" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="864" y="1111" as="sourcePoint" />
+            <mxPoint x="864" y="1111" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="863" y="1113" />
+              <mxPoint x="862" y="1114" />
+              <mxPoint x="859" y="1115" />
+              <mxPoint x="855" y="1116" />
+              <mxPoint x="851" y="1116" />
+              <mxPoint x="846" y="1116" />
+              <mxPoint x="841" y="1116" />
+              <mxPoint x="837" y="1116" />
+              <mxPoint x="833" y="1115" />
+              <mxPoint x="830" y="1114" />
+              <mxPoint x="829" y="1113" />
+              <mxPoint x="828" y="1111" />
+              <mxPoint x="829" y="1110" />
+              <mxPoint x="830" y="1109" />
+              <mxPoint x="833" y="1108" />
+              <mxPoint x="837" y="1107" />
+              <mxPoint x="841" y="1106" />
+              <mxPoint x="846" y="1106" />
+              <mxPoint x="851" y="1106" />
+              <mxPoint x="855" y="1107" />
+              <mxPoint x="859" y="1108" />
+              <mxPoint x="862" y="1109" />
+              <mxPoint x="863" y="1110" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pg-icon-band-1" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="864" y="1123" as="sourcePoint" />
+            <mxPoint x="828" y="1123" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="863" y="1125" />
+              <mxPoint x="862" y="1126" />
+              <mxPoint x="859" y="1127" />
+              <mxPoint x="855" y="1128" />
+              <mxPoint x="851" y="1128" />
+              <mxPoint x="846" y="1128" />
+              <mxPoint x="841" y="1128" />
+              <mxPoint x="837" y="1128" />
+              <mxPoint x="833" y="1127" />
+              <mxPoint x="830" y="1126" />
+              <mxPoint x="829" y="1125" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pg-icon-band-2" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="864" y="1132" as="sourcePoint" />
+            <mxPoint x="828" y="1132" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="863" y="1134" />
+              <mxPoint x="862" y="1135" />
+              <mxPoint x="859" y="1136" />
+              <mxPoint x="855" y="1137" />
+              <mxPoint x="851" y="1137" />
+              <mxPoint x="846" y="1138" />
+              <mxPoint x="841" y="1137" />
+              <mxPoint x="837" y="1137" />
+              <mxPoint x="833" y="1136" />
+              <mxPoint x="830" y="1135" />
+              <mxPoint x="829" y="1134" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pg-icon-bottom" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="864" y="1138" as="sourcePoint" />
+            <mxPoint x="828" y="1138" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="863" y="1139" />
+              <mxPoint x="862" y="1140" />
+              <mxPoint x="859" y="1141" />
+              <mxPoint x="855" y="1142" />
+              <mxPoint x="851" y="1143" />
+              <mxPoint x="846" y="1143" />
+              <mxPoint x="841" y="1143" />
+              <mxPoint x="837" y="1142" />
+              <mxPoint x="833" y="1141" />
+              <mxPoint x="830" y="1140" />
+              <mxPoint x="829" y="1139" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pg-title" parent="1" vertex="1" value="Primaire PostgreSQL courant · :5432" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=28;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="890" y="1094" width="684" height="58" />
+        </mxCell>
+        <mxCell id="pg-body" parent="1" vertex="1" value="Toutes les lectures et écritures Odoo&#xA;Certificat serveur vérifié + certificat client Odoo" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=24;fontStyle=0;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="826" y="1158" width="748" height="92" />
+        </mxCell>
+        <mxCell id="select0" parent="1" edge="1" source="hosts" target="hp0" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2.5;endArrow=block;endFill=1;endSize=10;dashed=1;dashPattern=8 6;exitX=0.117647058823529;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1140" y="480" as="sourcePoint" />
+            <mxPoint x="420" y="650" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1140" y="550" />
+              <mxPoint x="420" y="550" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="route0" parent="1" edge="1" source="hp0" target="pg" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=3;endArrow=block;endFill=1;endSize=10;dashed=0;dashPattern=8 6;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="420" y="800" as="sourcePoint" />
+            <mxPoint x="1000" y="1080" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="420" y="930" />
+              <mxPoint x="1000" y="930" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="select1" parent="1" edge="1" source="hosts" target="hp1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2.5;endArrow=block;endFill=1;endSize=10;dashed=1;dashPattern=8 6;exitX=0.375;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1490" y="480" as="sourcePoint" />
+            <mxPoint x="1200" y="650" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1490" y="570" />
+              <mxPoint x="1200" y="570" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="route1" parent="1" edge="1" source="hp1" target="pg" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=3;endArrow=block;endFill=1;endSize=10;dashed=0;dashPattern=8 6;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1200" y="800" as="sourcePoint" />
+            <mxPoint x="1200" y="1080" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1200" y="960" />
+              <mxPoint x="1200" y="960" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="select2" parent="1" edge="1" source="hosts" target="hp2" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2.5;endArrow=block;endFill=1;endSize=10;dashed=1;dashPattern=8 6;exitX=0.632352941176471;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1840" y="480" as="sourcePoint" />
+            <mxPoint x="1980" y="650" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1840" y="590" />
+              <mxPoint x="1980" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="route2" parent="1" edge="1" source="hp2" target="pg" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=3;endArrow=block;endFill=1;endSize=10;dashed=0;dashPattern=8 6;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="1980" y="800" as="sourcePoint" />
+            <mxPoint x="1400" y="1080" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1980" y="990" />
+              <mxPoint x="1400" y="990" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="tls" parent="1" vertex="1" value="TLS PostgreSQL de bout en bout · HAProxy ne termine pas le TLS" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=center;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=22;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="400" y="1010" width="1600" height="38" />
+        </mxCell>
+        <mxCell id="note" parent="1" vertex="1" style="rounded=0;arcSize=0;absoluteArcSize=1;whiteSpace=wrap;html=0;fillColor=#FFFFFF;strokeColor=#000000;strokeWidth=1.5;">
+          <mxGeometry as="geometry" x="60" y="1350" width="2280" height="130" />
+        </mxCell>
+        <mxCell id="note-title" parent="1" vertex="1" value="APRÈS UNE BASCULE" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=28;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="86" y="1364" width="2228" height="44" />
+        </mxCell>
+        <mxCell id="note-body" parent="1" vertex="1" value="HAProxy ferme les sessions attachées à une cible retirée. Les clients doivent se reconnecter ; les transactions en cours ne sont pas transférées." style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=24;fontStyle=0;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="86" y="1410" width="2228" height="60" />
+        </mxCell>
+        <mxCell id="footer-rule" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=1;endArrow=none;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="60" y="1500" as="sourcePoint" />
+            <mxPoint x="2340" y="1500" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-data" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=3;endArrow=block;endFill=1;endSize=10;dashed=0;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="70" y="1524" as="sourcePoint" />
+            <mxPoint x="140" y="1524" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-data-text" parent="1" vertex="1" value="Flux applicatif / SQL / WAL / stockage" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=18;fontStyle=0;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="160" y="1508" width="730" height="34" />
+        </mxCell>
+        <mxCell id="legend-control" parent="1" edge="1" style="edgeStyle=none;rounded=0;html=0;strokeColor=#000000;strokeWidth=2.5;endArrow=block;endFill=1;endSize=10;dashed=1;dashPattern=8 6;">
+          <mxGeometry as="geometry" relative="1">
+            <mxPoint x="980" y="1524" as="sourcePoint" />
+            <mxPoint x="1050" y="1524" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-control-text" parent="1" vertex="1" value="Pilotage / sondes / enchaînement des étapes" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=18;fontStyle=0;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="1070" y="1508" width="1030" height="34" />
+        </mxCell>
+        <mxCell id="sources" parent="1" vertex="1" value="3 novembre 2026 · HA=true · Sources : group_vars/all/vars.yml · templates/haproxy.cfg.j2 · roles/ansi_odoo/odoo14/tasks/main.yaml" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=left;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=16;fontStyle=0;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="60" y="1555" width="2080" height="30" />
+        </mxCell>
+        <mxCell id="page-number" parent="1" vertex="1" value="04 / 14" style="text;html=0;whiteSpace=wrap;overflow=hidden;align=right;verticalAlign=middle;spacing=0;fontFamily=Segoe UI;fontSize=18;fontStyle=1;fontColor=#000000;strokeColor=none;fillColor=#FFFFFF;labelBackgroundColor=#FFFFFF;">
+          <mxGeometry as="geometry" x="2170" y="1555" width="170" height="30" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

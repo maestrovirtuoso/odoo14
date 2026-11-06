@@ -33,6 +33,13 @@ pg_ha_bin_dir: "/usr/lib/postgresql/{{ pg_version }}/bin"
 # au serveur. Ne pas le changer sans changer pg_server.
 pg_ha_config_file: /etc/patroni/config.yml
 
+# Copie de config.yml faite par l'unite systemd a CHAQUE demarrage de Patroni
+# (templates/patroni.service.j2) : la configuration qu'il a reellement
+# chargee, comparee au fichier par tasks/relance.yaml. Son repertoire,
+# /run/patroni, est celui que cree l'unite (RuntimeDirectory) : ne pas le
+# changer sans elle.
+pg_ha_config_chargee: /run/patroni/config.yml
+
 # Ou Patroni ECRIT postgresql.conf et pg_hba.conf. Distinct de la
 # configuration Debian ({{ pg_conf_dir }}), dont il inclut postgresql.conf
 # (custom_conf) pour garder les reglages poses par initdb (fuseau horaire,
@@ -52,6 +59,10 @@ pg_ha_rest_user: patroni
 # videe (cluster etranger) est recopiee en entier depuis le primaire : compter
 # large pour une grosse base.
 pg_ha_attente_reserve_s: 1800
+
+# Delai accorde a Patroni, apres une relance (tasks/relance.yaml), pour
+# revenir et rejoindre etcd.
+pg_ha_attente_relance_s: 120
 
 # Retard maximal accepte par la verification finale, en Mo.
 pg_ha_retard_max_mo: 16
@@ -98,6 +109,13 @@ pg_ha_dcs:
 # --- etcd --------------------------------------------------------------------
 pg_ha_etcd_client_port: 2379
 pg_ha_etcd_peer_port: 2380
+
+# Adresses etcd donnees a Patroni (section etcd3 de config.yml) : les
+# conteneurs de l'inventaire, JAMAIS leurs hotes LXC (pas d'etcd sur les
+# hotes, d'ou "Failed to get list of machines"). Patroni ne les lit qu'a son
+# DEMARRAGE : quand elles changent, tasks/relance.yaml le relance, cluster en
+# pause, sans toucher a PostgreSQL.
+pg_ha_etcd3_hosts: "{{ pg_ha_node_ips | map('regex_replace', '$', ':' ~ pg_ha_etcd_client_port) | list }}"
 pg_ha_etcd_data_dir: /var/lib/etcd/odoo-pg
 pg_ha_etcd_ssl_dir: /etc/etcd/ssl
 

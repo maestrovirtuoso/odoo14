@@ -1,6 +1,7 @@
 # ---------------------------------------------------------------------------
 # Hotes physiques (Debian 12). Chacun heberge un conteneur LXC.
 #   192.168.36.21-23 : conteneurs Odoo, carte enp5s0
+#   192.168.36.21    : porte AUSSI le conteneur de supervision ([supervision_host])
 #   192.168.33.21-23 : conteneurs PostgreSQL, carte enp1s0
 # Carte, IP, passerelle et DNS de chaque conteneur : host_vars/<ip>.yml.
 # ---------------------------------------------------------------------------
@@ -78,6 +79,25 @@ nic=ens224
 192.168.36.21
 
 # ---------------------------------------------------------------------------
+# Supervision : un conteneur LXC dedie, "supervision", pose sur
+# 192.168.36.21 a cote de devodoo14 (odoo1). Raccordement prevu : ipvlan sur
+# enp5s0, passerelle et DNS de host_vars/192.168.36.21.yml.
+#
+# Cree par playbooks/ansi2-snapchot.yaml (2e play). reseau-lxc.yaml ne le
+# connait pas encore : son reseau LAN (IP ci-dessous) et son acces SSH ne
+# sont configures par aucun playbook.
+# nettoyage.yaml supprime tout /var/lib/lxc de l'hote : il DETRUIT ce
+# conteneur avec devodoo14.
+#
+# supervision_host doit rester egal a lxc_host ci-dessous.
+# ---------------------------------------------------------------------------
+[supervision_host]
+192.168.36.21
+
+[supervision_containers]
+supervision ansible_host=192.168.36.164 lxc_host=192.168.36.21
+
+# ---------------------------------------------------------------------------
 # Conteneurs LXC. Ils sont exposes DIRECTEMENT sur le LAN par une interface
 # macvlan (lxc.net.0.type = macvlan), donc joignables en SSH sans
 # rebond : le ProxyCommand de l'ancienne architecture routee a disparu.
@@ -124,6 +144,7 @@ db_replicas
 odoo_containers
 db_containers
 db_replicas
+supervision_containers
 
 [lxc_containers:vars]
 ansible_user=root

@@ -1,0 +1,281 @@
+\documentclass{csbulletin}
+\selectlanguage{french}
+\usepackage[utf8]{inputenc}
+\usepackage[all]{nowidow}
+\usepackage{comment}
+\usepackage{csquotes}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{longtable}
+% Pied de la 1re page : la classe y ecrit {\doiprefix \doi}, sans argument.
+% \doi ne doit donc PAS prendre d'argument ; \doiprefix retire le "DOI:".
+\renewcommand{\doi}{Uriel AKAM}
+\renewcommand{\doiprefix}{\footnotesize}
+\usepackage{makecell}
+\usepackage[table]{xcolor}
+% Couleur de secours (au cas ou svgnames ne serait pas charge)
+\providecolor{Gainsboro}{RGB}{220,220,220}
+\usepackage{listings}
+\usepackage{textcomp}
+\usepackage{upquote}   % apostrophes droites verticales dans les listings
+\usepackage{tcolorbox}
+\usepackage{fontawesome}
+\usepackage{graphicx}  % figures / captures d'ecran
+\usepackage{float}     % placement [H]
+\usepackage[
+  implicit=false,
+  hidelinks,
+]{hyperref}
+
+% Texte justifie avec de longs mots \texttt insecables : autorise un peu plus
+% d'espace entre les mots plutot que de deborder dans la marge.
+\setlength{\emergencystretch}{2em}
+
+% Colonne a largeur fixe avec retour a la ligne automatique
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% Capture d'ecran : l'image si le fichier existe, sinon un cadre qui signale
+% le fichier manquant (le document compile quand meme).
+%   \capture{image1.png}  ou  \capture[0.8\linewidth]{image1.png}
+\newcommand{\capture}[2][\linewidth]{%
+  \IfFileExists{#2}%
+    {\includegraphics[width=#1]{#2}}%
+    {\fbox{\parbox[c][3cm][c]{\dimexpr#1-2\fboxsep-2\fboxrule\relax}{%
+      \centering\small Capture manquante : \texttt{\detokenize{#2}}}}}}
+
+% Configuration des listings (blocs de code)
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  backgroundcolor=\color{gray!10},
+  frame=single,
+  rulecolor=\color{gray!40},
+  commentstyle=\color{gray},
+  showstringspaces=false,
+  keepspaces=true,
+  upquote=true,
+  columns=flexible,
+}
+
+% Configuration tcolorbox
+\tcbuselibrary{skins}
+
+\begin{document}
+
+\title{Sauvegarde à chaud de la VM \texttt{dev\_mariadb-server2} Rapport de réalisation}
+\EnglishTitle{Overlay-based hot backup of the libvirt VM "dev\_mariadb-server2"}
+\author{Uriel AKAM}
+\podpis{Rapport de réalisation -- Administration Système}
+\maketitle
+\renewcommand{\figurename}{Figure}
+\renewcommand{\tablename}{Tableau}
+
+\begin{abstract}
+Ce rapport documente la sauvegarde à chaud de la machine virtuelle
+\nolinkurl{dev_mariadb-server2} (hyperviseur libvirt), constituée de deux
+disques (\texttt{vda} système, \texttt{vdb} données MariaDB). La méthode repose
+sur un \textbf{overlay qcow2 temporaire} par disque : \texttt{virsh
+snapshot-create-as --disk-only --quiesce} fige l'écriture sur le disque de base
+le temps de la copie, puis \texttt{virsh blockcommit --pivot} réintègre les
+écritures accumulées et fait revenir la VM sur son fichier d'origine, sans
+interruption de service. Les deux disques ont été traités \textbf{séparément}
+pour permettre une copie indépendante vers \nolinkurl{/mnt/backup/libvirt/node3/vm/}.
+\end{abstract}
+
+
+%──────────────────────────────────────────────────────────────────────────
+\section{Contexte et objectif}
+%──────────────────────────────────────────────────────────────────────────
+
+La VM \texttt{dev\_mariadb-server2} héberge une base MariaDB active et ne peut
+être arrêtée pour la sauvegarde. L'objectif est de produire une copie
+exploitable des deux disques qcow2 vers l'espace de sauvegarde
+\nolinkurl{/mnt/backup/libvirt/node3/vm/}, \emph{sans interrompre} la VM et
+\emph{sans copier un fichier en cours d'écriture}.
+
+La contrainte de cohérence impose de ne pas copier directement les fichiers
+qcow2 actifs : on bascule temporairement les écritures de la VM vers un
+\textbf{overlay}, ce qui fige le fichier de base à un instant précis, le temps
+de la copie.
+
+
+%──────────────────────────────────────────────────────────────────────────
+\section{Architecture de la VM}
+%──────────────────────────────────────────────────────────────────────────
+
+\begin{longtable}{| L{1.6cm} | L{5.7cm} | L{3.5cm} |}
+  \hline
+  \rowcolor{Gainsboro!60}
+  \makecell{\textbf{Cible}} & \makecell{\textbf{Source}} &
+  \makecell{\textbf{Rôle}} \\
+  \hline
+  \endhead
+  \texttt{vda} & \texttt{/var/lib/libvirt/images/} \texttt{dev\_mariadb-server2.qcow2} &
+    Disque système \\
+  \hline
+  \texttt{vdb} & \texttt{/data/vm1/} \texttt{dev\_mariadb-data2.qcow2} &
+    Disque de données MariaDB \\
+  \hline
+\end{longtable}
+
+Destination de la copie : \texttt{/mnt/backup/libvirt/node3/vm/}.
+
+
+%──────────────────────────────────────────────────────────────────────────
+\section{Principe : overlay qcow2 par disque}
+%──────────────────────────────────────────────────────────────────────────
+
+Pour chaque disque, on crée un \textbf{overlay} (fichier qcow2 vide adossé au
+disque de base via \texttt{backing file}) vers lequel basculent toutes les
+nouvelles écritures de la VM. Le fichier de base devient alors \textbf{figé} et
+peut être copié en toute sécurité. Une fois la copie terminée, un
+\texttt{blockcommit --pivot} réintègre les écritures de l'overlay dans le
+fichier de base et fait \textbf{repivoter} la VM dessus. Séquence par disque :
+\texttt{snapshot-create-as} $\rightarrow$ copie $\rightarrow$
+\texttt{blockcommit --pivot} $\rightarrow$ suppression de l'overlay.
+
+L'option \texttt{--quiesce} fige le système de fichiers invité via
+\texttt{qemu-guest-agent}, garantissant une cohérence applicative (important
+pour MariaDB).
+
+
+%──────────────────────────────────────────────────────────────────────────
+\section{Procédure exécutée}
+%──────────────────────────────────────────────────────────────────────────
+
+Vérification préalable de l'agent invité et de l'état des disques
+(lecture seule) :
+\begin{lstlisting}[language=bash]
+virsh --readonly  list --all  | grep mariadb
+\end{lstlisting}
+
+\begin{figure}[H]
+  \centering
+  \capture{image1.png}
+  \caption{Capture d'écran -- vérification préalable  (\texttt{grep}).}
+  \label{fig:verif-prealable1}
+\end{figure}
+
+\subsection*{Disque \texttt{vda}}
+
+
+\begin{lstlisting}[language=bash]
+virsh --readonly domblklist dev_mariadb-server2
+\end{lstlisting}
+
+\begin{figure}[H]
+  \centering
+  \capture{image3.png}
+  \caption{Capture d'écran -- vérification préalable  (\texttt{domblklist}).}
+  \label{fig:verif-prealable}
+\end{figure}
+
+\subsection*{Disque \texttt{vda}}
+
+\begin{lstlisting}[language=bash]
+# 1. Overlay sur vda uniquement (vdb explicitement exclu)
+virsh snapshot-create-as --domain dev_mariadb-server2 backup-tmp-vda \
+  --diskspec vda,file=/var/lib/libvirt/images/dev_mariadb-server2.backup-overlay.qcow2 \
+  --diskspec vdb,snapshot=no \
+  --disk-only --atomic --quiesce --no-metadata
+
+# 2. Copie du disque figé
+cp --sparse=always /var/lib/libvirt/images/dev_mariadb-server2.qcow2 \
+  /mnt/backup/libvirt/node3/vm/dev_mariadb-server2.qcow2
+
+# 3. Recommit + pivot
+virsh blockcommit dev_mariadb-server2 vda --active --verbose --pivot
+
+# 4. Nettoyage
+rm -f /var/lib/libvirt/images/dev_mariadb-server2.backup-overlay.qcow2
+\end{lstlisting}
+
+\begin{figure}[H]
+  \centering
+  \capture{image2.png}
+  \caption{Capture d'écran -- le chemin vers le backup\texttt{vda,vdb}.}
+  \label{fig:vda-overlay}
+\end{figure}
+
+\subsection*{Disque \texttt{vdb}}
+
+\begin{lstlisting}[language=bash]
+# 1. Overlay sur vdb uniquement (vda explicitement exclu)
+virsh snapshot-create-as --domain dev_mariadb-server2 backup-tmp-vdb \
+  --diskspec vdb,file=/data/vm1/dev_mariadb-data2.backup-overlay.qcow2 \
+  --diskspec vda,snapshot=no \
+  --disk-only --atomic --quiesce --no-metadata
+
+# 2. Copie du disque figé
+cp --sparse=always /data/vm1/dev_mariadb-data2.qcow2 \
+  /mnt/backup/libvirt/node3/vm/dev_mariadb-data2.qcow2
+
+# 3. Recommit + pivot
+virsh blockcommit dev_mariadb-server2 vdb --active --verbose --pivot
+
+# 4. Nettoyage
+rm -f /data/vm1/dev_mariadb-data2.backup-overlay.qcow2
+\end{lstlisting}
+
+\begin{figure}[H]
+  \centering
+  \capture{image3.png}
+  \caption{Capture d'écran -- du chemin des disques \texttt{vdb,vda}.}
+  \label{fig:vdb-overlay}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \capture{image 4.png}
+  \caption{Capture d'écran  et
+    \texttt{vdb} : réintégration des écritures de l'overlay et repivotage.}
+  \label{fig:blockcommit-pivot}
+\end{figure}
+
+\begin{tcolorbox}[colback=yellow!10, colframe=orange!80!black,
+                  title={\faExclamationTriangle\ Point de vigilance}]
+Les deux disques étant traités \textbf{séparément}, chacun avec son propre
+\texttt{--quiesce}, ils sont figés à deux instants distincts. La cohérence
+transactionnelle \emph{entre} \texttt{vda} et \texttt{vdb} n'est donc pas
+garantie. Pour une cohérence stricte entre les deux disques, un unique
+\texttt{snapshot-create-as} regroupant les deux \texttt{--diskspec} reste la
+méthode recommandée.
+\end{tcolorbox}
+
+
+%──────────────────────────────────────────────────────────────────────────
+\section{Résultats et vérification}
+%──────────────────────────────────────────────────────────────────────────
+
+Après \texttt{blockcommit --pivot} sur les deux disques, la VM repointe bien
+sur ses fichiers d'origine, sans \texttt{backing file} résiduel :
+
+\begin{lstlisting}[language=bash]
+virsh --readonly domblklist dev_mariadb-server2
+# Target   Source
+# -------------------------------------------------------------
+# vda      /var/lib/libvirt/images/dev_mariadb-server2.qcow2
+# vdb      /data/vm1/dev_mariadb-data2.qcow2
+
+qemu-img info /var/lib/libvirt/images/dev_mariadb-server2.qcow2   # pas de backing file
+qemu-img info /data/vm1/dev_mariadb-data2.qcow2                    # pas de backing file
+\end{lstlisting}
+
+\begin{figure}[H]
+  \centering
+  \capture{image5.png}
+  \caption{Capture d'écran -- pour le second}
+  \label{fig:verif-finale}
+\end{figure}
+
+\begin{tcolorbox}[colback=blue!5, colframe=blue!50!black,
+                  title={\faInfoCircle\ Bilan}]
+La chaîne \textbf{overlay $\rightarrow$ copie $\rightarrow$ blockcommit/pivot
+$\rightarrow$ nettoyage}, exécutée disque par disque, a permis une sauvegarde à
+chaud sans interruption de service. La piste d'amélioration principale est le
+regroupement des deux disques dans un seul cycle (ou le passage à
+\texttt{virsh backup-begin}) afin de garantir une cohérence stricte entre
+\texttt{vda} et \texttt{vdb}.
+\end{tcolorbox}
+
+\end{document}

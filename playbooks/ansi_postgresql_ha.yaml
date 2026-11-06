@@ -16,7 +16,11 @@
 #   2. ansible-playbook playbooks/ansi_odoo.yaml --ask-vault-pass
 #   3. ansible-playbook playbooks/ansi_sauvegarde.yaml --ask-vault-pass
 #
-# PASSAGES SUIVANTS : remise en conformite, sans coupure.
+# PASSAGES SUIVANTS : remise en conformite, sans coupure. Si Patroni tourne
+# encore avec une ancienne liste etcd (adresses changees dans l'inventaire,
+# config.yml corrige a la main sans relance), il est relance un serveur a la
+# fois, cluster en pause, sans redemarrer PostgreSQL (tasks/relance.yaml).
+# Une pause posee a la main (patronictl pause) est conservee.
 #
 # Prerequis :
 #   - lancer depuis le poste de controle qui a deploye la base : il detient

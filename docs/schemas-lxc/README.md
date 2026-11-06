@@ -1,4 +1,4 @@
-# Schémas réseau LXC
+﻿# Schémas réseau LXC
 
 Les trois vues décrivent la configuration du dépôt au 18 octobre 2026. Elles ne constituent pas un contrôle des serveurs.
 
@@ -15,6 +15,48 @@ Ouvrir **architecture-lxc-professionnelle.drawio** avec draw.io / diagrams.net o
 ![Accès utilisateur Odoo](02-acces-utilisateur-odoo.png)
 
 ![Flux Odoo vers PostgreSQL](03-flux-odoo-postgresql.png)
+
+## Explication de chaque schéma
+
+Ces vues conservent la configuration du 18 octobre 2026. Pour les connexions SQL avec Patroni et HAProxy de l’édition récente, consulter le [dossier Patroni et Odoo 14](../schemas-patroni-odoo14/README.md).
+
+### 01 — Raccordement IPVLAN L2
+
+[Ouvrir le schéma](01-raccordement-ipvlan.svg).
+
+**Objectif :** comprendre comment un conteneur rejoint le réseau à travers la carte de son hôte.
+
+Le contour extérieur représente l’hôte ; le contour intérieur représente le conteneur. L’interface IPVLAN du conteneur est rattachée à l’interface parente de l’hôte. Le conteneur possède sa propre adresse IP, tout en partageant la MAC de cette interface parente.
+
+**Parcours à suivre :** réseau externe → carte réseau de l’hôte → interface IPVLAN → conteneur. Le chemin représenté n’utilise pas de traduction d’adresse sur l’hôte. Un éventuel ancien bridge `lxcbr0` n’intervient pas dans ce parcours.
+
+**À retenir :** l’adresse IP du conteneur doit être joignable depuis le réseau qui l’utilise. Pour contrôler cette accessibilité, utiliser un autre poste disposant de la route ; l’hôte ne communique pas directement avec son propre conteneur par l’interface IPVLAN parente. `lxc-attach` permet une inspection locale.
+
+### 02 — Accès utilisateur à Odoo
+
+[Ouvrir le schéma](02-acces-utilisateur-odoo.svg).
+
+**Objectif :** suivre une requête du navigateur jusqu’au service Odoo.
+
+L’utilisateur contacte l’adresse du conteneur Odoo sur le port `8069`. Les flèches pleines montrent la requête ; les pointillés montrent le retour vers le navigateur. Le port `8072` correspond au bus Odoo dans la configuration du projet.
+
+**Parcours à suivre :** navigateur → réseau et routage nécessaires → IP du conteneur → service Odoo → réponse au navigateur. Le chemin retour doit être autorisé et correctement routé lui aussi.
+
+**À retenir :** cette vue représente un accès direct à une instance. Elle ne fournit pas une adresse web commune ni un répartiteur HTTP pour les trois Odoo. Si l’accès échoue, distinguer l’accessibilité de l’IP, l’ouverture du port et l’état du service Odoo.
+
+### 03 — Flux Odoo vers PostgreSQL
+
+[Ouvrir le schéma](03-flux-odoo-postgresql.svg).
+
+**Objectif :** expliquer la communication entre le réseau applicatif et le réseau des bases de données.
+
+Odoo émet une connexion SQL vers PostgreSQL sur `5432`. Le routage externe assure le passage entre les sous-réseaux. La réponse PostgreSQL doit pouvoir revenir vers l’application ; les règles réseau et l’éventuel SNAT externe font partie de ce trajet.
+
+**Parcours à suivre :** conteneur Odoo → passerelle et routage externe → conteneur PostgreSQL → retour de la réponse SQL. Ce flux est distinct de la connexion HTTP du navigateur : c’est Odoo qui dialogue avec la base.
+
+**À retenir :** le dessin historique représente une cible PostgreSQL directe. Dans la série récente, Odoo joint les endpoints HAProxy sur `5000`, puis HAProxy contacte le primaire sur `5432`. Un accès web fonctionnel ne suffit donc pas à prouver que la connexion SQL fonctionne.
+
+[Revenir au guide général des schémas](../README.md).
 
 ## Lire les schémas
 
