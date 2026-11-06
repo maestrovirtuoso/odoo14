@@ -1,0 +1,13 @@
+---
+# Conteneur de supervision (playbooks/supervision.yaml).
+
+# Interface web de Prometheus ouverte au LAN : http://<IP du conteneur>:9090.
+#
+# Prometheus n'a PAS d'authentification : tout poste du LAN peut lire les
+# mesures. Son API d'administration et son rechargement a distance restent
+# fermes (--web.enable-admin-api et --web.enable-lifecycle absents) :
+# personne ne peut, par la, effacer des donnees ni changer sa configuration.
+#
+# Pour le refermer a la boucle locale : supprimer cette ligne et rejouer
+# playbooks/supervision.yaml.
+prometheus_listen_address: "0.0.0.0:9090"

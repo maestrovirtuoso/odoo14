@@ -91,13 +91,38 @@
 - name: Appliquer les changements avant de verifier
   ansible.builtin.meta: flush_handlers
 
-- name: Attendre que Grafana reponde
-  ansible.builtin.uri:
-    url: "http://127.0.0.1:{{ grafana_http_port }}/api/health"
-  register: _grafana_health
-  until: _grafana_health.status == 200
-  retries: 30
-  delay: 2
+# Le premier demarrage cree la base de Grafana (des centaines de migrations
+# SQLite) et n'ouvre le port qu'ensuite : compter jusqu'a 3 minutes.
+- name: Attendre que Grafana reponde, sinon afficher pourquoi
+  block:
+    - name: Attendre que Grafana reponde
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ grafana_http_port }}/api/health"
+      register: _grafana_health
+      until: _grafana_health.status == 200
+      retries: 60
+      delay: 3
+  rescue:
+    - name: Etat du service et fin de son journal
+      ansible.builtin.shell: |
+        systemctl status grafana-server --no-pager -l 2>&1 | head -n 15
+        echo "--- journal ---"
+        journalctl -u grafana-server -n 40 --no-pager 2>&1
+      register: _grafana_diag
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher le diagnostic
+      ansible.builtin.debug:
+        var: _grafana_diag.stdout_lines
+
+    - name: Relayer l'echec
+      ansible.builtin.fail:
+        msg: >-
+          Grafana n'ecoute pas sur le port {{ grafana_http_port }} : voir le
+          journal ci-dessus. "status=226/NAMESPACE" ou "Failed to set up
+          mount namespacing" signifie que le confinement systemd du service
+          est refuse dans le conteneur LXC (AppArmor).
 
 # Grafana n'applique admin_password qu'a la creation de sa base. Si elle
 # existait deja (premier demarrage manuel en admin/admin, ou mot de passe

@@ -5,8 +5,9 @@
 #
 #   Prometheus  paquet Debian 12. Collecte ses propres mesures et celles de
 #               Patroni (API REST, port 8008) sur les trois serveurs
-#               PostgreSQL. Ecoute sur 127.0.0.1 seulement : il n'a aucune
-#               authentification (voir prometheus_listen_address).
+#               PostgreSQL. Sans authentification : le role l'ecoute sur
+#               127.0.0.1, group_vars/supervision_containers/vars.yml
+#               l'ouvre au LAN (prometheus_listen_address).
 #   Grafana     depot officiel apt.grafana.com. Prometheus y est declare
 #               comme source de donnees par defaut.
 #
@@ -21,7 +22,9 @@
 # Lancement :
 #   ansible-playbook -i inventory.yaml playbooks/supervision.yaml --ask-vault-pass
 #
-# Ensuite : http://<IP du conteneur>:3000, compte admin, mot de passe du vault.
+# Ensuite :
+#   Grafana     http://<IP du conteneur>:3000, compte admin, mot de passe du vault
+#   Prometheus  http://<IP du conteneur>:9090, sans compte
 #
 # Les cibles Patroni n'apparaissent UP que si le routeur entre
 # 192.168.36.0/24 et 192.168.33.0/24 laisse passer le port 8008. Sinon elles
