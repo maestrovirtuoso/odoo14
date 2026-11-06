@@ -27,7 +27,7 @@ sur son propre hôte.
 | **odoodb1** — PostgreSQL, Patroni, etcd, HAProxy | `devpg15` | 192.168.33.161 | 192.168.33.21 | `enp1s0` |
 | **odoodb2** — PostgreSQL, Patroni, etcd, HAProxy | `devpg15` | 192.168.33.162 | 192.168.33.22 | `enp1s0` |
 | **odoodb3** — PostgreSQL, Patroni, etcd, HAProxy | `devpg15` | 192.168.33.163 | 192.168.33.23 | `enp1s0` |
-| **supervision** — supervision (outils à installer) | `supervision` | 192.168.36.164 | 192.168.36.21 | `enp5s0` |
+| **supervision** — Prometheus, Grafana (`:3000`) | `supervision` | 192.168.36.164 | 192.168.36.21 | `enp5s0` |
 
 Éléments extérieurs au dépôt, que le déploiement suppose en place :
 

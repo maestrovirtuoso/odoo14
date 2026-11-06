@@ -1,0 +1,12 @@
+---
+# Nouvelle configuration : un rechargement suffit (SIGHUP).
+- name: recharger prometheus
+  ansible.builtin.service:
+    name: prometheus
+    state: reloaded
+
+# Nouvelles options de demarrage (ARGS) : il faut redemarrer.
+- name: redemarrer prometheus
+  ansible.builtin.service:
+    name: prometheus
+    state: restarted

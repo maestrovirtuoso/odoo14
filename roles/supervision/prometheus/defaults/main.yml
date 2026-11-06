@@ -1,0 +1,40 @@
+---
+# Adresse d'ecoute. Prometheus n'a AUCUNE authentification, et le conteneur
+# est pose directement sur le LAN : on le limite donc a la boucle locale.
+# Grafana, dans le meme conteneur, l'interroge par la.
+#
+# Pour consulter l'interface de Prometheus sans l'ouvrir au LAN :
+#   ssh -L 9090:127.0.0.1:9090 root@<IP du conteneur>   puis http://127.0.0.1:9090
+# Pour l'ouvrir a tout le LAN : "0.0.0.0:9090". Garder une adresse qui inclut
+# la boucle locale (127.0.0.1 ou 0.0.0.0) : Grafana et ce role passent par elle.
+prometheus_listen_address: "127.0.0.1:9090"
+prometheus_port: "{{ prometheus_listen_address.split(':')[-1] }}"
+prometheus_local_url: "http://127.0.0.1:{{ prometheus_port }}"
+
+# Conservation des mesures : la premiere limite atteinte s'applique. La
+# taille protege le disque de l'hote, que le conteneur partage avec
+# devodoo14 (/var/lib/lxc).
+prometheus_retention_time: 15d
+prometheus_retention_size: 2GB
+
+prometheus_scrape_interval: 30s
+
+# Patroni expose /metrics sur son API REST, en HTTP, sans mot de passe pour
+# les GET (roles/ansi_postgresql_ha/pg_ha). Doit valoir pg_ha_rest_port.
+prometheus_patroni_port: 8008
+
+# Cibles Patroni, derivees de l'inventaire : les trois serveurs de
+# db_cluster, seulement si la base est sous Patroni (pg_ha_enabled).
+prometheus_patroni_targets: >-
+  {{ (groups['db_cluster'] | default([])
+      | map('extract', hostvars, 'ansible_host')
+      | map('regex_replace', '$', ':' ~ prometheus_patroni_port) | list)
+     if pg_ha_enabled | default(false) | bool else [] }}
+
+# Autres jobs de collecte, au format scrape_configs de Prometheus, ajoutes
+# tels quels a la fin de la configuration. Exemple, pour des node_exporter :
+#   prometheus_extra_scrape_configs:
+#     - job_name: node
+#       static_configs:
+#         - targets: ["192.168.36.161:9100", "192.168.36.162:9100"]
+prometheus_extra_scrape_configs: []

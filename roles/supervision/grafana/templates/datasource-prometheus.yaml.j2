@@ -1,0 +1,14 @@
+# {{ ansible_managed }}
+# Source de donnees provisionnee : roles/supervision/grafana.
+# editable: false, car une modification faite dans l'interface serait
+# ecrasee au prochain redemarrage de Grafana.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: {{ grafana_prometheus_url | to_json }}
+    isDefault: true
+    editable: false

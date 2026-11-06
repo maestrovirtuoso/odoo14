@@ -1,0 +1,24 @@
+; {{ ansible_managed }}
+; Configuration de Grafana : roles/supervision/grafana.
+; Seuls les reglages modifies figurent ici. Les autres gardent leur valeur de
+; /usr/share/grafana/conf/defaults.ini.
+
+[server]
+; Vide : toutes les interfaces du conteneur.
+http_addr =
+http_port = {{ grafana_http_port }}
+
+[security]
+admin_user = {{ grafana_admin_user }}
+; Triples guillemets : un mot de passe contenant # ou ; resterait sinon
+; tronque (commentaire INI). Lu au PREMIER demarrage seulement.
+admin_password = """{{ grafana_admin_password }}"""
+disable_gravatar = true
+
+[users]
+allow_sign_up = false
+
+[analytics]
+reporting_enabled = false
+check_for_updates = false
+check_for_plugin_updates = false

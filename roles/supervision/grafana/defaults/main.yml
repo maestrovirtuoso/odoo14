@@ -1,0 +1,18 @@
+---
+grafana_http_port: 3000
+
+# Compte administrateur. Le mot de passe vient du vault
+# (group_vars/all/vault.yml), 12 caracteres minimum.
+#
+# ATTENTION : Grafana ne lit admin_password qu'a son PREMIER demarrage,
+# quand il cree sa base. Le changer ensuite dans le vault ne change pas le
+# compte : le role le detecte et donne la commande de realignement.
+grafana_admin_user: admin
+grafana_admin_password: "{{ vault_grafana_admin_password }}"
+
+# Depot officiel de Grafana Labs (Grafana n'est pas dans Debian).
+grafana_apt_url: https://apt.grafana.com
+grafana_apt_key_url: https://apt.grafana.com/gpg.key
+
+# Prometheus du meme conteneur (roles/supervision/prometheus).
+grafana_prometheus_url: "{{ prometheus_local_url | default('http://127.0.0.1:9090') }}"

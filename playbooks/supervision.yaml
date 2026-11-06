@@ -1,0 +1,36 @@
+---
+# ===========================================================================
+# Supervision : Prometheus et Grafana dans le conteneur de
+# [supervision_containers] (inventory.yaml).
+#
+#   Prometheus  paquet Debian 12. Collecte ses propres mesures et celles de
+#               Patroni (API REST, port 8008) sur les trois serveurs
+#               PostgreSQL. Ecoute sur 127.0.0.1 seulement : il n'a aucune
+#               authentification (voir prometheus_listen_address).
+#   Grafana     depot officiel apt.grafana.com. Prometheus y est declare
+#               comme source de donnees par defaut.
+#
+# Prerequis, dans cet ordre :
+#   1. le conteneur existe et repond en SSH :
+#        ansible-playbook -i inventory.yaml playbooks/ansi2-snapchot.yaml --tags supervision --ask-vault-pass
+#        ansible-playbook -i inventory.yaml playbooks/reseau-lxc.yaml --tags supervision --ask-vault-pass
+#   2. vault_grafana_admin_password renseigne (12 caracteres minimum) :
+#        ansible-vault edit group_vars/all/vault.yml
+#   3. le conteneur joint deb.debian.org et apt.grafana.com (HTTPS).
+#
+# Lancement :
+#   ansible-playbook -i inventory.yaml playbooks/supervision.yaml --ask-vault-pass
+#
+# Ensuite : http://<IP du conteneur>:3000, compte admin, mot de passe du vault.
+#
+# Les cibles Patroni n'apparaissent UP que si le routeur entre
+# 192.168.36.0/24 et 192.168.33.0/24 laisse passer le port 8008. Sinon elles
+# restent DOWN dans Prometheus, sans autre effet.
+# ===========================================================================
+
+- name: "Supervision : Prometheus et Grafana"
+  hosts: supervision_containers
+  gather_facts: true
+  roles:
+    - prometheus
+    - grafana

@@ -87,6 +87,7 @@ nic=ens224
 # playbooks/reseau-lxc.yaml (2e play, tag "supervision"). Ces plays
 # s'executent sur lxc_host : nom (supervision), IP (ansible_host) et hote
 # porteur sont tous lus ici.
+# Prometheus et Grafana : playbooks/supervision.yaml, dans le conteneur.
 # nettoyage.yaml supprime tout /var/lib/lxc de l'hote : il DETRUIT ce
 # conteneur avec devodoo14.
 # ---------------------------------------------------------------------------

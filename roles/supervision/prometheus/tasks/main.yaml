@@ -1,0 +1,57 @@
+---
+# ===========================================================================
+# Role prometheus  -  execute DANS le conteneur de supervision (Debian 12)
+#
+# Paquet Debian "prometheus" : service systemd, compte prometheus, donnees
+# dans /var/lib/prometheus/metrics2, options de demarrage dans
+# /etc/default/prometheus (variable ARGS).
+# ===========================================================================
+
+- name: Installer Prometheus (paquet Debian)
+  ansible.builtin.apt:
+    name: prometheus
+    state: present
+    install_recommends: false
+    update_cache: true
+    cache_valid_time: 3600
+
+# Remplace la ligne ARGS entiere : le paquet la livre vide, ses chemins par
+# defaut (donnees, consoles) sont compiles dans le binaire Debian.
+- name: Options de demarrage (ecoute, conservation des mesures)
+  ansible.builtin.lineinfile:
+    path: /etc/default/prometheus
+    regexp: '^ARGS='
+    line: >-
+      ARGS="--web.listen-address={{ prometheus_listen_address }}
+      --storage.tsdb.retention.time={{ prometheus_retention_time }}
+      --storage.tsdb.retention.size={{ prometheus_retention_size }}"
+  notify: redemarrer prometheus
+
+# promtool valide le fichier AVANT de le mettre en place : une erreur de
+# syntaxe arrete le playbook au lieu d'arreter Prometheus.
+- name: Configuration de Prometheus (cibles de collecte)
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/bin/promtool check config %s
+  notify: recharger prometheus
+
+- name: Prometheus actif et persistant
+  ansible.builtin.service:
+    name: prometheus
+    state: started
+    enabled: true
+
+- name: Appliquer les changements avant de verifier
+  ansible.builtin.meta: flush_handlers
+
+- name: Attendre que Prometheus soit pret
+  ansible.builtin.uri:
+    url: "{{ prometheus_local_url }}/-/ready"
+  register: _prom_ready
+  until: _prom_ready.status == 200
+  retries: 30
+  delay: 2

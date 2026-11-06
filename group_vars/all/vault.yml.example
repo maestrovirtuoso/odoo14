@@ -19,3 +19,8 @@ vault_pg_replication_password: "change-me-replication"
 vault_pg_patroni_superuser_password: "change-me-patroni-superuser"
 # Compte "patroni" de l'API REST : bascule, redemarrage, configuration.
 vault_pg_patroni_rest_password: "change-me-patroni-rest"
+
+# Grafana (roles/supervision/grafana, playbooks/supervision.yaml) : compte
+# admin, 12 caracteres minimum. Applique au PREMIER demarrage de Grafana
+# seulement : le changer ensuite demande un realignement (voir le role).
+vault_grafana_admin_password: "change-me-grafana-admin"

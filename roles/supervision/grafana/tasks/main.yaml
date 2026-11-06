@@ -1,0 +1,123 @@
+---
+# ===========================================================================
+# Role grafana  -  execute DANS le conteneur de supervision (Debian 12)
+#
+# Paquet "grafana" du depot apt.grafana.com, service grafana-server.
+# Le paquet ne demarre PAS le service a l'installation : la configuration
+# est donc en place avant le premier demarrage, qui fixe le mot de passe
+# admin.
+# ===========================================================================
+
+- name: Le mot de passe admin de Grafana est dans le vault
+  ansible.builtin.assert:
+    that:
+      - vault_grafana_admin_password is defined
+      - vault_grafana_admin_password | length >= 12
+    fail_msg: >-
+      Definir vault_grafana_admin_password (12 caracteres minimum) dans
+      group_vars/all/vault.yml : ansible-vault edit group_vars/all/vault.yml
+    quiet: true
+
+# get_url verifie le certificat HTTPS de apt.grafana.com : il lui faut les
+# autorites, absentes d'une image de conteneur minimale.
+- name: Autorites de certification, pour joindre apt.grafana.com
+  ansible.builtin.apt:
+    name: ca-certificates
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Repertoire des cles APT
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+# Cle au format texte (.asc) : apt la lit directement par signed-by, sans
+# passer par gpg.
+- name: Cle de signature du depot Grafana
+  ansible.builtin.get_url:
+    url: "{{ grafana_apt_key_url }}"
+    dest: /etc/apt/keyrings/grafana.asc
+    mode: "0644"
+
+- name: Depot APT de Grafana
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/grafana.list
+    mode: "0644"
+    content: "deb [signed-by=/etc/apt/keyrings/grafana.asc] {{ grafana_apt_url }} stable main\n"
+
+# update_cache SANS cache_valid_time : le cache vient d'etre rafraichi, mais
+# avant l'ajout du depot Grafana, et ne connait donc pas encore le paquet.
+# Le paquet est gros : on rejoue en cas de coupure reseau.
+- name: Installer Grafana
+  ansible.builtin.apt:
+    name: grafana
+    state: present
+    update_cache: true
+  register: _grafana_apt
+  until: _grafana_apt is not failed
+  retries: 3
+  delay: 15
+
+# Contient le mot de passe admin : lisible par root et le groupe grafana
+# seulement, et jamais affiche par --diff.
+- name: Configuration de Grafana
+  ansible.builtin.template:
+    src: grafana.ini.j2
+    dest: /etc/grafana/grafana.ini
+    owner: root
+    group: grafana
+    mode: "0640"
+  diff: false
+  notify: redemarrer grafana
+
+- name: Prometheus comme source de donnees
+  ansible.builtin.template:
+    src: datasource-prometheus.yaml.j2
+    dest: /etc/grafana/provisioning/datasources/prometheus.yaml
+    owner: root
+    group: grafana
+    mode: "0640"
+  notify: redemarrer grafana
+
+- name: Grafana actif et persistant
+  ansible.builtin.systemd:
+    name: grafana-server
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Appliquer les changements avant de verifier
+  ansible.builtin.meta: flush_handlers
+
+- name: Attendre que Grafana reponde
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ grafana_http_port }}/api/health"
+  register: _grafana_health
+  until: _grafana_health.status == 200
+  retries: 30
+  delay: 2
+
+# Grafana n'applique admin_password qu'a la creation de sa base. Si elle
+# existait deja (premier demarrage manuel en admin/admin, ou mot de passe
+# change depuis dans le vault), le compte garde l'ancien mot de passe.
+- name: Le compte admin accepte le mot de passe du vault
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ grafana_http_port }}/api/user"
+    user: "{{ grafana_admin_user }}"
+    password: "{{ grafana_admin_password }}"
+    force_basic_auth: true
+    status_code: [200, 401]
+  register: _grafana_login
+  no_log: true
+
+- name: Signaler un mot de passe admin different de celui du vault
+  ansible.builtin.fail:
+    msg: >-
+      Grafana refuse le mot de passe du vault pour le compte
+      {{ grafana_admin_user }} : sa base existait avant ce passage. Le
+      realigner dans le conteneur, puis rejouer :
+      grafana cli --homepath /usr/share/grafana --config /etc/grafana/grafana.ini
+      admin reset-admin-password '<mot de passe du vault>'
+  when: _grafana_login.status == 401
