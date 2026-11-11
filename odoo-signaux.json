@@ -1,0 +1,1426 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Six signaux des trois instances Odoo et état du cluster PostgreSQL. Requêtes : docs/SUPERVISION-METRIQUES.md, section 5.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Prometheus : cibles",
+      "tooltip": "Status → Targets",
+      "type": "link",
+      "url": "http://192.168.36.164:9090/targets"
+    }
+  ],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "panels": [],
+      "title": "Vue d'ensemble",
+      "type": "row"
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Service via nginx",
+      "description": "Sonde /web/login à travers nginx, comme un utilisateur (§ 5.1). OK : page de connexion servie en 200, formulaire présent.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "probe_success{job=\"odoo_login\", via=\"nginx\"}",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "pas de sonde",
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "PANNE", "color": "#d03b3b", "index": 0 },
+                "1": { "text": "OK", "color": "#0ca30c", "index": 1 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#d03b3b", "value": null },
+              { "color": "#0ca30c", "value": 1 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*guichetunique\\.cm.*" }, "properties": [ { "id": "displayName", "value": "nginx .cm" } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*guichetunique\\.org.*" }, "properties": [ { "id": "displayName", "value": "nginx .org" } ] }
+        ]
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Instances Odoo en service",
+      "description": "Instances qui répondent en direct sur le port 8069 (§ 5.1). Moins de 3 : HA dégradée, même si nginx répond encore.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 4, "w": 4, "x": 6, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "sum(probe_success{job=\"odoo_login\", via=\"direct\"})",
+          "legendFormat": "en direct",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: / 3",
+          "decimals": 0,
+          "noValue": "pas de sonde",
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#d03b3b", "value": null },
+              { "color": "#fab219", "value": 2 },
+              { "color": "#0ca30c", "value": 3 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "PostgreSQL en marche",
+      "description": "Serveurs dont PostgreSQL tourne, selon Patroni (patroni_postgres_running).",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 4, "w": 4, "x": 10, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "sum(patroni_postgres_running)",
+          "legendFormat": "en marche",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: / 3",
+          "decimals": 0,
+          "noValue": "Patroni muet",
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#d03b3b", "value": null },
+              { "color": "#fab219", "value": 2 },
+              { "color": "#0ca30c", "value": 3 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Primaire PostgreSQL",
+      "description": "Serveur qui détient le verrou de primaire Patroni. Les trois Odoo y écrivent, par HAProxy.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 4, "w": 4, "x": 14, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "max by (instance) ((patroni_primary == 1) or (patroni_master == 1))",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "noValue": "aucun",
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [ { "color": "#9085e9", "value": null } ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoodb1" } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoodb2" } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoodb3" } ] }
+        ]
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Réserves promouvables",
+      "description": "Réserves dont le retard reste sous maximum_lag_on_failover (1 Mo) : Patroni ne promeut que celles-là. Moins de 2 : la HA de la base repose sur une seule réserve.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "count(((scalar(max(patroni_xlog_location)) - patroni_xlog_replayed_location) < 1048576) and on (instance) (patroni_replica == 1)) or vector(0)",
+          "legendFormat": "promouvables",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: / 2",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#d03b3b", "value": null },
+              { "color": "#fab219", "value": 1 },
+              { "color": "#0ca30c", "value": 2 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 101,
+      "panels": [],
+      "title": "Disponibilité",
+      "type": "row"
+    },
+    {
+      "id": 6,
+      "type": "state-timeline",
+      "title": "Sondes HTTP par cible",
+      "description": "Historique de chaque sonde /web/login (§ 5.1) : les deux noms nginx et les trois instances en direct.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 6 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "probe_success{job=\"odoo_login\"}",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 75,
+            "lineWidth": 0,
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "PANNE", "color": "#d03b3b", "index": 0 },
+                "1": { "text": "OK", "color": "#0ca30c", "index": 1 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#d03b3b", "value": null },
+              { "color": "#0ca30c", "value": 1 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*guichetunique\\.cm.*" }, "properties": [ { "id": "displayName", "value": "nginx .cm" } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*guichetunique\\.org.*" }, "properties": [ { "id": "displayName", "value": "nginx .org" } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" } ] }
+        ]
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "auto",
+        "alignValue": "left",
+        "rowHeight": 0.8,
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single", "sort": "none" }
+      }
+    },
+    {
+      "id": 7,
+      "type": "state-timeline",
+      "title": "Rôle des serveurs PostgreSQL",
+      "description": "Primaire, réserve ou arrêté, selon Patroni. Quand le primaire change de ligne, il y a eu une bascule.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 6 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "max by (instance) (((patroni_primary or patroni_master) * 2 + patroni_replica) or (up{job=\"patroni\"} == 0))",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 75,
+            "lineWidth": 0,
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "Arrêté", "color": "#d03b3b", "index": 0 },
+                "1": { "text": "Réserve", "color": "#898781", "index": 1 },
+                "2": { "text": "Primaire", "color": "#9085e9", "index": 2 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [ { "color": "#d03b3b", "value": null } ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoodb1" } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoodb2" } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoodb3" } ] }
+        ]
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "auto",
+        "alignValue": "left",
+        "rowHeight": 0.8,
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single", "sort": "none" }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "id": 102,
+      "panels": [],
+      "title": "Latence",
+      "type": "row"
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Latence p95 (journal Odoo)",
+      "description": "95 % des requêtes HTTP durent moins que cette valeur : temps SQL + Python, lu dans le journal (§ 5.2). N'inclut pas l'attente d'un worker libre.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (instance, le) (rate(odoo_http_request_duration_seconds_bucket{job=\"odoo_logs\"}[5m])))",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "dashed" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 1 },
+              { "color": "#d03b3b", "value": 3 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Durée moyenne (journal Odoo)",
+      "description": "Durée moyenne des requêtes HTTP, d'après le journal (§ 5.2).",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "sum by (instance) (rate(odoo_http_request_duration_seconds_sum[5m])) / sum by (instance) (rate(odoo_http_request_duration_seconds_count[5m]))",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [ { "color": "#0ca30c", "value": null } ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Durée de la sonde /web/login",
+      "description": "Temps de réponse vu de l'extérieur (§ 5.2). Sonde lente mais journal rapide : les workers sont saturés, les requêtes font la queue.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "probe_duration_seconds{job=\"odoo_login\"}",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "dashed" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 1 },
+              { "color": "#d03b3b", "value": 3 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*guichetunique\\.cm.*" }, "properties": [ { "id": "displayName", "value": "nginx .cm" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#c98500" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*guichetunique\\.org.*" }, "properties": [ { "id": "displayName", "value": "nginx .org" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d55181" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "id": 103,
+      "panels": [],
+      "title": "Coût SQL",
+      "type": "row"
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Part du temps passé en SQL",
+      "description": "Part du temps de traitement passée dans PostgreSQL (§ 5.3). Au-dessus de 50 % sur une instance lente : regarder la base (index, verrous). En dessous : le code Python d'un module.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "sum by (instance) (rate(odoo_sql_seconds_total[5m])) / (sum by (instance) (rate(odoo_sql_seconds_total[5m])) + sum by (instance) (rate(odoo_python_seconds_total[5m])))",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [ { "color": "#0ca30c", "value": null } ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Requêtes SQL par requête HTTP",
+      "description": "Nombre moyen de requêtes SQL par requête HTTP (§ 5.3). Très élevé, avec des requêtes SQL rapides : boucle N+1 dans un module.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "sum by (instance) (rate(odoo_http_request_sql_queries_sum[5m])) / sum by (instance) (rate(odoo_http_request_sql_queries_count[5m]))",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 1,
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisSoftMax": 100,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "dashed" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 100 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
+      "id": 104,
+      "panels": [],
+      "title": "Trafic",
+      "type": "row"
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Requêtes par seconde",
+      "description": "Trafic HTTP par instance, d'après le journal (§ 5.4). Le bus /longpolling (port 8072) n'est pas compté.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "sum by (instance) (rate(odoo_http_requests_total[5m]))",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [ { "color": "#0ca30c", "value": null } ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Part de chaque instance dans le trafic",
+      "description": "Part de chaque instance dans le total (§ 5.4). Environ 33 % chacune si la charge est partagée. Une instance à 0 alors que sa sonde est OK : nginx l'a écartée.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "sum by (instance) (rate(odoo_http_requests_total[5m])) / ignoring (instance) group_left sum(rate(odoo_http_requests_total[5m]))",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [ { "color": "#0ca30c", "value": null } ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
+      "id": 105,
+      "panels": [],
+      "title": "Erreurs",
+      "type": "row"
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Taux de réponses 5xx",
+      "description": "Part des réponses 5xx (§ 5.5). Vaut 0 tant qu'aucune erreur n'a été vue.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 41 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "(sum by (instance) (rate(odoo_http_requests_total{status=~\"5..\"}[5m])) or sum by (instance) (up{job=\"odoo_logs\"}) * 0) / sum by (instance) (rate(odoo_http_requests_total[5m]))",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisSoftMax": 0.05,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "dashed" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 0.01 },
+              { "color": "#d03b3b", "value": 0.05 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Tracebacks (10 min)",
+      "description": "Exceptions Python sur 10 minutes glissantes (§ 5.5). Une hausse juste après une mise à jour de module signale un module défaillant : le détail est dans odoo.log, au même moment.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 41 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "sum by (instance) (increase(odoo_tracebacks_total[10m])) or sum by (instance) (up{job=\"odoo_logs\"}) * 0",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisSoftMax": 10,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "dashed" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 1 },
+              { "color": "#d03b3b", "value": 10 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Messages ERROR et CRITICAL (10 min)",
+      "description": "Lignes ERROR et CRITICAL du journal Odoo sur 10 minutes glissantes (§ 5.5). Les UserError (messages métier) sont en WARNING : elles ne comptent pas ici.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 41 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "sum by (instance) (increase(odoo_log_messages_total{level=~\"ERROR|CRITICAL\"}[10m])) or sum by (instance) (up{job=\"odoo_logs\"}) * 0",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [ { "color": "#0ca30c", "value": null } ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 49 },
+      "id": 106,
+      "panels": [],
+      "title": "Saturation",
+      "type": "row"
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Mémoire du plus gros worker / limit_memory_soft",
+      "description": "Mémoire virtuelle du plus gros worker, rapportée à limit_memory_soft (§ 5.6). Proche de 100 % juste avant un recyclage : normal. Des recyclages mémoire répétés : fuite ou requêtes trop lourdes.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 50 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "max by (instance) (odoo_worker_virtual_memory_bytes) / on (instance) odoo_limit_memory_soft_bytes",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisSoftMax": 1,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "dashed" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 0.8 },
+              { "color": "#d03b3b", "value": 0.95 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Workers recyclés (1 h)",
+      "description": "Workers remplacés sur 1 heure, par instance et par motif : memoire, timeout, cpu, requetes (§ 5.6). Un timeout est une requête coupée net. Vide tant qu'aucun worker n'a été recyclé.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 50 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "sum by (instance, reason) (increase(odoo_worker_recycled_total[1h]))",
+          "legendFormat": "{{instance}} · {{reason}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "min": 0,
+          "noValue": "aucun recyclage",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [ { "color": "#0ca30c", "value": null } ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoo1 · ${__field.labels.reason}" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoo2 · ${__field.labels.reason}" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.36\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoo3 · ${__field.labels.reason}" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Connexions PostgreSQL / max_connections",
+      "description": "Connexions ouvertes rapportées à max_connections (§ 5.6). Seule la courbe du primaire compte : les trois Odoo y écrivent. Au-delà de 100 %, Odoo reçoit des erreurs too many clients.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 50 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "sum by (instance) (pg_stat_database_numbackends) / sum by (instance) (pg_settings_max_connections)",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisSoftMax": 1,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "dashed" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 0.7 },
+              { "color": "#d03b3b", "value": 0.85 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoodb1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoodb2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoodb3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 58 },
+      "id": 107,
+      "panels": [],
+      "title": "PostgreSQL et collecte",
+      "type": "row"
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Retard de réplication",
+      "description": "Retard de chaque réserve sur le primaire, en WAL (Patroni). Au-dessus de 1 Mo (ligne pointillée, maximum_lag_on_failover), Patroni ne la promeut plus. Un retard qui grandit sans redescendre : la réserve ne réplique plus.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 59 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "(scalar(max(patroni_xlog_location)) - patroni_xlog_replayed_location) and on (instance) (patroni_replica == 1)",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisPlacement": "auto",
+            "axisLabel": "",
+            "axisSoftMax": 1048576,
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "showPoints": "never",
+            "pointSize": 5,
+            "spanNulls": false,
+            "scaleDistribution": { "type": "linear" },
+            "stacking": { "group": "A", "mode": "none" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "dashed" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#0ca30c", "value": null },
+              { "color": "#fab219", "value": 1048576 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoodb1" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3987e5" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoodb2" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#d95926" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoodb3" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "#199e70" } } ] }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom", "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "id": 22,
+      "type": "state-timeline",
+      "title": "Exporter PostgreSQL (pg_up)",
+      "description": "KO : postgres_exporter n'arrive pas à interroger ce serveur. Cause fréquente : rôle prometheus absent, par exemple sur une réserve qui ne réplique plus.",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 59 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "pg_up",
+          "legendFormat": "{{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 75,
+            "lineWidth": 0,
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }
+          },
+          "color": { "mode": "thresholds" },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "KO", "color": "#d03b3b", "index": 0 },
+                "1": { "text": "OK", "color": "#0ca30c", "index": 1 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#d03b3b", "value": null },
+              { "color": "#0ca30c", "value": 1 }
+            ]
+          }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.161.*" }, "properties": [ { "id": "displayName", "value": "odoodb1" } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.162.*" }, "properties": [ { "id": "displayName", "value": "odoodb2" } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*192\\.168\\.33\\.163.*" }, "properties": [ { "id": "displayName", "value": "odoodb3" } ] }
+        ]
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "auto",
+        "alignValue": "left",
+        "rowHeight": 0.8,
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single", "sort": "none" }
+      }
+    },
+    {
+      "id": 23,
+      "type": "table",
+      "title": "Cibles Prometheus",
+      "description": "État actuel de chaque cible collectée, les DOWN en premier. Pour la raison d'un DOWN : Status → Targets dans Prometheus (lien en haut du tableau de bord).",
+      "datasource": { "type": "prometheus", "uid": "${ds}" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 67 },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "${ds}" },
+          "editorMode": "code",
+          "expr": "up",
+          "format": "table",
+          "instant": true,
+          "range": false,
+          "legendFormat": ""
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true },
+            "indexByName": { "job": 0, "instance": 1, "Value": 2 },
+            "renameByName": { "job": "Job", "instance": "Cible", "Value": "État" }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": { "type": "auto" },
+            "inspect": false
+          },
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#d03b3b", "value": null },
+              { "color": "#0ca30c", "value": 1 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "État" },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": { "text": "DOWN", "color": "#d03b3b", "index": 0 },
+                      "1": { "text": "UP", "color": "#0ca30c", "index": 1 }
+                    }
+                  }
+                ]
+              },
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              { "id": "custom.width", "value": 120 }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": { "show": false, "reducer": ["sum"], "countRows": false, "fields": "" },
+        "sortBy": [ { "displayName": "État", "desc": false } ]
+      }
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": ["odoo", "postgresql", "patroni"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": true, "text": "Prometheus", "value": "prometheus" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Source",
+        "multi": false,
+        "name": "ds",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Odoo — signaux",
+  "uid": "odoo-signaux",
+  "version": 1,
+  "weekStart": ""
+}
