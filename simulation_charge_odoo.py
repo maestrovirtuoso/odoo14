@@ -278,7 +278,23 @@ class Utilisateur(threading.Thread):
         return reponse, donnees, duree, noeud
 
     def page(self, action, chemin):
-        reponse, donnees, duree, noeud = self._envoyer(action, "GET", chemin)
+        # Suit les redirections comme un navigateur (/web -> /web/, par
+        # exemple). Seul un renvoi vers /web/login est une erreur : la
+        # session n'est pas reconnue.
+        duree_totale = 0.0
+        for _ in range(5):
+            reponse, donnees, duree, noeud = self._envoyer(action, "GET",
+                                                           chemin)
+            duree_totale += duree
+            if reponse.status not in (301, 302, 303, 307, 308):
+                break
+            destination = urlsplit(reponse.getheader("Location") or "")
+            if "/web/login" in destination.path or not destination.path:
+                break
+            chemin = destination.path + (
+                "?" + destination.query if destination.query else "")
+            if self.client.prefixe and chemin.startswith(self.client.prefixe):
+                chemin = chemin[len(self.client.prefixe):]
         erreur = None
         if reponse.status in (301, 302, 303, 307, 308):
             erreur = "redirigé vers %s" % (reponse.getheader("Location") or "?")
@@ -286,6 +302,7 @@ class Utilisateur(threading.Thread):
                 self._changer_etat(False)
         elif reponse.status >= 400:
             erreur = "HTTP %d" % reponse.status
+        duree = duree_totale
         self.stats.noter(self.numero, action, duree, erreur, noeud)
         if erreur:
             raise ErreurSimulation()
@@ -705,8 +722,11 @@ def lire_comptes(a):
         if not comptes:
             sys.exit("Aucun compte dans %s" % a.comptes)
         return comptes
-    mdp = os.environ.get("ODOO_MDP") or getpass.getpass(
-        "Mot de passe de %s : " % a.login)
+    mdp = os.environ.get("ODOO_MDP")
+    if mdp:
+        print("Mot de passe de %s lu dans la variable ODOO_MDP." % a.login)
+    else:
+        mdp = getpass.getpass("Mot de passe de %s : " % a.login)
     return [(a.login, mdp)]
 
 
